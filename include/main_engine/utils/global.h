@@ -137,25 +137,25 @@ void compnorm(FloatType* ver1,  FloatType* ver2, FloatType* ver3, FloatType* loc
     //   points + current point.
     //   (p1-p3) x (p1-p2)
 
-    double norm[3];
-    double a[3] = {ver1[0]-ver3[0],ver1[1]-ver3[1],ver1[2]-ver3[2]};
-    double b[3] = {ver1[0]-ver2[0],ver1[1]-ver2[1],ver1[2]-ver2[2]};
+	FloatType norm[3];
+	FloatType a[3] = { ver1[0] - ver3[0], ver1[1] - ver3[1], ver1[2] - ver3[2] };
+	FloatType b[3] = { ver1[0] - ver2[0], ver1[1] - ver2[1], ver1[2] - ver2[2] };
 
     norm[0] = a[1]*b[2] - a[2]*b[1];
     norm[1] = a[2]*b[0] - a[0]*b[2];
     norm[2] = a[0]*b[1] - a[1]*b[0];
 
-    if(norm[1]*norm[1]+norm[2]*norm[2]+norm[0]*norm[0]!=0)
+	if (norm[1] * norm[1] + norm[2] * norm[2] + norm[0] * norm[0] != FloatType(0))
     {
-        double temp=1.0f/sqrt(norm[1]*norm[1]+norm[2]*norm[2]+norm[0]*norm[0]);
+		FloatType temp = FloatType(1.0f) / sqrt(norm[1] * norm[1] + norm[2] * norm[2] + norm[0] * norm[0]);
         norm[0] *= temp;
         norm[1] *= temp;
         norm[2] *= temp;
     }
 
-    location[0] = flip*norm[0];
-    location[1] = flip*norm[1];
-    location[2] = flip*norm[2];
+    location[0] = FloatType(flip)*norm[0];
+    location[1] = FloatType(flip)*norm[1];
+    location[2] = FloatType(flip)*norm[2];
 }
 
 template<typename FloatType>

@@ -18,6 +18,8 @@ enum dataTermErrorType{
     PE_COLOR,
     PE_DEPTH,
     PE_DEPTH_PLANE,
+	PE_INTRINSIC,
+	PE_INTRINSIC_COLOR,
     NUM_DATA_TERM_ERROR
 };
 
@@ -136,6 +138,160 @@ void getResiudal(double weight, const CameraInfo* pCamera, const ImageLevel* pFr
 
 }
 
+template<typename T>
+void getResiudal(double weight, const CameraInfo* pCamera, const ImageLevel* pFrame,
+	double* pValue, T* shading, T* p, T* residuals, const dataTermErrorType& PE_TYPE)
+{
+	T transformed_r, transformed_c;
+
+	IntrinsicProjection(pCamera, p, &transformed_c, &transformed_r);
+
+	T templateValue, currentValue;
+
+	if (transformed_r >= T(0.0) && transformed_r < T(pCamera->height) &&
+		transformed_c >= T(0.0) && transformed_c < T(pCamera->width))
+	{
+		switch (PE_TYPE)
+		{
+		case PE_INTRINSIC:
+			templateValue = T(pValue[0]) * shading[0];
+			currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pFrame->grayImage,
+				pFrame->gradXImage, pFrame->gradYImage, transformed_c, transformed_r);
+			residuals[0] = T(weight) * (currentValue - templateValue);
+			break;
+
+		case PE_INTRINSIC_COLOR:
+			for (int i = 0; i < 3; ++i)
+			{
+				templateValue = T(pValue[i]) * shading[0];
+				currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pFrame->colorImageSplit[i],
+					pFrame->colorImageGradXSplit[i], pFrame->colorImageGradYSplit[i], transformed_c, transformed_r);
+				residuals[i] = T(weight) * (currentValue - templateValue);
+			}
+			break;
+
+		default:
+			break;
+		}
+	}
+
+}
+
+template <typename T>
+T* getRotTransP(const T* const rotation, const T* const translation,
+	const T* const xyz, const double* const pVertex, bool optimizeDeformation)
+{
+	T p[3], afterTrans[3];
+
+	// if we are doing optimization on the transformation,
+	// we need to add up the template position first
+	if (optimizeDeformation)
+	{
+		afterTrans[0] = xyz[0] + pVertex[0];
+		afterTrans[1] = xyz[1] + pVertex[1];
+		afterTrans[2] = xyz[2] + pVertex[2];
+	}
+	else
+	{
+		afterTrans[0] = xyz[0];
+		afterTrans[1] = xyz[1];
+		afterTrans[2] = xyz[2];
+	}
+
+	ceres::AngleAxisRotatePoint(rotation, afterTrans, p);
+	p[0] += translation[0];
+	p[1] += translation[1];
+	p[2] += translation[2];
+
+	return p;
+}
+
+template <typename T>
+T* computeNormal(const T* p, const vector<T*> &adjP, const vector<unsigned int> &face_vIdxs)
+{
+	T normal[3] = { T(0.0), T(0.0), T(0.0) };
+
+	for (int i = 0; i < face_vIdxs.size() / 2; i++)
+	{
+		unsigned int vIdx1 = face_vIdxs[2 * i];
+		unsigned int vIdx2 = face_vIdxs[2 * i + 1];
+
+		T face_normal[3];
+		compnorm(p, adjP[vIdx1], adjP[vIdx2], face_normal, 1);
+
+		normal[0] += face_normal[0];
+		normal[1] += face_normal[1];
+		normal[2] += face_normal[2];
+	}
+
+	T norm = sqrt(normal[1] * normal[1] + normal[2] * normal[2] + normal[0] * normal[0]);
+	if (norm != T(0.0))
+	{
+		normal[0] /= norm;
+		normal[1] /= norm;
+		normal[2] /= norm;
+	}
+
+	return normal;
+}
+
+template <typename T>
+T computeShading(const T* _normal, const double* _sh_coeff, int _sh_order)
+{
+	T n_x = _normal[0];
+	T n_y = _normal[1];
+	T n_z = _normal[2];
+
+	T n_x2 = n_x * n_x;
+	T n_y2 = n_y * n_y;
+	T n_z2 = n_z * n_z;
+	T n_xy = n_x * n_y;
+	T n_xz = n_x * n_z;
+	T n_yz = n_y * n_z;
+	T n_x2_y2 = n_x2 - n_y2;
+
+	T shading = T(_sh_coeff[0]);
+
+	if (_sh_order > 0)
+		shading = shading
+		+ T(_sh_coeff[1]) * n_x					// x
+		+ T(_sh_coeff[2]) * n_y					// y
+		+ T(_sh_coeff[3]) * n_z;				// z
+
+	if (_sh_order > 1)
+		shading = shading
+		+ T(_sh_coeff[4]) * n_xy						// x * y
+		+ T(_sh_coeff[5]) * n_xz						// x * z
+		+ T(_sh_coeff[6]) * n_yz						// y * z
+		+ T(_sh_coeff[7]) * n_x2_y2						// x^2 - y^2
+		+ T(_sh_coeff[8]) * (T(3.0) * n_z2 - T(1.0));	// 3 * z^2 - 1
+
+	if (_sh_order > 2)
+		shading = shading
+		+ T(_sh_coeff[9]) * (T(3.0) * n_x2 - n_y2) * n_y		// (3 * x^2 - y^2) * y 
+		+ T(_sh_coeff[10]) * n_x * n_y * n_z					// x * y * z
+		+ T(_sh_coeff[11]) * (T(5.0) * n_z2 - T(1.0)) * n_y		// (5 * z^2 - 1) * y
+		+ T(_sh_coeff[12]) * (T(5.0) * n_z2 - T(3.0)) * n_z		// (5 * z^2 - 3) * z
+		+ T(_sh_coeff[13]) * (T(5.0) * n_z2 - T(1.0)) * n_x		// (5 * z^2 - 1) * x
+		+ T(_sh_coeff[14]) * n_x2_y2 * n_z						// (x^2 - y^2) * z
+		+ T(_sh_coeff[15]) * (n_x2 - T(3.0) * n_y2) * n_x;		// (x^2 - 3 * y^2) * x
+
+	if (_sh_order > 3)
+		shading = shading
+		+ T(_sh_coeff[16]) * n_x2_y2 * n_x * n_y								// (x^2 - y^2) * x * y
+		+ T(_sh_coeff[17]) * (T(3.0) * n_x2 - n_y2) * n_yz						// (3 * x^2 - y^2) * yz
+		+ T(_sh_coeff[18]) * (T(7.0) * n_z2 - T(1.0)) * n_xy					// (7 * z^2 - 1) * x * y
+		+ T(_sh_coeff[19]) * (T(7.0) * n_z2 - T(3.0)) * n_yz					// (7 * z^2 - 3) * y * z
+		+ T(_sh_coeff[20]) * (T(3.0) - T(30.0) * n_z2 + T(35.0) * n_z2 * n_z2)	// 3 - 30 * z^2 + 35 * z^4
+		+ T(_sh_coeff[21]) * (T(7.0) * n_z - T(3.0)) * n_xz						// (7 * z^2 - 3) * x * z
+		+ T(_sh_coeff[22]) * (T(7.0) * n_z - T(1.0)) * n_x2_y2					// (7 * z^2 - 1) * (x^2 - y^2)
+		+ T(_sh_coeff[23]) * (n_x2 - T(3.0) * n_y2) * n_xz						// (x^2 - 3 * y^2) * x * z
+		+ T(_sh_coeff[24]) * ( (n_x2 - T(3.0) * n_y2) * n_x2					// (x^2 - 3 * y^2) * x^2 - (3 * x^2 - y^2) * y^2 
+								- (T(3.0) * n_x2 - n_y2) * n_y2 );
+
+	return shading;
+}
+
 // need to write a new ResidualImageProjection(ResidualImageInterpolationProjection)
 // for a data term similar to dynamicFusion
 // optional parameters: vertex value(will be needed if we are using photometric)
@@ -156,35 +312,42 @@ class ResidualImageProjection
 {
 public:
 
+	ResidualImageProjection(double weight, double* pValue, double* pVertex,
+		const CameraInfo* pCamera, const ImageLevel* pFrame,
+		const vector<double*> &adjPVertex, const vector<unsigned int> &face_vIdxs,
+		dataTermErrorType PE_TYPE = PE_INTENSITY) :
+		weight(weight),
+		pValue(pValue),
+		pVertex(pVertex),
+		pCamera(pCamera),
+		pFrame(pFrame),
+		PE_TYPE(PE_TYPE),
+		adjPVertex(adjPVertex),
+		face_vIdxs(face_vIdxs),
+		optimizeDeformation(true)
+	{
+		// check the consistency between camera and images
+		assert(pCamera->width == pFrame->grayImage.cols);
+		assert(pCamera->height == pFrame->grayImage.rows);
+	}
+
 ResidualImageProjection(double weight, double* pValue, double* pVertex,
     const CameraInfo* pCamera, const ImageLevel* pFrame,
     dataTermErrorType PE_TYPE=PE_INTENSITY):
-    weight(weight),
-    pValue(pValue),
-    pVertex(pVertex),
-    pCamera(pCamera),
-    pFrame(pFrame),
-    PE_TYPE(PE_TYPE),
-    optimizeDeformation(true)
+	ResidualImageProjection(weight, pValue, pVertex,
+	pCamera, pFrame, vector<double*>(), vector<unsigned int>(), PE_TYPE)
     {
-        // check the consistency between camera and images
-        assert(pCamera->width == pFrame->grayImage.cols);
-        assert(pCamera->height == pFrame->grayImage.rows);
+
     }
 
-ResidualImageProjection(double weight, double* pTemplateVertex,
+ResidualImageProjection(double weight, double* pVertex,
     const CameraInfo* pCamera, const ImageLevel* pFrame,
     dataTermErrorType PE_TYPE=PE_INTENSITY):
-    weight(weight),
-    pVertex(pVertex),
-    pCamera(pCamera),
-    pFrame(pFrame),
-    PE_TYPE(PE_TYPE),
-    optimizeDeformation(true)
+	ResidualImageProjection(weight, NULL, pVertex,
+	pCamera, pFrame,
+	PE_TYPE)
     {
-        // check the consistency between camera and images
-        assert(pCamera->width == pFrame->grayImage.cols);
-        assert(pCamera->height == pFrame->grayImage.rows);
+
     }
 
     template<typename T>
@@ -197,27 +360,8 @@ ResidualImageProjection(double weight, double* pTemplateVertex,
         for(int i = 0; i < residual_num; ++i)
         residuals[i] = T(0.0);
 
-        T p[3], afterTrans[3];
-
-        // if we are doing optimization on the transformation,
-        // we need to add up the template position first
-        if(optimizeDeformation)
-        {
-            afterTrans[0] = xyz[0] + pVertex[0];
-            afterTrans[1] = xyz[1] + pVertex[1];
-            afterTrans[2] = xyz[2] + pVertex[2];
-        }
-        else
-        {
-            afterTrans[0] = xyz[0];
-            afterTrans[1] = xyz[1];
-            afterTrans[2] = xyz[2];
-        }
-
-        ceres::AngleAxisRotatePoint( rotation, afterTrans, p);
-        p[0] += translation[0];
-        p[1] += translation[1];
-        p[2] += translation[2];
+		T* p = getRotTransP(rotation, translation, xyz, pVertex, 
+			optimizeDeformation);
 
         //debug
         // double xyz_[3],rotation_[3],translation_[3];
@@ -235,6 +379,219 @@ ResidualImageProjection(double weight, double* pTemplateVertex,
         return true;
     }
 
+		template<typename T>
+		bool operator()(const T* const rotation,
+			const T* const translation,
+			const T* const xyz,
+			const T* const xyz0, const T* const xyz1, 
+			T* residuals) const
+		{
+			int residual_num = PE_RESIDUAL_NUM_ARRAY[PE_TYPE];
+			for (int i = 0; i < residual_num; ++i)
+				residuals[i] = T(0.0);
+
+			T* p = getRotTransP(rotation, translation, xyz, pVertex,
+				optimizeDeformation);
+
+			vector<T*> adjP;
+
+			T* p0 = getRotTransP(rotation, translation, xyz0, adjPVertex[0],
+				optimizeDeformation);
+			adjP.push_back(p0);
+
+			T* p1 = getRotTransP(rotation, translation, xyz1, adjPVertex[1],
+				optimizeDeformation);
+			adjP.push_back(p1);
+
+			T* normal = computeNormal(p, adjP, face_vIdxs);
+
+			T shading = computeShading(normal, sh_coeff, sh_order);
+
+			getResiudal(weight, pCamera, pFrame, pValue, &shading, p, residuals,
+				PE_TYPE);
+
+			return true;
+		}
+
+		template<typename T>
+		bool operator()(const T* const rotation,
+			const T* const translation,
+			const T* const xyz,
+			const T* const xyz0, const T* const xyz1, const T* const xyz2,
+			T* residuals) const
+		{
+			int residual_num = PE_RESIDUAL_NUM_ARRAY[PE_TYPE];
+			for (int i = 0; i < residual_num; ++i)
+				residuals[i] = T(0.0);
+
+			T* p = getRotTransP(rotation, translation, xyz, pVertex,
+				optimizeDeformation);
+
+			vector<T*> adjP;
+
+			T* p0 = getRotTransP(rotation, translation, xyz0, adjPVertex[0],
+				optimizeDeformation);
+			adjP.push_back(p0);
+
+			T* p1 = getRotTransP(rotation, translation, xyz1, adjPVertex[1],
+				optimizeDeformation);
+			adjP.push_back(p1);
+
+			T* p2 = getRotTransP(rotation, translation, xyz2, adjPVertex[2],
+				optimizeDeformation);
+			adjP.push_back(p2);
+
+			//T* normal = computeNormal(p, adjP, face_vIdxs);
+
+			//T shading = computeShading(normal, sh_coeff, sh_order);
+
+			//getResiudal(weight, pCamera, pFrame, pValue, &shading, p, residuals,
+			//	PE_TYPE);
+
+			return true;
+		}
+
+		template<typename T>
+		bool operator()(const T* const rotation,
+			const T* const translation,
+			const T* const xyz,
+			const T* const xyz0, const T* const xyz1, const T* const xyz2,
+			const T* const xyz3, 
+			T* residuals) const
+		{
+			int residual_num = PE_RESIDUAL_NUM_ARRAY[PE_TYPE];
+			for (int i = 0; i < residual_num; ++i)
+				residuals[i] = T(0.0);
+
+			T* p = getRotTransP(rotation, translation, xyz, pVertex,
+				optimizeDeformation);
+
+			vector<T*> adjP;
+
+			T* p0 = getRotTransP(rotation, translation, xyz0, adjPVertex[0],
+				optimizeDeformation);
+			adjP.push_back(p0);
+
+			T* p1 = getRotTransP(rotation, translation, xyz1, adjPVertex[1],
+				optimizeDeformation);
+			adjP.push_back(p1);
+
+			T* p2 = getRotTransP(rotation, translation, xyz2, adjPVertex[2],
+				optimizeDeformation);
+			adjP.push_back(p2);
+
+			T* p3 = getRotTransP(rotation, translation, xyz3, adjPVertex[3],
+				optimizeDeformation);
+			adjP.push_back(p3);
+
+			//T* normal = computeNormal(p, adjP, face_vIdxs);
+
+			//T shading = computeShading(normal, sh_coeff, sh_order);
+
+			//getResiudal(weight, pCamera, pFrame, pValue, &shading, p, residuals,
+			//	PE_TYPE);
+
+			return true;
+		}
+
+		template<typename T>
+		bool operator()(const T* const rotation,
+			const T* const translation,
+			const T* const xyz,
+			const T* const xyz0, const T* const xyz1, const T* const xyz2,
+			const T* const xyz3, const T* const xyz4, 
+			T* residuals) const
+		{
+			int residual_num = PE_RESIDUAL_NUM_ARRAY[PE_TYPE];
+			for (int i = 0; i < residual_num; ++i)
+				residuals[i] = T(0.0);
+
+			T* p = getRotTransP(rotation, translation, xyz, pVertex,
+				optimizeDeformation);
+
+			vector<T*> adjP;
+
+			T* p0 = getRotTransP(rotation, translation, xyz0, adjPVertex[0],
+				optimizeDeformation);
+			adjP.push_back(p0);
+
+			T* p1 = getRotTransP(rotation, translation, xyz1, adjPVertex[1],
+				optimizeDeformation);
+			adjP.push_back(p1);
+
+			T* p2 = getRotTransP(rotation, translation, xyz2, adjPVertex[2],
+				optimizeDeformation);
+			adjP.push_back(p2);
+
+			T* p3 = getRotTransP(rotation, translation, xyz3, adjPVertex[3],
+				optimizeDeformation);
+			adjP.push_back(p3);
+
+			T* p4 = getRotTransP(rotation, translation, xyz4, adjPVertex[4],
+				optimizeDeformation);
+			adjP.push_back(p4);
+
+			//T* normal = computeNormal(p, adjP, face_vIdxs);
+
+			//T shading = computeShading(normal, sh_coeff, sh_order);
+
+			//getResiudal(weight, pCamera, pFrame, pValue, &shading, p, residuals,
+			//	PE_TYPE);
+
+			return true;
+		}
+
+		template<typename T>
+		bool operator()(const T* const rotation,
+			const T* const translation,
+			const T* const xyz,
+			const T* const xyz0, const T* const xyz1, const T* const xyz2,
+			const T* const xyz3, const T* const xyz4, const T* const xyz5,
+			T* residuals) const
+		{
+			int residual_num = PE_RESIDUAL_NUM_ARRAY[PE_TYPE];
+			for (int i = 0; i < residual_num; ++i)
+				residuals[i] = T(0.0);
+
+			T* p = getRotTransP(rotation, translation, xyz, pVertex,
+				optimizeDeformation);
+
+			vector<T*> adjP;
+
+			T* p0 = getRotTransP(rotation, translation, xyz0, adjPVertex[0],
+				optimizeDeformation);
+			adjP.push_back(p0);
+
+			T* p1 = getRotTransP(rotation, translation, xyz1, adjPVertex[1],
+				optimizeDeformation);
+			adjP.push_back(p1);
+
+			T* p2 = getRotTransP(rotation, translation, xyz2, adjPVertex[2],
+				optimizeDeformation);
+			adjP.push_back(p2);
+
+			T* p3 = getRotTransP(rotation, translation, xyz3, adjPVertex[3],
+				optimizeDeformation);
+			adjP.push_back(p3);
+
+			T* p4 = getRotTransP(rotation, translation, xyz4, adjPVertex[4],
+				optimizeDeformation);
+			adjP.push_back(p4);
+
+			T* p5 = getRotTransP(rotation, translation, xyz5, adjPVertex[5],
+				optimizeDeformation);
+			adjP.push_back(p5);
+
+			//T* normal = computeNormal(p, adjP, face_vIdxs);
+
+			//T shading = computeShading(normal, sh_coeff, sh_order);
+
+			//getResiudal(weight, pCamera, pFrame, pValue, &shading, p, residuals,
+			//	PE_TYPE);
+
+			return true;
+		}
+
 private:
     bool optimizeDeformation;  // whether optimize deformation directly
     double* pVertex;
@@ -245,6 +602,10 @@ private:
     const CameraInfo* pCamera;
     const ImageLevel* pFrame;
     dataTermErrorType PE_TYPE;
+	const vector<unsigned int> face_vIdxs;
+	const vector<double*> adjPVertex;
+	int sh_order;
+	const double* sh_coeff;
 };
 
 

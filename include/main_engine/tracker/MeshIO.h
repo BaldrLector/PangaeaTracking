@@ -919,7 +919,8 @@ void MeshIO<FloatType>::setupMeshFromFile(MeshData<FloatType>& meshData)
     for(int i = 0; i < 3; ++i)
     meshData.center[i] = center[i]/meshData.numVertices;
 
-    meshData.adjVerticesInd.resize(meshData.numVertices);
+	meshData.adjVerticesInd.resize(meshData.numVertices);
+	meshData.adjFacesInd.resize(meshData.numVertices);
     for(int i = 0; i < meshData.numFaces; ++i)
     {
         meshData.adjVerticesInd[ meshData.facesVerticesInd[i][0] ].
@@ -934,6 +935,14 @@ void MeshIO<FloatType>::setupMeshFromFile(MeshData<FloatType>& meshData)
             push_back( meshData.facesVerticesInd[i][0] );
         meshData.adjVerticesInd[ meshData.facesVerticesInd[i][2] ].
             push_back( meshData.facesVerticesInd[i][1] );
+
+		// For each vertex of the face, add face index as adjacent face
+		meshData.adjFacesInd[meshData.facesVerticesInd[i][0]].
+			push_back(i);
+		meshData.adjFacesInd[meshData.facesVerticesInd[i][1]].
+			push_back(i);
+		meshData.adjFacesInd[meshData.facesVerticesInd[i][2]].
+			push_back(i);
     }
 
     // remove duplicate neighbors

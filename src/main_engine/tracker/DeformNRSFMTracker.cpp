@@ -803,6 +803,94 @@ void DeformNRSFMTracker::AddPhotometricCost(ceres::Problem& problem,
                                     loss_function, &camPose[0], &camPose[3], &meshTrans[i][0]));
 
                             break;
+
+						case PE_INTRINSIC:
+
+							vector<unsigned int> face_vIdxs;
+							vector<double*> adjPVertex;
+							vector<unsigned int> old_vIdxs;
+							map<unsigned int, unsigned int> map_vIdxs;
+							unsigned int lastIdx = 0;
+							for (int j = 0; j < templateMesh.adjFacesInd[i].size(); j++)
+							{
+								int faceIdx = templateMesh.adjFacesInd[i][j];
+
+								for (int k = 0; k < 3; k++)
+								{
+									int currIdx = templateMesh.facesVerticesInd[faceIdx][k];
+
+									if (currIdx != i)
+									{
+										if (map_vIdxs.find(currIdx) == map_vIdxs.end())
+										{
+											adjPVertex.push_back(&templateMesh.vertices[currIdx][0]);
+											old_vIdxs.push_back(currIdx);
+											map_vIdxs.insert(pair<unsigned int, unsigned int>(currIdx, lastIdx));
+											lastIdx++;
+										}
+										face_vIdxs.push_back(map_vIdxs[currIdx]);
+									}
+								}
+							}
+
+							switch (old_vIdxs.size())
+							{
+							case 2:
+								dataTermResidualBlocks.push_back(
+									problem.AddResidualBlock(
+									new ceres::AutoDiffCostFunction<ResidualImageProjection, 1, 3, 3, 3, 3, 3>(
+									new ResidualImageProjection(1, &templateMesh.grays[i], &templateMesh.vertices[i][0],
+									pCamera, pFrame, adjPVertex, face_vIdxs, errorType)),
+									loss_function, &camPose[0], &camPose[3], &meshTrans[i][0], 
+									&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0]));
+								break;
+							case 3:
+								dataTermResidualBlocks.push_back(
+									problem.AddResidualBlock(
+									new ceres::AutoDiffCostFunction<ResidualImageProjection, 1, 3, 3, 3, 3, 3, 3>(
+									new ResidualImageProjection(1, &templateMesh.grays[i], &templateMesh.vertices[i][0],
+									pCamera, pFrame, adjPVertex, face_vIdxs, errorType)),
+									loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
+									&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0], 
+									&meshTrans[old_vIdxs[2]][0]));
+								break;
+							case 4:
+								dataTermResidualBlocks.push_back(
+									problem.AddResidualBlock(
+									new ceres::AutoDiffCostFunction<ResidualImageProjection, 1, 3, 3, 3, 3, 3, 3, 3>(
+									new ResidualImageProjection(1, &templateMesh.grays[i], &templateMesh.vertices[i][0],
+									pCamera, pFrame, adjPVertex, face_vIdxs, errorType)),
+									loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
+									&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
+									&meshTrans[old_vIdxs[2]][0], &meshTrans[old_vIdxs[3]][0]));
+								break;
+							case 5:
+								dataTermResidualBlocks.push_back(
+									problem.AddResidualBlock(
+									new ceres::AutoDiffCostFunction<ResidualImageProjection, 1, 3, 3, 3, 3, 3, 3, 3, 3>(
+									new ResidualImageProjection(1, &templateMesh.grays[i], &templateMesh.vertices[i][0],
+									pCamera, pFrame, adjPVertex, face_vIdxs, errorType)),
+									loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
+									&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
+									&meshTrans[old_vIdxs[2]][0], &meshTrans[old_vIdxs[3]][0],
+									&meshTrans[old_vIdxs[4]][0]));
+								break;
+							case 6:
+								dataTermResidualBlocks.push_back(
+									problem.AddResidualBlock(
+									new ceres::AutoDiffCostFunction<ResidualImageProjection, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3>(
+									new ResidualImageProjection(1, &templateMesh.grays[i], &templateMesh.vertices[i][0],
+									pCamera, pFrame, adjPVertex, face_vIdxs, errorType)),
+									loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
+									&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
+									&meshTrans[old_vIdxs[2]][0], &meshTrans[old_vIdxs[3]][0],
+									&meshTrans[old_vIdxs[4]][0], &meshTrans[old_vIdxs[5]][0]));
+								break;
+							default:
+								break;
+							}
+
+							break;
                     }
                 }
             }
