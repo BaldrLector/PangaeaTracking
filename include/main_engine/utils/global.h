@@ -130,7 +130,8 @@ void flipnorm(FloatType* normals, int num)
 }
 
 template<typename FloatType>
-void compnorm(FloatType* ver1,  FloatType* ver2, FloatType* ver3, FloatType* location, int flip)
+void compnorm(FloatType* ver1,  FloatType* ver2, FloatType* ver3, FloatType* location, 
+	bool clockwise)
 {
     // compute normals assume that the normal at each point
     //   is defined by the triangle consisting of the previous two
@@ -138,8 +139,29 @@ void compnorm(FloatType* ver1,  FloatType* ver2, FloatType* ver3, FloatType* loc
     //   (p1-p3) x (p1-p2)
 
 	FloatType norm[3];
-	FloatType a[3] = { ver1[0] - ver3[0], ver1[1] - ver3[1], ver1[2] - ver3[2] };
-	FloatType b[3] = { ver1[0] - ver2[0], ver1[1] - ver2[1], ver1[2] - ver2[2] };
+	FloatType a[3];
+	FloatType b[3];
+
+	if (clockwise)
+	{
+		a[0] = ver1[0] - ver3[0];
+		a[1] = ver1[1] - ver3[1];
+		a[2] = ver1[2] - ver3[2];
+
+		b[0] = ver1[0] - ver2[0];
+		b[1] = ver1[1] - ver2[1];
+		b[2] = ver1[2] - ver2[2];
+	}
+	else	// Anti-clockwsie
+	{
+		a[0] = ver1[0] - ver2[0];
+		a[1] = ver1[1] - ver2[1];
+		a[2] = ver1[2] - ver2[2];
+
+		b[0] = ver1[0] - ver3[0];
+		b[1] = ver1[1] - ver3[1];
+		b[2] = ver1[2] - ver3[2];
+	}
 
     norm[0] = a[1]*b[2] - a[2]*b[1];
     norm[1] = a[2]*b[0] - a[0]*b[2];
@@ -153,9 +175,9 @@ void compnorm(FloatType* ver1,  FloatType* ver2, FloatType* ver3, FloatType* loc
         norm[2] *= temp;
     }
 
-    location[0] = FloatType(flip)*norm[0];
-    location[1] = FloatType(flip)*norm[1];
-    location[2] = FloatType(flip)*norm[2];
+    location[0] = norm[0];
+    location[1] = norm[1];
+    location[2] = norm[2];
 }
 
 template<typename FloatType>
