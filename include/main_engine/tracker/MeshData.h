@@ -41,6 +41,8 @@ public:
         numFaces = d.numFaces;
         for(int i = 0; i < 3; ++i)
         center[i] = d.center[i];
+
+		clockwise = d.clockwise;
     }
 
     MeshData& operator=(const MeshData& d)
@@ -60,6 +62,8 @@ public:
         numFaces = d.numFaces;
         for(int i = 0; i < 3; ++i)
         center[i] = d.center[i];
+
+		clockwise = d.clockwise;
 
         return *this;
     }
@@ -81,6 +85,8 @@ public:
         numFaces = d.numFaces;
         for(int i = 0; i < 3; ++i)
         center[i] = d.center[i];
+
+		clockwise = d.clockwise;
 	};
 	MeshData& operator=(MeshData&& d) {
         vertices = std::move(d.vertices);
@@ -97,6 +103,8 @@ public:
         numFaces = d.numFaces;
         for(int i = 0; i < 3; ++i)
         center[i] = d.center[i];
+
+		clockwise = d.clockwise;
 
         return *this;
 	};
@@ -119,6 +127,8 @@ public:
     int numVertices;
     int numFaces;
     double center[3];
+
+	bool clockwise;
 };
 
 template<typename FloatType>
@@ -187,7 +197,8 @@ void MeshData<FloatType>::computeNormals()
                 else
                 ind2 = adjVerticesInd[i][0];
 
-                compnorm(&vertices[i][0], &vertices[ind2][0], &vertices[ind1][0], testNorm, 1);
+				compnorm(&vertices[i][0], &vertices[ind2][0], &vertices[ind1][0], testNorm, 
+					clockwise);
                 normal[0] += testNorm[0];
                 normal[1] += testNorm[1];
                 normal[2] += testNorm[2];
@@ -226,13 +237,13 @@ void MeshData<FloatType>::computeNormalsNeil()
             // compnorm computes (p1-p3) x (p1-p2)
             // or (p3-p1) x (p2-p1)
             compnorm(&vertices[ facesVerticesInd[i][j] ][0],
-                &vertices[ facesVerticesInd[i][k] ][0],
                 &vertices[ facesVerticesInd[i][m] ][0],
-                normal, 1);
+                &vertices[ facesVerticesInd[i][k] ][0],
+				normal, clockwise);
 
-            normals[ facesVerticesInd[i][j] ][0] += normal[0] / 6;
-            normals[ facesVerticesInd[i][j] ][1] += normal[1] / 6;
-            normals[ facesVerticesInd[i][j] ][2] += normal[2] / 6;
+            normals[ facesVerticesInd[i][j] ][0] += normal[0];
+            normals[ facesVerticesInd[i][j] ][1] += normal[1];
+            normals[ facesVerticesInd[i][j] ][2] += normal[2];
 
         }
 
