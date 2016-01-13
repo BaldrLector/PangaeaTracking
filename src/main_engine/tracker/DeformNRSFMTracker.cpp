@@ -102,6 +102,11 @@ DeformNRSFMTracker::~DeformNRSFMTracker()
     if(pStrategy) delete pStrategy;
     if(pImagePyramid) delete pImagePyramid;
     if(pImagePyramidBuffer) delete pImagePyramidBuffer;
+
+	if (PEType == PE_INTRINSIC || PEType == PE_INTRINSIC_COLOR)
+	{
+		delete[] sh_coeff;
+	}
 }
 
 bool DeformNRSFMTracker::setCurrentFrame(int curFrame)
@@ -949,8 +954,6 @@ void DeformNRSFMTracker::AddPhotometricCost(ceres::Problem& problem,
 							break;
 						default: // seven or more one-ring neighbours
 							v_vertices.push_back(&templateMesh.vertices[i][0]);
-							v_parameter_blocks.push_back(&meshTrans[old_vIdxs[i]][0]);
-
 							for (int j = 0; j < n_neighbours; j++)
 							{
 								v_vertices.push_back(&templateMesh.vertices[old_vIdxs[j]][0]);
@@ -968,7 +971,10 @@ void DeformNRSFMTracker::AddPhotometricCost(ceres::Problem& problem,
 							// Rigid translation
 							v_parameter_blocks.push_back(&camPose[3]);
 							dyn_cost_function->AddParameterBlock(3);
+
 							// Local translations
+							v_parameter_blocks.push_back(&meshTrans[i][0]);
+							dyn_cost_function->AddParameterBlock(3);
 							for (int j = 0; j < n_neighbours; j++)
 							{
 								v_parameter_blocks.push_back(&meshTrans[old_vIdxs[j]][0]);

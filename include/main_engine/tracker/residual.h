@@ -417,7 +417,7 @@ public:
         return true;
     }
 
-private:
+protected:
     bool optimizeDeformation;  // whether optimize deformation directly
     double* pVertex;
     double weight;
@@ -666,32 +666,32 @@ public:
 	template<typename T>
 	bool operator()(const T* const* const parameters, T* residuals) const
 	{
-		int residual_num = PE_RESIDUAL_NUM_ARRAY[PE_TYPE];
-		for (int i = 0; i < residual_num; ++i)
-			residuals[i] = T(0.0);
+		// Parameters:
+		// 0 - Rotation
+		// 1 - Translation
+		// 2 - Current vertex position or translation
+		// >2 - Neighbour vertices positions or translations
 
-		T p[3], diff_vertex[3], rot_diff_vertex[3];
-		p[0] = T(0.0); p[1] = T(0.0); p[2] = T(0.0);
-		T transformed_r, transformed_c;
+		const T* rotation = parameters[0];
+		const T* translation = parameters[1];
 
-		const T* const* const trans = parameters;
-		const T* const* const rotations = &(parameters[numNeighbors]);
+		T* p = getRotTransP(rotation, translation, parameters[2], pVertex,
+			optimizeDeformation);
 
-		// compute the position from neighbors nodes first
-		for (int i = 0; i < numNeighbors; ++i)
+		vector<T*> adjP;
+		for (int i = 0; i < num_neighbours; i++)
 		{
-			// get template difference
-			for (int index = 0; index < 3; ++index)
-				diff_vertex[index] = T(pVertex[index]) - neighborVertices[i][index];
-
-			ceres::AngleAxisRotatePoint(&(rotations[i][0]), diff_vertex, rot_diff_vertex);
-
-			for (int index = 0; index < 3; ++index)
-				p[index] += neighborWeights[i] * (rot_diff_vertex[index]
-				+ neighborVertices[i][index] + trans[i][index]);
+			T* p_neighbour = getRotTransP(rotation, translation, parameters[3 + i], adjPVertex[i],
+				optimizeDeformation);
+			adjP.push_back(p_neighbour);
 		}
 
-		getResidualIntrinsic(weight, pCamera, pFrame, pValue, p, residuals, PE_TYPE);
+		T* normal = computeNormal(p, adjP, face_vIdxs, clockwise);
+
+		T shading = computeShading(normal, sh_coeff, sh_order);
+
+		getResidualIntrinsic(weight, pCamera, pFrame, pValue, &shading, p, residuals,
+			PE_TYPE);
 
 		return true;
 
