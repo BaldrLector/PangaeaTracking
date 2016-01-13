@@ -527,6 +527,10 @@ void TrackerSettings::read(const cv::FileNode& node)
 	// Read if faces are defined clockwise or anti-clockwise
 	if (!node["clockwise"].empty())
 		node["clockwise"] >> clockwise;
+
+	// Read Spherical Harmonic Coefficients for Illumination
+	if (!node["sh_coeff_file"].empty())
+		node["sh_coeff_file"] >> sh_coeff_file;
 }
 
 ImageSourceType imageSourceType = IMAGESEQUENCE;

@@ -115,6 +115,9 @@ public:
 	// Faces of the mesh are defined clockwise or not (anti-clockwise)
 	bool clockwise;
 
+	// Path to Spherical Harmonic Coefficients for Illumination
+	std::string sh_coeff_file;
+
     // ceres parameter
     std::string linearSolver;
     int numOptimizationLevels;

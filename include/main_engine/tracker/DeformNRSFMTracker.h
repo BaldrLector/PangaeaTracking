@@ -22,8 +22,8 @@ class DeformNRSFMTracker : public TrackingEngine
 
 public:
 
-    DeformNRSFMTracker(TrackerSettings& settings, int width, int height, double K[3][3],
-        int startFrame, int numTrackingFrames);
+	DeformNRSFMTracker(TrackerSettings& settings, int width, int height, double K[3][3],
+		int startFrame, int numTrackingFrames);
 
     virtual ~DeformNRSFMTracker();
 
@@ -95,6 +95,11 @@ private:
     double camPose[6];
     double KK[3][3];
 
+	// Spherical Harmonic Coefficients for representing illumination
+	double* sh_coeff;
+	// Spherical Harmonic order
+	int sh_order;
+
     //
     CameraInfo camInfo;
     bool trackerInitialized;
@@ -141,6 +146,8 @@ private:
 
     vector<ceres::ResidualBlockId> dataTermResidualBlocks;
     
+	// Read Spherical Harmonic Coefficients from file
+	void readSHCoeff(const std::string _sh_coeff_filename);
 };
 
 #endif
