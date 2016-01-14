@@ -362,30 +362,35 @@ class ResidualImageProjection
 {
 public:
 
-	ResidualImageProjection(double weight, double* pValue, double* pVertex,
-		const CameraInfo* pCamera, const ImageLevel* pFrame,
-		dataTermErrorType PE_TYPE = PE_INTENSITY) :
-		weight(weight),
-		pValue(pValue),
-		pVertex(pVertex),
-		pCamera(pCamera),
-		pFrame(pFrame),
-		PE_TYPE(PE_TYPE),
-		optimizeDeformation(true)
+ResidualImageProjection(double weight, double* pValue, double* pVertex,
+    const CameraInfo* pCamera, const ImageLevel* pFrame,
+    dataTermErrorType PE_TYPE=PE_INTENSITY):
+    weight(weight),
+    pValue(pValue),
+    pVertex(pVertex),
+    pCamera(pCamera),
+    pFrame(pFrame),
+    PE_TYPE(PE_TYPE),
+    optimizeDeformation(true)
 	{
 		// check the consistency between camera and images
 		assert(pCamera->width == pFrame->grayImage.cols);
 		assert(pCamera->height == pFrame->grayImage.rows);
 	}
 
-	ResidualImageProjection(double weight, double* pVertex,
-		const CameraInfo* pCamera, const ImageLevel* pFrame,
-		dataTermErrorType PE_TYPE=PE_INTENSITY):
-		ResidualImageProjection(weight, NULL, pVertex,
-		pCamera, pFrame,
-		PE_TYPE)
+ResidualImageProjection(double weight, double* pTemplateVertex,
+    const CameraInfo* pCamera, const ImageLevel* pFrame,
+    dataTermErrorType PE_TYPE=PE_INTENSITY):
+    weight(weight),
+    pVertex(pVertex),
+    pCamera(pCamera),
+    pFrame(pFrame),
+    PE_TYPE(PE_TYPE),
+    optimizeDeformation(true)
     {
-
+        // check the consistency between camera and images
+        assert(pCamera->width == pFrame->grayImage.cols);
+        assert(pCamera->height == pFrame->grayImage.rows);
     }
 
     template<typename T>

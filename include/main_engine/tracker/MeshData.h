@@ -77,7 +77,7 @@ public:
 
         facesVerticesInd = std::move(d.facesVerticesInd);
         adjVerticesInd = std::move(d.adjVerticesInd);
-		adjFacesInd = d.adjFacesInd;
+		adjFacesInd = std::move(d.adjFacesInd);
         modelColors = std::move(d.modelColors);
         modelLabels = std::move(d.modelLabels);
 
