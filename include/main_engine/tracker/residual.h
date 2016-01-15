@@ -177,11 +177,12 @@ void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const ImageL
 
 }
 
+// Apply deformation, rotation and translation to a vertex
 template <typename T>
-T* getRotTransP(const T* const rotation, const T* const translation,
-	const T* const xyz, const double* const pVertex, bool optimizeDeformation)
+void getRotTransP(const T* const rotation, const T* const translation,
+	const T* const xyz, const double* const pVertex, bool optimizeDeformation, T* p)
 {
-	T p[3], afterTrans[3];
+	T afterTrans[3];
 
 	// if we are doing optimization on the transformation,
 	// we need to add up the template position first
@@ -202,15 +203,15 @@ T* getRotTransP(const T* const rotation, const T* const translation,
 	p[0] += translation[0];
 	p[1] += translation[1];
 	p[2] += translation[2];
-
-	return p;
 }
 
 template <typename T>
-T* computeNormal(const T* p, const vector<T*> &adjP, const vector<unsigned int> &face_vIdxs,
-	const bool clockwise)
+void computeNormal(const T* p, const vector<T*> &adjP, const vector<unsigned int> &face_vIdxs,
+	const bool clockwise, T* normal)
 {
-	T normal[3] = { T(0.0), T(0.0), T(0.0) };
+	normal[0] = T(0.0);
+	normal[1] = T(0.0);
+	normal[2] = T(0.0);
 
 	for (int i = 0; i < face_vIdxs.size() / 2; i++)
 	{
@@ -281,8 +282,6 @@ T* computeNormal(const T* p, const vector<T*> &adjP, const vector<unsigned int> 
 		normal[1] /= norm;
 		normal[2] /= norm;
 	}
-
-	return normal;
 }
 
 template <typename T>
@@ -403,8 +402,9 @@ ResidualImageProjection(double weight, double* pTemplateVertex,
         for(int i = 0; i < residual_num; ++i)
         residuals[i] = T(0.0);
 
-		T* p = getRotTransP(rotation, translation, xyz, pVertex, 
-			optimizeDeformation);
+		T p[3];
+		getRotTransP(rotation, translation, xyz, pVertex,
+			optimizeDeformation, p);
 
         //debug
         // double xyz_[3],rotation_[3],translation_[3];
@@ -466,20 +466,24 @@ public:
 		for (int i = 0; i < residual_num; ++i)
 			residuals[i] = T(0.0);
 
-		T* p = getRotTransP(rotation, translation, xyz, pVertex,
-			optimizeDeformation);
+		T p[3];
+		getRotTransP(rotation, translation, xyz, pVertex,
+			optimizeDeformation, p);
 
 		vector<T*> adjP;
 
-		T* p0 = getRotTransP(rotation, translation, xyz0, adjPVertex[0],
-			optimizeDeformation);
+		T p0[3];
+		getRotTransP(rotation, translation, xyz0, adjPVertex[0],
+			optimizeDeformation, p0);
 		adjP.push_back(p0);
 
-		T* p1 = getRotTransP(rotation, translation, xyz1, adjPVertex[1],
-			optimizeDeformation);
+		T p1[3];
+		getRotTransP(rotation, translation, xyz1, adjPVertex[1],
+			optimizeDeformation, p1);
 		adjP.push_back(p1);
 
-		T* normal = computeNormal(p, adjP, face_vIdxs, clockwise);
+		T normal[3];
+		computeNormal(p, adjP, face_vIdxs, clockwise, normal);
 
 		T shading = computeShading(normal, sh_coeff, sh_order);
 
@@ -500,24 +504,29 @@ public:
 		for (int i = 0; i < residual_num; ++i)
 			residuals[i] = T(0.0);
 
-		T* p = getRotTransP(rotation, translation, xyz, pVertex,
-			optimizeDeformation);
+		T p[3];
+		getRotTransP(rotation, translation, xyz, pVertex,
+			optimizeDeformation, p);
 
 		vector<T*> adjP;
 
-		T* p0 = getRotTransP(rotation, translation, xyz0, adjPVertex[0],
-			optimizeDeformation);
+		T p0[3];
+		getRotTransP(rotation, translation, xyz0, adjPVertex[0],
+			optimizeDeformation, p0);
 		adjP.push_back(p0);
 
-		T* p1 = getRotTransP(rotation, translation, xyz1, adjPVertex[1],
-			optimizeDeformation);
+		T p1[3];
+		getRotTransP(rotation, translation, xyz1, adjPVertex[1],
+			optimizeDeformation, p1);
 		adjP.push_back(p1);
 
-		T* p2 = getRotTransP(rotation, translation, xyz2, adjPVertex[2],
-			optimizeDeformation);
+		T p2[3];
+		getRotTransP(rotation, translation, xyz2, adjPVertex[2],
+			optimizeDeformation, p2);
 		adjP.push_back(p2);
 
-		T* normal = computeNormal(p, adjP, face_vIdxs, clockwise);
+		T normal[3];
+		computeNormal(p, adjP, face_vIdxs, clockwise, normal);
 
 		T shading = computeShading(normal, sh_coeff, sh_order);
 
@@ -539,28 +548,34 @@ public:
 		for (int i = 0; i < residual_num; ++i)
 			residuals[i] = T(0.0);
 
-		T* p = getRotTransP(rotation, translation, xyz, pVertex,
-			optimizeDeformation);
+		T p[3];
+		getRotTransP(rotation, translation, xyz, pVertex,
+			optimizeDeformation, p);
 
 		vector<T*> adjP;
 
-		T* p0 = getRotTransP(rotation, translation, xyz0, adjPVertex[0],
-			optimizeDeformation);
+		T p0[3];
+		getRotTransP(rotation, translation, xyz0, adjPVertex[0],
+			optimizeDeformation, p0);
 		adjP.push_back(p0);
 
-		T* p1 = getRotTransP(rotation, translation, xyz1, adjPVertex[1],
-			optimizeDeformation);
+		T p1[3];
+		getRotTransP(rotation, translation, xyz1, adjPVertex[1],
+			optimizeDeformation, p1);
 		adjP.push_back(p1);
 
-		T* p2 = getRotTransP(rotation, translation, xyz2, adjPVertex[2],
-			optimizeDeformation);
+		T p2[3]; 
+		getRotTransP(rotation, translation, xyz2, adjPVertex[2],
+			optimizeDeformation, p2);
 		adjP.push_back(p2);
 
-		T* p3 = getRotTransP(rotation, translation, xyz3, adjPVertex[3],
-			optimizeDeformation);
+		T p3[3];
+		getRotTransP(rotation, translation, xyz3, adjPVertex[3],
+			optimizeDeformation, p3);
 		adjP.push_back(p3);
 
-		T* normal = computeNormal(p, adjP, face_vIdxs, clockwise);
+		T normal[3];
+		computeNormal(p, adjP, face_vIdxs, clockwise, normal);
 
 		T shading = computeShading(normal, sh_coeff, sh_order);
 
@@ -582,32 +597,39 @@ public:
 		for (int i = 0; i < residual_num; ++i)
 			residuals[i] = T(0.0);
 
-		T* p = getRotTransP(rotation, translation, xyz, pVertex,
-			optimizeDeformation);
+		T p[3];
+		getRotTransP(rotation, translation, xyz, pVertex,
+			optimizeDeformation, p);
 
 		vector<T*> adjP;
 
-		T* p0 = getRotTransP(rotation, translation, xyz0, adjPVertex[0],
-			optimizeDeformation);
+		T p0[3];
+		getRotTransP(rotation, translation, xyz0, adjPVertex[0],
+			optimizeDeformation, p0);
 		adjP.push_back(p0);
 
-		T* p1 = getRotTransP(rotation, translation, xyz1, adjPVertex[1],
-			optimizeDeformation);
+		T p1[3];
+		getRotTransP(rotation, translation, xyz1, adjPVertex[1],
+			optimizeDeformation, p1);
 		adjP.push_back(p1);
 
-		T* p2 = getRotTransP(rotation, translation, xyz2, adjPVertex[2],
-			optimizeDeformation);
+		T p2[3];
+		getRotTransP(rotation, translation, xyz2, adjPVertex[2],
+			optimizeDeformation, p2);
 		adjP.push_back(p2);
 
-		T* p3 = getRotTransP(rotation, translation, xyz3, adjPVertex[3],
-			optimizeDeformation);
+		T p3[3];
+		getRotTransP(rotation, translation, xyz3, adjPVertex[3],
+			optimizeDeformation, p3);
 		adjP.push_back(p3);
 
-		T* p4 = getRotTransP(rotation, translation, xyz4, adjPVertex[4],
-			optimizeDeformation);
+		T p4[3];
+		getRotTransP(rotation, translation, xyz4, adjPVertex[4],
+			optimizeDeformation, p4);
 		adjP.push_back(p4);
 
-		T* normal = computeNormal(p, adjP, face_vIdxs, clockwise);
+		T normal[3];
+		computeNormal(p, adjP, face_vIdxs, clockwise, normal);
 
 		T shading = computeShading(normal, sh_coeff, sh_order);
 
@@ -629,36 +651,44 @@ public:
 		for (int i = 0; i < residual_num; ++i)
 			residuals[i] = T(0.0);
 
-		T* p = getRotTransP(rotation, translation, xyz, pVertex,
-			optimizeDeformation);
+		T p[3];
+		getRotTransP(rotation, translation, xyz, pVertex,
+			optimizeDeformation, p);
 
 		vector<T*> adjP;
 
-		T* p0 = getRotTransP(rotation, translation, xyz0, adjPVertex[0],
-			optimizeDeformation);
+		T p0[3];
+		getRotTransP(rotation, translation, xyz0, adjPVertex[0],
+			optimizeDeformation, p0);
 		adjP.push_back(p0);
 
-		T* p1 = getRotTransP(rotation, translation, xyz1, adjPVertex[1],
-			optimizeDeformation);
+		T p1[3];
+		getRotTransP(rotation, translation, xyz1, adjPVertex[1],
+			optimizeDeformation, p1);
 		adjP.push_back(p1);
 
-		T* p2 = getRotTransP(rotation, translation, xyz2, adjPVertex[2],
-			optimizeDeformation);
+		T p2[3];
+		getRotTransP(rotation, translation, xyz2, adjPVertex[2],
+			optimizeDeformation, p2);
 		adjP.push_back(p2);
 
-		T* p3 = getRotTransP(rotation, translation, xyz3, adjPVertex[3],
-			optimizeDeformation);
+		T p3[3];
+		getRotTransP(rotation, translation, xyz3, adjPVertex[3],
+			optimizeDeformation, p3);
 		adjP.push_back(p3);
 
-		T* p4 = getRotTransP(rotation, translation, xyz4, adjPVertex[4],
-			optimizeDeformation);
+		T p4[3];
+		getRotTransP(rotation, translation, xyz4, adjPVertex[4],
+			optimizeDeformation, p4);
 		adjP.push_back(p4);
 
-		T* p5 = getRotTransP(rotation, translation, xyz5, adjPVertex[5],
-			optimizeDeformation);
+		T p5[3];
+		getRotTransP(rotation, translation, xyz5, adjPVertex[5],
+			optimizeDeformation, p5);
 		adjP.push_back(p5);
 
-		T* normal = computeNormal(p, adjP, face_vIdxs, clockwise);
+		T normal[3];
+		computeNormal(p, adjP, face_vIdxs, clockwise, normal);
 
 		T shading = computeShading(normal, sh_coeff, sh_order);
 
@@ -680,18 +710,21 @@ public:
 		const T* rotation = parameters[0];
 		const T* translation = parameters[1];
 
-		T* p = getRotTransP(rotation, translation, parameters[2], pVertex,
-			optimizeDeformation);
+		T p[3];
+		getRotTransP(rotation, translation, parameters[2], pVertex,
+			optimizeDeformation, p);
 
 		vector<T*> adjP;
 		for (int i = 0; i < num_neighbours; i++)
 		{
-			T* p_neighbour = getRotTransP(rotation, translation, parameters[3 + i], adjPVertex[i],
-				optimizeDeformation);
+			T p_neighbour[3];
+			getRotTransP(rotation, translation, parameters[3 + i], adjPVertex[i],
+				optimizeDeformation, p_neighbour);
 			adjP.push_back(p_neighbour);
 		}
 
-		T* normal = computeNormal(p, adjP, face_vIdxs, clockwise);
+		T normal[3];
+		computeNormal(p, adjP, face_vIdxs, clockwise, normal);
 
 		T shading = computeShading(normal, sh_coeff, sh_order);
 
