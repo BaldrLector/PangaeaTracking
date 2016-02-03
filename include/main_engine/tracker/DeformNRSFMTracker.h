@@ -96,7 +96,7 @@ private:
     double KK[3][3];
 
 	// Spherical Harmonic Coefficients for representing illumination
-	double* sh_coeff;
+	vector<double> sh_coeff;
 	// Spherical Harmonic order
 	int sh_order;
 

@@ -102,11 +102,6 @@ DeformNRSFMTracker::~DeformNRSFMTracker()
     if(pStrategy) delete pStrategy;
     if(pImagePyramid) delete pImagePyramid;
     if(pImagePyramidBuffer) delete pImagePyramidBuffer;
-
-	if (PEType == PE_INTRINSIC || PEType == PE_INTRINSIC_COLOR)
-	{
-		delete[] sh_coeff;
-	}
 }
 
 bool DeformNRSFMTracker::setCurrentFrame(int curFrame)
@@ -136,23 +131,20 @@ void DeformNRSFMTracker::readSHCoeff(const std::string _sh_coeff_filename)
 		return;
 	}
 
-	int size = 0;
-	ifs >> size;
+	double value;
+	while (ifs >> value) {
+		sh_coeff.push_back(value);
+	}
 
-	sh_order = std::sqrt(size) - 1;
+	ifs.close();
 
-	if ((sh_order + 1) * (sh_order + 1) != size)
+	sh_order = std::sqrt(sh_coeff.size()) - 1;
+
+	if ((sh_order + 1) * (sh_order + 1) != sh_coeff.size())
 	{
 		cerr << "The number of SH coefficients is not correct (" << _sh_coeff_filename
 			<< "). It should be equal to (n + 1)^2 where n is the SH order." << endl;
 		return;
-	}
-
-	sh_coeff = new double[size];
-
-	for (int i = 0; i < size; i++)
-	{
-		ifs >> sh_coeff[i];
 	}
 }
 
@@ -472,16 +464,17 @@ bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
     //save data
     TICK("SavingTime");
 
-    if(savingThread == NULL)
-    {
-        savingThread = new boost::thread(boost::bind(&DeformNRSFMTracker::SaveThread, this, pOutputInfoRendering) );
+    //if(savingThread == NULL)
+    //{
+    //    savingThread = new boost::thread(boost::bind(&DeformNRSFMTracker::SaveThread, this, pOutputInfoRendering) );
 
-    }else
-    {
-        savingThread->join();
-        delete savingThread;
-        savingThread = new boost::thread(boost::bind(&DeformNRSFMTracker::SaveThread, this, pOutputInfoRendering) );
-    }
+    //}else
+    //{
+    //    savingThread->join();
+    //    delete savingThread;
+    //    savingThread = new boost::thread(boost::bind(&DeformNRSFMTracker::SaveThread, this, pOutputInfoRendering) );
+    //}
+	SaveThread(pOutputInfoRendering);
 
     TOCK("SavingTime");
     // simply return true;
@@ -902,7 +895,7 @@ void DeformNRSFMTracker::AddPhotometricCost(ceres::Problem& problem,
 								new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3>(
 								new ResidualImageProjectionIntrinsic(1, &templateMesh.grays[i],
 								&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
-								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, sh_coeff)),
+								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
 								loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
 								&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0]));
 							break;
@@ -912,7 +905,7 @@ void DeformNRSFMTracker::AddPhotometricCost(ceres::Problem& problem,
 								new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3, 3>(
 								new ResidualImageProjectionIntrinsic(1, &templateMesh.grays[i],
 								&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
-								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, sh_coeff)),
+								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
 								loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
 								&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
 								&meshTrans[old_vIdxs[2]][0]));
@@ -923,7 +916,7 @@ void DeformNRSFMTracker::AddPhotometricCost(ceres::Problem& problem,
 								new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3, 3, 3>(
 								new ResidualImageProjectionIntrinsic(1, &templateMesh.grays[i],
 								&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
-								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, sh_coeff)),
+								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
 								loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
 								&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
 								&meshTrans[old_vIdxs[2]][0], &meshTrans[old_vIdxs[3]][0]));
@@ -934,7 +927,7 @@ void DeformNRSFMTracker::AddPhotometricCost(ceres::Problem& problem,
 								new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3, 3, 3, 3>(
 								new ResidualImageProjectionIntrinsic(1, &templateMesh.grays[i],
 								&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
-								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, sh_coeff)),
+								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
 								loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
 								&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
 								&meshTrans[old_vIdxs[2]][0], &meshTrans[old_vIdxs[3]][0],
@@ -946,7 +939,7 @@ void DeformNRSFMTracker::AddPhotometricCost(ceres::Problem& problem,
 								new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3>(
 								new ResidualImageProjectionIntrinsic(1, &templateMesh.grays[i],
 								&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
-								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, sh_coeff)),
+								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
 								loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
 								&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
 								&meshTrans[old_vIdxs[2]][0], &meshTrans[old_vIdxs[3]][0],
@@ -963,7 +956,7 @@ void DeformNRSFMTracker::AddPhotometricCost(ceres::Problem& problem,
 								= new ceres::DynamicAutoDiffCostFunction< ResidualImageProjectionIntrinsic, 5 >(
 								new ResidualImageProjectionIntrinsic(1, &templateMesh.grays[i],
 								&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
-								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, sh_coeff));
+								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0]));
 
 							// Rigid rotation
 							dyn_cost_function->AddParameterBlock(3);
