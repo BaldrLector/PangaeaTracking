@@ -815,6 +815,27 @@ void DeformNRSFMTracker::AddPhotometricCost(ceres::Problem& problem,
             {
                 if(visibilityMask[i])
                 {
+					// List of local indexes of adjacent vertices per face.
+					// Its size is twice the number or adjacent points.
+					// Stored as it was defined in the mesh (clockwise or anti-clockwise)
+					vector<unsigned int> face_vIdxs;
+					// List of position of each adjacent face
+					vector<double*> adjPVertex;
+					// List of adjacent vertices indexes from the mesh
+					vector<unsigned int> old_vIdxs;
+					// Map between mesh index and local adjacent index
+					map<unsigned int, unsigned int> map_vIdxs;
+					// Last local adjacent index
+					unsigned int lastIdx = 0;
+
+					// List of pointers to vertices
+					vector<double*> v_vertices;
+					// List of pointers to translations per vertex
+					vector<double*> v_parameter_blocks;
+					// Dynamic photometric cost function (only if it has more than six neighbours)
+					ceres::DynamicAutoDiffCostFunction<ResidualImageProjectionIntrinsic, 5>* dyn_cost_function;
+					int n_neighbours;
+
 					switch (errorType)
 					{
 					case PE_INTENSITY:
@@ -840,20 +861,6 @@ void DeformNRSFMTracker::AddPhotometricCost(ceres::Problem& problem,
 						break;
 
 					case PE_INTRINSIC:
-
-						// List of local indexes of adjacent vertices per face.
-						// Its size is twice the number or adjacent points.
-						// Stored as it was defined in the mesh (clockwise or anti-clockwise)
-						vector<unsigned int> face_vIdxs;
-						// List of position of each adjacent face
-						vector<double*> adjPVertex;
-						// List of adjacent vertices indexes from the mesh
-						vector<unsigned int> old_vIdxs;
-						// Map between mesh index and local adjacent index
-						map<unsigned int, unsigned int> map_vIdxs;
-						// Last local adjacent index
-						unsigned int lastIdx = 0;
-
 						// For the current vertex, loop for each adjacent face
 						for (int j = 0; j < templateMesh.adjFacesInd[i].size(); j++)
 						{
@@ -879,73 +886,66 @@ void DeformNRSFMTracker::AddPhotometricCost(ceres::Problem& problem,
 							}
 						}
 
-						// List of pointers to vertices
-						vector<double*> v_vertices;
-						// List of pointers to translations per vertex
-						vector<double*> v_parameter_blocks;
-						// Dynamic photometric cost function (only if it has more than six neighbours)
-						ceres::DynamicAutoDiffCostFunction<ResidualImageProjectionIntrinsic, 5>* dyn_cost_function;
-
-						int n_neighbours = old_vIdxs.size();
-						switch (n_neighbours)
-						{
-						case 2:
-							dataTermResidualBlocks.push_back(
-								problem.AddResidualBlock(
-								new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3>(
-								new ResidualImageProjectionIntrinsic(1, &templateMesh.grays[i],
-								&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
-								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
-								loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
-								&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0]));
-							break;
-						case 3:
-							dataTermResidualBlocks.push_back(
-								problem.AddResidualBlock(
-								new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3, 3>(
-								new ResidualImageProjectionIntrinsic(1, &templateMesh.grays[i],
-								&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
-								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
-								loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
-								&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
-								&meshTrans[old_vIdxs[2]][0]));
-							break;
-						case 4:
-							dataTermResidualBlocks.push_back(
-								problem.AddResidualBlock(
-								new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3, 3, 3>(
-								new ResidualImageProjectionIntrinsic(1, &templateMesh.grays[i],
-								&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
-								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
-								loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
-								&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
-								&meshTrans[old_vIdxs[2]][0], &meshTrans[old_vIdxs[3]][0]));
-							break;
-						case 5:
-							dataTermResidualBlocks.push_back(
-								problem.AddResidualBlock(
-								new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3, 3, 3, 3>(
-								new ResidualImageProjectionIntrinsic(1, &templateMesh.grays[i],
-								&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
-								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
-								loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
-								&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
-								&meshTrans[old_vIdxs[2]][0], &meshTrans[old_vIdxs[3]][0],
-								&meshTrans[old_vIdxs[4]][0]));
-							break;
-						case 6:
-							dataTermResidualBlocks.push_back(
-								problem.AddResidualBlock(
-								new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3>(
-								new ResidualImageProjectionIntrinsic(1, &templateMesh.grays[i],
-								&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
-								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
-								loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
-								&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
-								&meshTrans[old_vIdxs[2]][0], &meshTrans[old_vIdxs[3]][0],
-								&meshTrans[old_vIdxs[4]][0], &meshTrans[old_vIdxs[5]][0]));
-							break;
-						default: // seven or more one-ring neighbours
+						n_neighbours = old_vIdxs.size();
+						//switch (n_neighbours)
+						//{
+						//case 2:
+						//	dataTermResidualBlocks.push_back(
+						//		problem.AddResidualBlock(
+						//		new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3>(
+						//		new ResidualImageProjectionIntrinsic(1, &templateMesh.grays[i],
+						//		&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
+						//		face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
+						//		loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
+						//		&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0]));
+						//	break;
+						//case 3:
+						//	dataTermResidualBlocks.push_back(
+						//		problem.AddResidualBlock(
+						//		new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3, 3>(
+						//		new ResidualImageProjectionIntrinsic(1, &templateMesh.grays[i],
+						//		&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
+						//		face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
+						//		loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
+						//		&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
+						//		&meshTrans[old_vIdxs[2]][0]));
+						//	break;
+						//case 4:
+						//	dataTermResidualBlocks.push_back(
+						//		problem.AddResidualBlock(
+						//		new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3, 3, 3>(
+						//		new ResidualImageProjectionIntrinsic(1, &templateMesh.grays[i],
+						//		&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
+						//		face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
+						//		loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
+						//		&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
+						//		&meshTrans[old_vIdxs[2]][0], &meshTrans[old_vIdxs[3]][0]));
+						//	break;
+						//case 5:
+						//	dataTermResidualBlocks.push_back(
+						//		problem.AddResidualBlock(
+						//		new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3, 3, 3, 3>(
+						//		new ResidualImageProjectionIntrinsic(1, &templateMesh.grays[i],
+						//		&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
+						//		face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
+						//		loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
+						//		&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
+						//		&meshTrans[old_vIdxs[2]][0], &meshTrans[old_vIdxs[3]][0],
+						//		&meshTrans[old_vIdxs[4]][0]));
+						//	break;
+						//case 6:
+						//	dataTermResidualBlocks.push_back(
+						//		problem.AddResidualBlock(
+						//		new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3>(
+						//		new ResidualImageProjectionIntrinsic(1, &templateMesh.grays[i],
+						//		&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
+						//		face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
+						//		loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
+						//		&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
+						//		&meshTrans[old_vIdxs[2]][0], &meshTrans[old_vIdxs[3]][0],
+						//		&meshTrans[old_vIdxs[4]][0], &meshTrans[old_vIdxs[5]][0]));
+						//	break;
+						//default: // seven or more one-ring neighbours
 							v_vertices.push_back(&templateMesh.vertices[i][0]);
 							for (int j = 0; j < n_neighbours; j++)
 							{
@@ -982,8 +982,136 @@ void DeformNRSFMTracker::AddPhotometricCost(ceres::Problem& problem,
 								loss_function,
 								v_parameter_blocks));
 
-							break;
-						} // end switch n_neighbours
+							//break;
+						//} // end switch n_neighbours
+
+						break;
+
+					case PE_INTRINSIC_COLOR:
+
+						// For the current vertex, loop for each adjacent face
+						for (int j = 0; j < templateMesh.adjFacesInd[i].size(); j++)
+						{
+							int faceIdx = templateMesh.adjFacesInd[i][j];
+
+							// Loop for each vertex in the face
+							// Assuming triangular mesh
+							for (int k = 0; k < 3; k++)
+							{
+								int currIdx = templateMesh.facesVerticesInd[faceIdx][k];
+
+								if (currIdx != i)
+								{
+									if (map_vIdxs.find(currIdx) == map_vIdxs.end())
+									{
+										adjPVertex.push_back(&templateMesh.vertices[currIdx][0]);
+										old_vIdxs.push_back(currIdx);
+										map_vIdxs.insert(pair<unsigned int, unsigned int>(currIdx, lastIdx));
+										lastIdx++;
+									}
+									face_vIdxs.push_back(map_vIdxs[currIdx]);
+								}
+							}
+						}
+
+						n_neighbours = old_vIdxs.size();
+						//switch (n_neighbours)
+						//{
+						//case 2:
+						//	dataTermResidualBlocks.push_back(
+						//		problem.AddResidualBlock(
+						//		new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3>(
+						//		new ResidualImageProjectionIntrinsic(1, &templateMesh.colors[i][0],
+						//		&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
+						//		face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
+						//		loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
+						//		&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0]));
+						//	break;
+						//case 3:
+						//	dataTermResidualBlocks.push_back(
+						//		problem.AddResidualBlock(
+						//		new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3, 3>(
+						//		new ResidualImageProjectionIntrinsic(1, &templateMesh.colors[i][0],
+						//		&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
+						//		face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
+						//		loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
+						//		&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
+						//		&meshTrans[old_vIdxs[2]][0]));
+						//	break;
+						//case 4:
+						//	dataTermResidualBlocks.push_back(
+						//		problem.AddResidualBlock(
+						//		new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3, 3, 3>(
+						//		new ResidualImageProjectionIntrinsic(1, &templateMesh.colors[i][0],
+						//		&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
+						//		face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
+						//		loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
+						//		&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
+						//		&meshTrans[old_vIdxs[2]][0], &meshTrans[old_vIdxs[3]][0]));
+						//	break;
+						//case 5:
+						//	dataTermResidualBlocks.push_back(
+						//		problem.AddResidualBlock(
+						//		new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3, 3, 3, 3>(
+						//		new ResidualImageProjectionIntrinsic(1, &templateMesh.colors[i][0],
+						//		&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
+						//		face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
+						//		loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
+						//		&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
+						//		&meshTrans[old_vIdxs[2]][0], &meshTrans[old_vIdxs[3]][0],
+						//		&meshTrans[old_vIdxs[4]][0]));
+						//	break;
+						//case 6:
+						//	dataTermResidualBlocks.push_back(
+						//		problem.AddResidualBlock(
+						//		new ceres::AutoDiffCostFunction<ResidualImageProjectionIntrinsic, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3>(
+						//		new ResidualImageProjectionIntrinsic(1, &templateMesh.colors[i][0],
+						//		&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
+						//		face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0])),
+						//		loss_function, &camPose[0], &camPose[3], &meshTrans[i][0],
+						//		&meshTrans[old_vIdxs[0]][0], &meshTrans[old_vIdxs[1]][0],
+						//		&meshTrans[old_vIdxs[2]][0], &meshTrans[old_vIdxs[3]][0],
+						//		&meshTrans[old_vIdxs[4]][0], &meshTrans[old_vIdxs[5]][0]));
+						//	break;
+						//default: // seven or more one-ring neighbours
+							v_vertices.push_back(&templateMesh.vertices[i][0]);
+							for (int j = 0; j < n_neighbours; j++)
+							{
+								v_vertices.push_back(&templateMesh.vertices[old_vIdxs[j]][0]);
+							}
+
+							dyn_cost_function
+								= new ceres::DynamicAutoDiffCostFunction< ResidualImageProjectionIntrinsic, 5 >(
+								new ResidualImageProjectionIntrinsic(1, &templateMesh.colors[i][0],
+								&templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
+								face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0]));
+
+							// Rigid rotation
+							dyn_cost_function->AddParameterBlock(3);
+							v_parameter_blocks.push_back(&camPose[0]);
+							// Rigid translation
+							v_parameter_blocks.push_back(&camPose[3]);
+							dyn_cost_function->AddParameterBlock(3);
+
+							// Local translations
+							v_parameter_blocks.push_back(&meshTrans[i][0]);
+							dyn_cost_function->AddParameterBlock(3);
+							for (int j = 0; j < n_neighbours; j++)
+							{
+								v_parameter_blocks.push_back(&meshTrans[old_vIdxs[j]][0]);
+								dyn_cost_function->AddParameterBlock(3);
+							}
+
+							dyn_cost_function->SetNumResiduals(PE_RESIDUAL_NUM_ARRAY[errorType]);
+
+							dataTermResidualBlocks.push_back(
+								problem.AddResidualBlock(
+								dyn_cost_function,
+								loss_function,
+								v_parameter_blocks));
+
+							//break;
+						//} // end switch n_neighbours
 
 						break;
 					} // end switch errorType 

@@ -715,9 +715,10 @@ public:
 			optimizeDeformation, p);
 
 		vector<T*> adjP;
+		T* p_neighbour;
 		for (int i = 0; i < num_neighbours; i++)
 		{
-			T p_neighbour[3];
+			p_neighbour = new T[3];
 			getRotTransP(rotation, translation, parameters[3 + i], adjPVertex[i],
 				optimizeDeformation, p_neighbour);
 			adjP.push_back(p_neighbour);
@@ -725,6 +726,11 @@ public:
 
 		T normal[3];
 		computeNormal(p, adjP, face_vIdxs, clockwise, normal);
+
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			delete[] adjP[i];
+		}
 
 		T shading = computeShading(normal, sh_coeff, sh_order);
 
