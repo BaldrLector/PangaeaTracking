@@ -2129,23 +2129,46 @@ void DeformNRSFMTracker::AddPhotometricCostDepth(ceres::Problem& problem,
 						{
 							int faceIdx = templateMesh.adjFacesInd[i][j];
 
+							int fv_idx0 = templateMesh.facesVerticesInd[faceIdx][0];
+							int fv_idx1 = templateMesh.facesVerticesInd[faceIdx][1];
+							int fv_idx2 = templateMesh.facesVerticesInd[faceIdx][2];
+
+							// Neighbours anticlockwise from current vertex
+							int neigh_idxs[2];
+
+							if (fv_idx0 == i)
+							{
+								neigh_idxs[0] = fv_idx1;
+								neigh_idxs[1] = fv_idx2;
+							}
+							else
+							{
+								if (fv_idx1 == i)
+								{
+									neigh_idxs[0] = fv_idx2;
+									neigh_idxs[1] = fv_idx0;
+								}
+								else // fv_idx2 == i
+								{
+									neigh_idxs[0] = fv_idx0;
+									neigh_idxs[1] = fv_idx1;
+								}
+							}
+
 							// Loop for each vertex in the face
 							// Assuming triangular mesh
-							for (int k = 0; k < 3; k++)
+							for (int k = 0; k < 2; k++)
 							{
-								int currIdx = templateMesh.facesVerticesInd[faceIdx][k];
+								int currIdx = neigh_idxs[k];
 
-								if (currIdx != i)
+								if (map_vIdxs.find(currIdx) == map_vIdxs.end())
 								{
-									if (map_vIdxs.find(currIdx) == map_vIdxs.end())
-									{
-										adjPVertex.push_back(&templateMesh.vertices[currIdx][0]);
-										old_vIdxs.push_back(currIdx);
-										map_vIdxs.insert(pair<unsigned int, unsigned int>(currIdx, lastIdx));
-										lastIdx++;
-									}
-									face_vIdxs.push_back(map_vIdxs[currIdx]);
+									adjPVertex.push_back(&templateMesh.vertices[currIdx][0]);
+									old_vIdxs.push_back(currIdx);
+									map_vIdxs.insert(pair<unsigned int, unsigned int>(currIdx, lastIdx));
+									lastIdx++;
 								}
+								face_vIdxs.push_back(map_vIdxs[currIdx]);
 							}
 						}
 
