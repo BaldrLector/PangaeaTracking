@@ -64,6 +64,22 @@ public:
     void EnergyMinimization(ceres::Problem& problem);
     void RegTermsSetup(ceres::Problem& problem, WeightPara& weightParaLevel);
     
+
+	void AddPhotometricCostDepth(ceres::Problem& problem,
+		ceres::LossFunction* loss_function, dataTermErrorType errorType);
+	void AddTotalVariationCostDepth(ceres::Problem& problem,
+		ceres::LossFunction* loss_function);
+
+	void AddARAPCostDepth(ceres::Problem& problem,
+		ceres::LossFunction* loss_function);
+	void AddDeformationCostDepth(ceres::Problem& problem,
+		ceres::LossFunction* loss_function);
+
+	void EnergySetupDepth(ceres::Problem& problem);
+	void EnergyMinimizationDepth(ceres::Problem& problem);
+	void RegTermsSetupDepth(ceres::Problem& problem, WeightPara& weightParaLevel);
+
+
     //
     bool SaveData();
     bool SaveMeshToFile(TrackerOutputInfo& outputInfo);
@@ -105,6 +121,8 @@ private:
     bool trackerInitialized;
 
     PangaeaMeshPyramid templateMeshPyramid;
+
+	PangaeaMeshPyramid previousMeshPyramid;
 
     // containes the neighbor & weight information between pairs of meshes
     MeshPropagation meshPropagation;

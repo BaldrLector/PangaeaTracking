@@ -1085,3 +1085,381 @@ public:
     }
 
 };
+
+//=============================================================================
+
+class ResidualImageProjectionDepth
+{
+public:
+
+	ResidualImageProjectionDepth(double weight, double* pValue, double* pVertex,
+		const CameraInfo* pCamera, const ImageLevel* pFrame,
+		dataTermErrorType PE_TYPE = PE_INTENSITY) :
+		weight(weight),
+		pValue(pValue),
+		pVertex(pVertex),
+		pCamera(pCamera),
+		pFrame(pFrame),
+		PE_TYPE(PE_TYPE),
+		optimizeDeformation(true)
+	{
+		// check the consistency between camera and images
+		assert(pCamera->width == pFrame->grayImage.cols);
+		assert(pCamera->height == pFrame->grayImage.rows);
+	}
+
+	ResidualImageProjectionDepth(double weight, double* pTemplateVertex,
+		const CameraInfo* pCamera, const ImageLevel* pFrame,
+		dataTermErrorType PE_TYPE = PE_INTENSITY) :
+		weight(weight),
+		pVertex(pVertex),
+		pCamera(pCamera),
+		pFrame(pFrame),
+		PE_TYPE(PE_TYPE),
+		optimizeDeformation(true)
+	{
+		// check the consistency between camera and images
+		assert(pCamera->width == pFrame->grayImage.cols);
+		assert(pCamera->height == pFrame->grayImage.rows);
+	}
+
+	template<typename T>
+	bool operator()(const T* const z,
+		T* residuals) const
+	{
+		int residual_num = PE_RESIDUAL_NUM_ARRAY[PE_TYPE];
+		for (int i = 0; i < residual_num; ++i)
+			residuals[i] = T(0.0);
+
+		T p[3];
+		if (optimizeDeformation)
+		{
+			p[0] = T(pVertex[0]);
+			p[1] = T(pVertex[1]);
+			p[2] = z[0] + T(pVertex[2]);
+		}
+		else
+		{
+			p[0] = T(pVertex[0]);
+			p[1] = T(pVertex[1]);
+			p[2] = z[0];
+		}
+
+		getResiudal(weight, pCamera, pFrame, pValue, p, residuals, PE_TYPE);
+
+		return true;
+	}
+
+protected:
+	bool optimizeDeformation;  // whether optimize deformation directly
+	double* pVertex;
+	double weight;
+	// this will only be useful if we are using gray or rgb value
+	// give a dummy value in other cases
+	double* pValue;
+	const CameraInfo* pCamera;
+	const ImageLevel* pFrame;
+	dataTermErrorType PE_TYPE;
+};
+
+// Photometric cost for the case of known albedo and illumination (sh representation)
+class ResidualImageProjectionIntrinsicDepth : public ResidualImageProjectionDepth
+{
+public:
+	ResidualImageProjectionIntrinsicDepth(double weight, double* pValue, double* pVertex,
+		const CameraInfo* pCamera, const ImageLevel* pFrame, const int _num_neighbours,
+		const vector<double*> &_adjPVertex, const vector<unsigned int> &_face_vIdxs,
+		dataTermErrorType PE_TYPE = PE_INTRINSIC, const bool _clockwise = true,
+		const int _sh_order = 0, const double* _sh_coeff = 0) :
+		ResidualImageProjectionDepth(weight, pValue, pVertex,
+		pCamera, pFrame, PE_TYPE),
+		num_neighbours(_num_neighbours),
+		adjPVertex(_adjPVertex),
+		face_vIdxs(_face_vIdxs),
+		clockwise(_clockwise),
+		sh_order(_sh_order),
+		sh_coeff(_sh_coeff)
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const* const z, T* residuals) const
+	{
+		// Parameters:
+		// 0 - Rotation
+		// 1 - Translation
+		// 2 - Current vertex position or translation
+		// >2 - Neighbour vertices positions or translations
+
+		T p[3];
+		if (optimizeDeformation)
+		{
+			p[0] = T(pVertex[0]);
+			p[1] = T(pVertex[1]);
+			p[2] = z[0][0] + T(pVertex[2]);
+		}
+		else
+		{
+			p[0] = T(pVertex[0]);
+			p[1] = T(pVertex[1]);
+			p[2] = z[0][0];
+		}
+
+		vector<T*> adjP;
+		T* p_neighbour;
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			p_neighbour = new T[3];
+			if (optimizeDeformation)
+			{
+				p_neighbour[0] = T(adjPVertex[i][0]);
+				p_neighbour[1] = T(adjPVertex[i][1]);
+				p_neighbour[2] = z[i + 1][0] + T(adjPVertex[i][2]);
+			}
+			else
+			{
+				p_neighbour[0] = T(adjPVertex[i][0]);
+				p_neighbour[1] = T(adjPVertex[i][1]);
+				p_neighbour[2] = z[i + 1][0];
+			}
+			adjP.push_back(p_neighbour);
+		}
+
+		T normal[3];
+		computeNormal(p, adjP, face_vIdxs, clockwise, normal);
+
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			delete[] adjP[i];
+		}
+
+		T shading = computeShading(normal, sh_coeff, sh_order);
+
+		getResidualIntrinsic(weight, pCamera, pFrame, pValue, &shading, p, residuals,
+			PE_TYPE);
+
+		return true;
+
+	}
+
+private:
+	// Number of one-ring neighbours
+	const int num_neighbours;
+	// Adjacent faces indexes
+	const vector<unsigned int> face_vIdxs;
+	// Adjacent vertices coordinates
+	const vector<double*> adjPVertex;
+
+	// Identifies if faces are defined clockwise
+	const bool clockwise;
+	// SH order
+	const int sh_order;
+	//SH coefficients
+	const double* sh_coeff;
+};
+
+
+// ResidualImageProjection from coarse level deformation,
+class ResidualImageProjectionDeformDepth
+{
+public:
+	ResidualImageProjectionDeformDepth(double weight, double* pValue, double* pVertex,
+		const CameraInfo* pCamera, const ImageLevel* pFrame, int numNeighbors,
+		vector<double> neighborWeights, vector<double*> neighborVertices,
+		dataTermErrorType PE_TYPE = PE_INTENSITY) :
+		weight(weight),
+		pValue(pValue),
+		pVertex(pVertex),
+		pCamera(pCamera),
+		pFrame(pFrame),
+		numNeighbors(numNeighbors),
+		neighborWeights(neighborWeights),
+		neighborVertices(neighborVertices),
+		PE_TYPE(PE_TYPE)
+	{
+		// check the consistency between camera and images
+		assert(pCamera->width == pFrame->grayImage.cols);
+		assert(pCamera->height == pFrame->grayImage.rows);
+	}
+
+	template<typename T>
+	bool operator()(const T* const* const parameters, T* residuals) const
+	{
+		int residual_num = PE_RESIDUAL_NUM_ARRAY[PE_TYPE];
+		for (int i = 0; i < residual_num; ++i)
+			residuals[i] = T(0.0);
+
+		T p[3], diff_vertex[3], rot_diff_vertex[3];
+		p[0] = T(0.0); 
+		p[1] = T(0.0); 
+		p[2] = T(0.0);
+		T transformed_r, transformed_c;
+
+		const T* const* const trans = parameters;
+		const T* const* const rotations = &(parameters[numNeighbors]);
+
+		// compute the position from neighbors nodes first
+		for (int i = 0; i < numNeighbors; ++i)
+		{
+			// get template difference
+			for (int index = 0; index < 3; ++index)
+				diff_vertex[index] = T(pVertex[index]) - neighborVertices[i][index];
+
+			ceres::AngleAxisRotatePoint(&(rotations[i][0]), diff_vertex, rot_diff_vertex);
+
+			for (int index = 0; index < 3; ++index)
+				p[index] += neighborWeights[i] * (rot_diff_vertex[index]
+				+ neighborVertices[i][index] + trans[i][index]);
+		}
+
+		getResiudal(weight, pCamera, pFrame, pValue, p, residuals, PE_TYPE);
+
+		return true;
+
+	}
+
+private:
+
+	double* pVertex;
+	double weight;
+	double* pValue;
+	const CameraInfo* pCamera;
+	const ImageLevel* pFrame;
+	dataTermErrorType PE_TYPE;
+
+	int numNeighbors;
+	vector<double> neighborWeights;
+	vector<double*> neighborVertices;
+
+};
+
+
+class ResidualTVDepth
+{
+public:
+
+	ResidualTVDepth(double weight) :
+		weight(weight), optimizeDeformation(true) {}
+
+	ResidualTVDepth(double weight, double* pVertex, double* pNeighbor,
+		double* cVertex, double* cNeighbor) :
+		weight(weight), previousVertex(pVertex), previousNeighbor(pNeighbor), 
+		currentVertex(cVertex), currentNeighbor(cNeighbor),
+		optimizeDeformation(true) {}
+
+	template <typename T>
+	bool operator()(const T* const pCurrentVertexDepth,
+		const T* const pCurrentNeighborDepth,
+		T* residuals) const
+	{
+
+		for (int i = 0; i < 2; i++)
+		{
+			residuals[i] = T(weight) * (T(previousVertex[i] - previousNeighbor[i]) -
+				(currentVertex[i] - currentNeighbor[i]));
+		}
+
+		if (optimizeDeformation){
+			// in this case, pCurrentVertex and pCurrentNeighbor refer to translation
+			residuals[2] = T(weight) * (pCurrentVertexDepth[0] - pCurrentNeighborDepth[0]);
+		}
+		else{
+			residuals[2] = T(weight) * (T(previousVertex[2] - previousNeighbor[2]) -
+			(pCurrentVertexDepth[0] - pCurrentNeighborDepth[0]));
+		}
+		return true;
+	}
+
+private:
+	bool optimizeDeformation;
+	double weight;
+	const double* previousVertex;
+	const double* previousNeighbor;
+	const double* currentVertex;
+	const double* currentNeighbor;
+};
+
+// the rotation to be optimized is from template mesh to current mesh
+class ResidualARAPDepth
+{
+public:
+
+	ResidualARAPDepth(double weight, double* pVertex, double* pNeighbor, 
+		double* cVertex, double* cNeighbor, bool optDeform = false) :
+		weight(weight), previousVertex(pVertex), previousNeighbor(pNeighbor), 
+		currentVertex(cVertex), currentNeighbor(cNeighbor),
+		optimizeDeformation(optDeform) {}
+
+	template <typename T>
+	bool operator()(const T* const pCurrentVertexDepth,
+		const T* const pCurrentNeighborDepth,
+		const T* const pRotVertex,
+		T* residuals) const
+	{
+		T templateDiff[3];
+		T rotTemplateDiff[3];
+		T currentDiff[3];
+
+		for (int i = 0; i < 2; ++i){
+			templateDiff[i] = T(previousVertex[i] - previousNeighbor[i]);
+			currentDiff[i] = T(currentVertex[i] - currentNeighbor[i]);
+		}
+
+		if (optimizeDeformation){
+			// deformation optimization
+			templateDiff[2] = T(previousVertex[2] - previousNeighbor[2]);
+			currentDiff[2] = templateDiff[2] + (pCurrentVertexDepth[0] - pCurrentNeighborDepth[0]);
+		}
+		else{
+			templateDiff[2] = T(previousVertex[2] - previousNeighbor[2]);
+			currentDiff[2] = pCurrentVertexDepth[0] - pCurrentNeighborDepth[0];
+		}
+
+		ceres::AngleAxisRotatePoint(pRotVertex, templateDiff, rotTemplateDiff);
+
+		residuals[0] = T(weight) * (currentDiff[0] - rotTemplateDiff[0]);
+		residuals[1] = T(weight) * (currentDiff[1] - rotTemplateDiff[1]);
+		residuals[2] = T(weight) * (currentDiff[2] - rotTemplateDiff[2]);
+
+		return true;
+
+	}
+
+private:
+
+	bool optimizeDeformation;
+	double weight;
+	const double* previousVertex;
+	const double* previousNeighbor;
+	const double* currentVertex;
+	const double* currentNeighbor;
+};
+
+// temporal shape
+class ResidualDeformDepth
+{
+public:
+
+	ResidualDeformDepth(double weight, double* pVertex) :
+		weight(weight), pVertex(pVertex) {}
+
+	template <typename T>
+	bool operator()(const T* const pCurrentVertexDepth,
+		T* residuals) const
+	{
+
+		//residuals[0] = T(weight) * (T(currentVertex[0]) - T(previousVertex[0]));
+		//residuals[1] = T(weight) * (T(currentVertex[1]) - T(previousVertex[1]));
+		residuals[0] = T(weight) * (pCurrentVertexDepth[0] - T(pVertex[2]));
+
+		return true;
+	}
+
+private:
+
+	bool optimizeDeformation;
+	double weight;
+	const double* pVertex;
+
+};

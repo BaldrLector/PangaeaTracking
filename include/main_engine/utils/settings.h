@@ -118,6 +118,9 @@ public:
 	// Path to Spherical Harmonic Coefficients for Illumination
 	std::string sh_coeff_file;
 
+	// Optimize only z component of each vertex
+	bool onlyDepth;
+
     // ceres parameter
     std::string linearSolver;
     int numOptimizationLevels;

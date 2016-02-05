@@ -306,6 +306,9 @@ TrackerSettings::TrackerSettings()
 	// By default, faces are supposed to be defined clockwise to support the 
 	// original implementation of Pangaea
 	clockwise = true;
+
+	// By default, estimate xyz 
+	onlyDepth = false;
 }
 
 void TrackerSettings::read(const cv::FileNode& node)
@@ -531,6 +534,10 @@ void TrackerSettings::read(const cv::FileNode& node)
 	// Read Spherical Harmonic Coefficients for Illumination
 	if (!node["sh_coeff_file"].empty())
 		node["sh_coeff_file"] >> sh_coeff_file;
+
+	// Read if estimate only depth or xyz
+	if (!node["only_depth"].empty())
+		node["only_depth"] >> onlyDepth;
 }
 
 ImageSourceType imageSourceType = IMAGESEQUENCE;
