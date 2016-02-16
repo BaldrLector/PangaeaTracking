@@ -362,43 +362,44 @@ bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
     // also depth and normals if there is anything related
     //imagePyramid.setupPyramid(pColorImageRGB, m_nMeshLevels);
 
-    if(preProcessingThread == NULL)
-    {
-        preProcessingThread = new boost::thread(
-            boost::bind(&ImagePyramid::setupPyramid,
-                pImagePyramidBuffer,
-                pColorImageRGB,
-                m_nMeshLevels));
-        preProcessingThread->join();
+    //if(preProcessingThread == NULL)
+    //{
+        //preProcessingThread = new boost::thread(
+        //    boost::bind(&ImagePyramid::setupPyramid,
+        //        pImagePyramidBuffer,
+        //        pColorImageRGB,
+        //        m_nMeshLevels));
+        //preProcessingThread->join();
+		pImagePyramidBuffer->setupPyramid(pColorImageRGB, m_nMeshLevels);
         dataInBuffer = true;
         ImagePyramid* temp = pImagePyramid;
         pImagePyramid = pImagePyramidBuffer;
         pImagePyramidBuffer = temp;
         dataInBuffer = false;
-    }
-    else
-    {
-        preProcessingThread->join();
+    //}
+    //else
+    //{
+    //    preProcessingThread->join();
 
-        TICK("assignmentTime");
-        if(dataInBuffer)
-        {
-            ImagePyramid* temp = pImagePyramid;
-            pImagePyramid = pImagePyramidBuffer;
-            pImagePyramidBuffer = temp;
-            dataInBuffer = false;
-        }
-        TOCK("assignmentTime");
+    //    TICK("assignmentTime");
+    //    if(dataInBuffer)
+    //    {
+    //        ImagePyramid* temp = pImagePyramid;
+    //        pImagePyramid = pImagePyramidBuffer;
+    //        pImagePyramidBuffer = temp;
+    //        dataInBuffer = false;
+    //    }
+    //    TOCK("assignmentTime");
 
-        delete preProcessingThread;
-        preProcessingThread = new boost::thread(
-            boost::bind(&ImagePyramid::setupPyramid,
-                pImagePyramidBuffer,
-                pColorImageRGB,
-                m_nMeshLevels));
-        dataInBuffer = true;
+    //    delete preProcessingThread;
+    //    preProcessingThread = new boost::thread(
+    //        boost::bind(&ImagePyramid::setupPyramid,
+    //            pImagePyramidBuffer,
+    //            pColorImageRGB,
+    //            m_nMeshLevels));
+    //    dataInBuffer = true;
 
-    }
+    //}
 
     TOCK("imagePreprocessing");
 
