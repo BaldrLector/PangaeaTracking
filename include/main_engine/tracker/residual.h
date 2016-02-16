@@ -1059,6 +1059,57 @@ public:
 };
 
 
+// Residual of the difference between the previous SH coefficients and the current ones
+class ResidualSHCoeff
+{
+public:
+	ResidualSHCoeff(const int _n_sh_coeff) : n_sh_coeff(_n_sh_coeff)
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const diff_sh_coeff, T* residuals) const
+	{
+		for (int i = 0; i < n_sh_coeff; i++)
+		{
+			residuals[i] = diff_sh_coeff[i];
+		}
+
+		return true;
+	}
+
+private:
+	// Number of SH coeff
+	const int n_sh_coeff;
+};
+
+// Residual of the difference between the previous albedo values and the current ones
+class ResidualAlbedo
+{
+public:
+	ResidualAlbedo(const bool _is_grayscale) : n_channels(_is_grayscale ? 1 : 3)
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const diff_albedo, T* residuals) const
+	{
+		for (int i = 0; i < n_channels; i++)
+		{
+			residuals[i] = current_albedo[i];
+		}
+
+		return true;
+	}
+
+private:
+	// Number of albedo channels
+	const int n_channels;
+};
+
+
 class EnergyCallback: public ceres::IterationCallback
 {
 
