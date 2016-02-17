@@ -184,6 +184,11 @@ private:
   double camPose[6];
   double KK[3][3];
 
+  // Spherical Harmonic Coefficients for representing illumination
+  vector<double> sh_coeff;
+  // Spherical Harmonic order
+  int sh_order;
+
   //
   CameraInfo camInfo;
   bool trackerInitialized;
@@ -254,6 +259,9 @@ private:
 
   // set this to true when doing optimization on ground truth data
   bool modeGT;
+
+  // Read Spherical Harmonic Coefficients from file
+  void readSHCoeff(const std::string _sh_coeff_filename);
 
 };
 

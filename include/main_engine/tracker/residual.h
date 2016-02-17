@@ -22,10 +22,12 @@ enum dataTermErrorType{
   PE_COLOR_NCC,
   PE_FEATURE, // number of residuals depend on the number of channels
   PE_FEATURE_NCC,
+  PE_INTRINSIC,
+  PE_INTRINSIC_COLOR,
   COST_TYPE_NUM
 };
 
-static int PE_RESIDUAL_NUM_ARRAY[COST_TYPE_NUM] = {1,3,3,1,1,3,-1,-1};
+static int PE_RESIDUAL_NUM_ARRAY[COST_TYPE_NUM] = {1,3,3,1,1,3,-1,-1,1,3};
 
 template<typename T>
 void getValueFromMesh(const PangaeaMeshData* pMeshData, dataTermErrorType errorType, int pntInd, T* pValue)
@@ -449,7 +451,7 @@ public:
     return true;
   }
 
-private:
+protected:
   bool optimizeDeformation;  // whether optimize deformation directly
   double* pVertex;
   double weight;
@@ -1194,3 +1196,347 @@ public:
 
 
 // }
+
+// Applies deformation, rotation and translation to a vertex
+template <typename T>
+void getRotTransP(const T* const rotation, const T* const translation,
+	const T* const xyz, const double* const pVertex, bool optimizeDeformation, T* p)
+{
+	T afterTrans[3];
+
+	// if we are doing optimization on the transformation,
+	// we need to add up the template position first
+	if (optimizeDeformation)
+	{
+		afterTrans[0] = xyz[0] + pVertex[0];
+		afterTrans[1] = xyz[1] + pVertex[1];
+		afterTrans[2] = xyz[2] + pVertex[2];
+	}
+	else
+	{
+		afterTrans[0] = xyz[0];
+		afterTrans[1] = xyz[1];
+		afterTrans[2] = xyz[2];
+	}
+
+	ceres::AngleAxisRotatePoint(rotation, afterTrans, p);
+	p[0] += translation[0];
+	p[1] += translation[1];
+	p[2] += translation[2];
+}
+
+// Computes vertex normal direction given its position, its one-ring neighbours 
+// and the corresponding face indexes. Can handle clockwise and counter-clockwise
+template <typename T>
+void computeNormal(const T* p, const vector<T*> &adjP, const vector<unsigned int> &face_vIdxs,
+	const bool clockwise, T* normal)
+{
+	normal[0] = T(0.0);
+	normal[1] = T(0.0);
+	normal[2] = T(0.0);
+
+	for (int i = 0; i < face_vIdxs.size() / 2; i++)
+	{
+		unsigned int vIdx1 = face_vIdxs[2 * i];
+		unsigned int vIdx2 = face_vIdxs[2 * i + 1];
+
+		T face_normal[3];
+		//compnorm(p, adjP[vIdx1], adjP[vIdx2], face_normal, false);
+
+		// WORKAROUND
+		// Problems with ambiguity with compnorm. This should be solved.
+		// For now, the function has just been copied and pasted here
+
+		const T* ver1 = p;
+		const T* ver2 = adjP[vIdx1];
+		const T* ver3 = adjP[vIdx2];
+
+		T a[3];
+		T b[3];
+
+		if (clockwise)
+		{
+			a[0] = ver1[0] - ver3[0];
+			a[1] = ver1[1] - ver3[1];
+			a[2] = ver1[2] - ver3[2];
+
+			b[0] = ver1[0] - ver2[0];
+			b[1] = ver1[1] - ver2[1];
+			b[2] = ver1[2] - ver2[2];
+		}
+		else	// Anti-clockwsie
+		{
+			a[0] = ver1[0] - ver2[0];
+			a[1] = ver1[1] - ver2[1];
+			a[2] = ver1[2] - ver2[2];
+
+			b[0] = ver1[0] - ver3[0];
+			b[1] = ver1[1] - ver3[1];
+			b[2] = ver1[2] - ver3[2];
+		}
+
+		face_normal[0] = a[1] * b[2] - a[2] * b[1];
+		face_normal[1] = a[2] * b[0] - a[0] * b[2];
+		face_normal[2] = a[0] * b[1] - a[1] * b[0];
+
+		if (face_normal[1] * face_normal[1]
+			+ face_normal[2] * face_normal[2]
+			+ face_normal[0] * face_normal[0] != T(0))
+		{
+			T temp = T(1.0f) /
+				sqrt(face_normal[1] * face_normal[1]
+				+ face_normal[2] * face_normal[2]
+				+ face_normal[0] * face_normal[0]);
+			face_normal[0] *= temp;
+			face_normal[1] *= temp;
+			face_normal[2] *= temp;
+		}
+
+		normal[0] += face_normal[0];
+		normal[1] += face_normal[1];
+		normal[2] += face_normal[2];
+	}
+
+	T norm = sqrt(normal[1] * normal[1] + normal[2] * normal[2] + normal[0] * normal[0]);
+	if (norm != T(0.0))
+	{
+		normal[0] /= norm;
+		normal[1] /= norm;
+		normal[2] /= norm;
+	}
+}
+
+// Computes shading value given normal direction, spherical harmonic coefficients 
+// and the SH order
+template <typename T>
+T computeShading(const T* _normal, const double* _sh_coeff, int _sh_order)
+{
+	T n_x = _normal[0];
+	T n_y = _normal[1];
+	T n_z = _normal[2];
+
+	T n_x2 = n_x * n_x;
+	T n_y2 = n_y * n_y;
+	T n_z2 = n_z * n_z;
+	T n_xy = n_x * n_y;
+	T n_xz = n_x * n_z;
+	T n_yz = n_y * n_z;
+	T n_x2_y2 = n_x2 - n_y2;
+
+	T shading = T(_sh_coeff[0]);
+
+	if (_sh_order > 0)
+		shading = shading
+		+ T(_sh_coeff[1]) * n_x					// x
+		+ T(_sh_coeff[2]) * n_y					// y
+		+ T(_sh_coeff[3]) * n_z;				// z
+
+	if (_sh_order > 1)
+		shading = shading
+		+ T(_sh_coeff[4]) * n_xy						// x * y
+		+ T(_sh_coeff[5]) * n_xz						// x * z
+		+ T(_sh_coeff[6]) * n_yz						// y * z
+		+ T(_sh_coeff[7]) * n_x2_y2						// x^2 - y^2
+		+ T(_sh_coeff[8]) * (T(3.0) * n_z2 - T(1.0));	// 3 * z^2 - 1
+
+	if (_sh_order > 2)
+		shading = shading
+		+ T(_sh_coeff[9]) * (T(3.0) * n_x2 - n_y2) * n_y		// (3 * x^2 - y^2) * y 
+		+ T(_sh_coeff[10]) * n_x * n_y * n_z					// x * y * z
+		+ T(_sh_coeff[11]) * (T(5.0) * n_z2 - T(1.0)) * n_y		// (5 * z^2 - 1) * y
+		+ T(_sh_coeff[12]) * (T(5.0) * n_z2 - T(3.0)) * n_z		// (5 * z^2 - 3) * z
+		+ T(_sh_coeff[13]) * (T(5.0) * n_z2 - T(1.0)) * n_x		// (5 * z^2 - 1) * x
+		+ T(_sh_coeff[14]) * n_x2_y2 * n_z						// (x^2 - y^2) * z
+		+ T(_sh_coeff[15]) * (n_x2 - T(3.0) * n_y2) * n_x;		// (x^2 - 3 * y^2) * x
+
+	if (_sh_order > 3)
+		shading = shading
+		+ T(_sh_coeff[16]) * n_x2_y2 * n_x * n_y								// (x^2 - y^2) * x * y
+		+ T(_sh_coeff[17]) * (T(3.0) * n_x2 - n_y2) * n_yz						// (3 * x^2 - y^2) * yz
+		+ T(_sh_coeff[18]) * (T(7.0) * n_z2 - T(1.0)) * n_xy					// (7 * z^2 - 1) * x * y
+		+ T(_sh_coeff[19]) * (T(7.0) * n_z2 - T(3.0)) * n_yz					// (7 * z^2 - 3) * y * z
+		+ T(_sh_coeff[20]) * (T(3.0) - T(30.0) * n_z2 + T(35.0) * n_z2 * n_z2)	// 3 - 30 * z^2 + 35 * z^4
+		+ T(_sh_coeff[21]) * (T(7.0) * n_z - T(3.0)) * n_xz						// (7 * z^2 - 3) * x * z
+		+ T(_sh_coeff[22]) * (T(7.0) * n_z - T(1.0)) * n_x2_y2					// (7 * z^2 - 1) * (x^2 - y^2)
+		+ T(_sh_coeff[23]) * (n_x2 - T(3.0) * n_y2) * n_xz						// (x^2 - 3 * y^2) * x * z
+		+ T(_sh_coeff[24]) * ((n_x2 - T(3.0) * n_y2) * n_x2					// (x^2 - 3 * y^2) * x^2 - (3 * x^2 - y^2) * y^2 
+		- (T(3.0) * n_x2 - n_y2) * n_y2);
+
+	return shading;
+}
+
+template<typename T>
+void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level* pFrame,
+	double* pValue, T* shading, T* p, T* residuals, const dataTermErrorType& PE_TYPE)
+{
+	T transformed_r, transformed_c;
+
+	IntrinsicProjection(pCamera, p, &transformed_c, &transformed_r);
+
+	T templateValue, currentValue;
+
+	if (transformed_r >= T(0.0) && transformed_r < T(pCamera->height) &&
+		transformed_c >= T(0.0) && transformed_c < T(pCamera->width))
+	{
+		ImageLevel* pImageLevel = (ImageLevel*)pFrame;
+		switch (PE_TYPE)
+		{
+		case PE_INTRINSIC:
+			templateValue = T(pValue[0]) * shading[0];
+			currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->grayImage,
+				pImageLevel->gradXImage,
+				pImageLevel->gradYImage,
+				transformed_c,
+				transformed_r);
+			residuals[0] = T(weight) * (currentValue - templateValue);
+			break;
+
+		case PE_INTRINSIC_COLOR:
+			for (int i = 0; i < 3; ++i)
+			{
+				templateValue = T(pValue[i]) * shading[0];
+				currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->colorImageSplit[i],
+					pImageLevel->colorImageGradXSplit[i],
+					pImageLevel->colorImageGradYSplit[i],
+					transformed_c,
+					transformed_r);
+				residuals[i] = T(weight) * (currentValue - templateValue);
+			}
+			break;
+
+		default:
+			break;
+		}
+	}
+
+}
+
+// Photometric cost for the case of known albedo and illumination (sh representation)
+class ResidualImageProjectionIntrinsic : public ResidualImageProjection
+{
+public:
+	ResidualImageProjectionIntrinsic(double weight, double* pValue, double* pVertex,
+		const CameraInfo* pCamera, const Level* pFrame, const int _num_neighbours,
+		const vector<double*> &_adjPVertex, const vector<unsigned int> &_face_vIdxs,
+		dataTermErrorType PE_TYPE = PE_INTRINSIC, const bool _clockwise = true,
+		const int _sh_order = 0, const double* _sh_coeff = 0) :
+		ResidualImageProjection(weight, pValue, pVertex,
+		pCamera, pFrame, PE_TYPE),
+		num_neighbours(_num_neighbours),
+		adjPVertex(_adjPVertex),
+		face_vIdxs(_face_vIdxs),
+		clockwise(_clockwise),
+		sh_order(_sh_order),
+		sh_coeff(_sh_coeff)
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const* const parameters, T* residuals) const
+	{
+		// Parameters:
+		// 0 - Rotation
+		// 1 - Translation
+		// 2 - Current vertex position or translation
+		// >2 - Neighbour vertices positions or translations
+
+		const T* rotation = parameters[0];
+		const T* translation = parameters[1];
+
+		T p[3];
+		getRotTransP(rotation, translation, parameters[2], pVertex,
+			optimizeDeformation, p);
+
+		vector<T*> adjP;
+		T* p_neighbour;
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			p_neighbour = new T[3];
+			getRotTransP(rotation, translation, parameters[3 + i], adjPVertex[i],
+				optimizeDeformation, p_neighbour);
+			adjP.push_back(p_neighbour);
+		}
+
+		T normal[3];
+		computeNormal(p, adjP, face_vIdxs, clockwise, normal);
+
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			delete[] adjP[i];
+		}
+
+		T shading = computeShading(normal, sh_coeff, sh_order);
+
+		getResidualIntrinsic(weight, pCamera, pFrame, pValue, &shading, p, residuals,
+			PE_TYPE);
+
+		return true;
+
+	}
+
+private:
+	// Number of one-ring neighbours
+	const int num_neighbours;
+	// Adjacent faces indexes
+	const vector<unsigned int> face_vIdxs;
+	// Adjacent vertices coordinates
+	const vector<double*> adjPVertex;
+
+	// Identifies if faces are defined clockwise
+	const bool clockwise;
+	// SH order
+	const int sh_order;
+	//SH coefficients
+	const double* sh_coeff;
+};
+
+// Residual of the difference between the previous SH coefficients and the current ones
+class ResidualSHCoeff
+{
+public:
+	ResidualSHCoeff(const int _n_sh_coeff) : n_sh_coeff(_n_sh_coeff)
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const diff_sh_coeff, T* residuals) const
+	{
+		for (int i = 0; i < n_sh_coeff; i++)
+		{
+			residuals[i] = diff_sh_coeff[i];
+		}
+
+		return true;
+	}
+
+private:
+	// Number of SH coeff
+	const int n_sh_coeff;
+};
+
+// Residual of the difference between the previous albedo values and the current ones
+class ResidualAlbedo
+{
+public:
+	ResidualAlbedo(const bool _is_grayscale) : n_channels(_is_grayscale ? 1 : 3)
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const diff_albedo, T* residuals) const
+	{
+		for (int i = 0; i < n_channels; i++)
+		{
+			residuals[i] = current_albedo[i];
+		}
+
+		return true;
+	}
+
+private:
+	// Number of albedo channels
+	const int n_channels;
+};

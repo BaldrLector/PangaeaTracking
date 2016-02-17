@@ -33,6 +33,7 @@ public:
 
     facesVerticesInd = d.facesVerticesInd;
     adjVerticesInd = d.adjVerticesInd;
+	adjFacesInd = d.adjFacesInd;
     modelColors = d.modelColors;
     modelLabels = d.modelLabels;
 
@@ -55,6 +56,7 @@ public:
 
     facesVerticesInd = d.facesVerticesInd;
     adjVerticesInd = d.adjVerticesInd;
+	adjFacesInd = d.adjFacesInd;
     modelColors = d.modelColors;
     modelLabels = d.modelLabels;
 
@@ -79,6 +81,7 @@ public:
 
     facesVerticesInd = std::move(d.facesVerticesInd);
     adjVerticesInd = std::move(d.adjVerticesInd);
+	adjFacesInd = std::move(d.adjFacesInd);
     modelColors = std::move(d.modelColors);
     modelLabels = std::move(d.modelLabels);
 
@@ -99,6 +102,7 @@ public:
     grays = std::move(d.grays);
     facesVerticesInd = std::move(d.facesVerticesInd);
     adjVerticesInd = std::move(d.adjVerticesInd);
+	adjFacesInd = std::move(d.adjFacesInd);
     modelColors = std::move(d.modelColors);
     modelLabels = std::move(d.modelLabels);
 
@@ -124,6 +128,7 @@ public:
 
   vector<vector<unsigned int> > facesVerticesInd;
   vector<vector<unsigned int> > adjVerticesInd;
+  vector<vector<unsigned int> > adjFacesInd;
 
   vector<vector<FloatType> > modelColors;
   vector<unsigned int> modelLabels;
@@ -151,6 +156,7 @@ void MeshData<FloatType>::clear()
   grays.clear();
   facesVerticesInd.clear();
   adjVerticesInd.clear();
+  adjFacesInd.clear();
   modelColors.clear();
   modelLabels.clear();
 

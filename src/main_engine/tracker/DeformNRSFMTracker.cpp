@@ -13,6 +13,8 @@ dataTermErrorType mapErrorType(std::string const& inString){
   if(inString == "depth_plane") return PE_DEPTH_PLANE;
   if(inString == "ncc") return PE_NCC;
   if(inString == "color_ncc") return PE_COLOR_NCC;
+  if (inString == "intrinsic") return PE_INTRINSIC;
+  if (inString == "intrinsic_color") return PE_INTRINSIC_COLOR;
 }
 
 // Linear Solver mapping
@@ -113,6 +115,10 @@ DeformNRSFMTracker::DeformNRSFMTracker(TrackerSettings& settings, int width, int
         "INEXTENTTerm", "DeformTerm", "TermporalTerm", "SumCost", "TotalCost"});
   costNames = std::move(temp);
 
+	if (PEType == PE_INTRINSIC || PEType == PE_INTRINSIC_COLOR)
+	{
+		readSHCoeff(trackerSettings.sh_coeff_file);
+	}
 }
 
 DeformNRSFMTracker::~DeformNRSFMTracker()
@@ -1247,7 +1253,234 @@ void DeformNRSFMTracker::AddCostImageProjection(ceres::Problem& problem,
 
             }
 
+		  case PE_INTRINSIC:
+			  {
+			  // List of local indexes of adjacent vertices per face.
+			  // Its size is twice the number or adjacent points.
+			  // Stored as it was defined in the mesh (clockwise or anti-clockwise)
+			  vector<unsigned int> face_vIdxs;
+			  // List of position of each adjacent face
+			  vector<double*> adjPVertex;
+			  // List of adjacent vertices indexes from the mesh
+			  vector<unsigned int> old_vIdxs;
+			  // Map between mesh index and local adjacent index
+			  map<unsigned int, unsigned int> map_vIdxs;
+			  // Last local adjacent index
+			  unsigned int lastIdx = 0;
 
+			  // List of pointers to vertices
+			  vector<double*> v_vertices;
+			  // List of pointers to translations per vertex
+			  vector<double*> v_parameter_blocks;
+			  // Dynamic photometric cost function (only if it has more than six neighbours)
+			  ceres::DynamicAutoDiffCostFunction<ResidualImageProjectionIntrinsic, 5>* dyn_cost_function;
+			  int n_neighbours;
+
+			  // For the current vertex, loop for each adjacent face
+			  for (int j = 0; j < templateMesh.adjFacesInd[i].size(); j++)
+			  {
+				  int faceIdx = templateMesh.adjFacesInd[i][j];
+
+				  int fv_idx0 = templateMesh.facesVerticesInd[faceIdx][0];
+				  int fv_idx1 = templateMesh.facesVerticesInd[faceIdx][1];
+				  int fv_idx2 = templateMesh.facesVerticesInd[faceIdx][2];
+
+				  // Neighbours anticlockwise from current vertex
+				  int neigh_idxs[2];
+
+				  if (fv_idx0 == i)
+				  {
+					  neigh_idxs[0] = fv_idx1;
+					  neigh_idxs[1] = fv_idx2;
+				  }
+				  else
+				  {
+					  if (fv_idx1 == i)
+					  {
+						  neigh_idxs[0] = fv_idx2;
+						  neigh_idxs[1] = fv_idx0;
+					  }
+					  else // fv_idx2 == i
+					  {
+						  neigh_idxs[0] = fv_idx0;
+						  neigh_idxs[1] = fv_idx1;
+					  }
+				  }
+
+				  // Loop for each vertex in the face
+				  // Assuming triangular mesh
+				  for (int k = 0; k < 2; k++)
+				  {
+					  int currIdx = neigh_idxs[k];
+
+					  if (map_vIdxs.find(currIdx) == map_vIdxs.end())
+					  {
+						  adjPVertex.push_back(&templateMesh.vertices[currIdx][0]);
+						  old_vIdxs.push_back(currIdx);
+						  map_vIdxs.insert(pair<unsigned int, unsigned int>(currIdx, lastIdx));
+						  lastIdx++;
+					  }
+					  face_vIdxs.push_back(map_vIdxs[currIdx]);
+				  }
+			  }
+
+			  n_neighbours = old_vIdxs.size();
+			  v_vertices.push_back(&templateMesh.vertices[i][0]);
+			  for (int j = 0; j < n_neighbours; j++)
+			  {
+				  v_vertices.push_back(&templateMesh.vertices[old_vIdxs[j]][0]);
+			  }
+
+			  dyn_cost_function
+				  = new ceres::DynamicAutoDiffCostFunction< ResidualImageProjectionIntrinsic, 5 >(
+				  new ResidualImageProjectionIntrinsic(1, &templateMesh.grays[i],
+				  &templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
+				  face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0]));
+
+			  // Rigid rotation
+			  dyn_cost_function->AddParameterBlock(3);
+			  v_parameter_blocks.push_back(&camPose[0]);
+			  // Rigid translation
+			  v_parameter_blocks.push_back(&camPose[3]);
+			  dyn_cost_function->AddParameterBlock(3);
+
+			  // Local translations
+			  v_parameter_blocks.push_back(&meshTrans[i][0]);
+			  dyn_cost_function->AddParameterBlock(3);
+			  for (int j = 0; j < n_neighbours; j++)
+			  {
+				  v_parameter_blocks.push_back(&meshTrans[old_vIdxs[j]][0]);
+				  dyn_cost_function->AddParameterBlock(3);
+			  }
+
+			  dyn_cost_function->SetNumResiduals(PE_RESIDUAL_NUM_ARRAY[errorType]);
+
+			  ceres::ResidualBlockId residualBlockId = problem.AddResidualBlock(
+				  dyn_cost_function,
+				  loss_function,
+				  v_parameter_blocks);
+
+			  if (modeGT)
+				  problemWrapperGT.addDataTerm(currLevel, residualBlockId);
+			  else
+				  problemWrapper.addDataTerm(currLevel, residualBlockId);
+
+			  break;
+			  }
+		  case PE_INTRINSIC_COLOR:
+			  {
+			  // List of local indexes of adjacent vertices per face.
+			  // Its size is twice the number or adjacent points.
+			  // Stored as it was defined in the mesh (clockwise or anti-clockwise)
+			  vector<unsigned int> face_vIdxs;
+			  // List of position of each adjacent face
+			  vector<double*> adjPVertex;
+			  // List of adjacent vertices indexes from the mesh
+			  vector<unsigned int> old_vIdxs;
+			  // Map between mesh index and local adjacent index
+			  map<unsigned int, unsigned int> map_vIdxs;
+			  // Last local adjacent index
+			  unsigned int lastIdx = 0;
+
+			  // List of pointers to vertices
+			  vector<double*> v_vertices;
+			  // List of pointers to translations per vertex
+			  vector<double*> v_parameter_blocks;
+			  // Dynamic photometric cost function (only if it has more than six neighbours)
+			  ceres::DynamicAutoDiffCostFunction<ResidualImageProjectionIntrinsic, 5>* dyn_cost_function;
+			  int n_neighbours;
+
+			  // For the current vertex, loop for each adjacent face
+			  for (int j = 0; j < templateMesh.adjFacesInd[i].size(); j++)
+			  {
+				  int faceIdx = templateMesh.adjFacesInd[i][j];
+
+				  int fv_idx0 = templateMesh.facesVerticesInd[faceIdx][0];
+				  int fv_idx1 = templateMesh.facesVerticesInd[faceIdx][1];
+				  int fv_idx2 = templateMesh.facesVerticesInd[faceIdx][2];
+
+				  // Neighbours anticlockwise from current vertex
+				  int neigh_idxs[2];
+
+				  if (fv_idx0 == i)
+				  {
+					  neigh_idxs[0] = fv_idx1;
+					  neigh_idxs[1] = fv_idx2;
+				  }
+				  else
+				  {
+					  if (fv_idx1 == i)
+					  {
+						  neigh_idxs[0] = fv_idx2;
+						  neigh_idxs[1] = fv_idx0;
+					  }
+					  else // fv_idx2 == i
+					  {
+						  neigh_idxs[0] = fv_idx0;
+						  neigh_idxs[1] = fv_idx1;
+					  }
+				  }
+
+				  // Loop for each vertex in the face
+				  // Assuming triangular mesh
+				  for (int k = 0; k < 2; k++)
+				  {
+					  int currIdx = neigh_idxs[k];
+
+					  if (map_vIdxs.find(currIdx) == map_vIdxs.end())
+					  {
+						  adjPVertex.push_back(&templateMesh.vertices[currIdx][0]);
+						  old_vIdxs.push_back(currIdx);
+						  map_vIdxs.insert(pair<unsigned int, unsigned int>(currIdx, lastIdx));
+						  lastIdx++;
+					  }
+					  face_vIdxs.push_back(map_vIdxs[currIdx]);
+				  }
+			  }
+
+			  n_neighbours = old_vIdxs.size();
+			  v_vertices.push_back(&templateMesh.vertices[i][0]);
+			  for (int j = 0; j < n_neighbours; j++)
+			  {
+				  v_vertices.push_back(&templateMesh.vertices[old_vIdxs[j]][0]);
+			  }
+
+			  dyn_cost_function
+				  = new ceres::DynamicAutoDiffCostFunction< ResidualImageProjectionIntrinsic, 5 >(
+				  new ResidualImageProjectionIntrinsic(1, &templateMesh.colors[i][0],
+				  &templateMesh.vertices[i][0], pCamera, pFrame, n_neighbours, adjPVertex,
+				  face_vIdxs, errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0]));
+
+			  // Rigid rotation
+			  dyn_cost_function->AddParameterBlock(3);
+			  v_parameter_blocks.push_back(&camPose[0]);
+			  // Rigid translation
+			  v_parameter_blocks.push_back(&camPose[3]);
+			  dyn_cost_function->AddParameterBlock(3);
+
+			  // Local translations
+			  v_parameter_blocks.push_back(&meshTrans[i][0]);
+			  dyn_cost_function->AddParameterBlock(3);
+			  for (int j = 0; j < n_neighbours; j++)
+			  {
+				  v_parameter_blocks.push_back(&meshTrans[old_vIdxs[j]][0]);
+				  dyn_cost_function->AddParameterBlock(3);
+			  }
+
+			  dyn_cost_function->SetNumResiduals(PE_RESIDUAL_NUM_ARRAY[errorType]);
+
+			  ceres::ResidualBlockId residualBlockId = problem.AddResidualBlock(
+				  dyn_cost_function,
+				  loss_function,
+				  v_parameter_blocks);
+
+			  if (modeGT)
+				  problemWrapperGT.addDataTerm(currLevel, residualBlockId);
+			  else
+				  problemWrapper.addDataTerm(currLevel, residualBlockId);
+
+			  break;
+			  }
           }
 
 
@@ -1599,6 +1832,8 @@ void DeformNRSFMTracker::AddPhotometricCostNew(ceres::Problem& problem,
             case PE_INTENSITY:
             case PE_COLOR:
             case PE_FEATURE:
+			case PE_INTRINSIC:
+			case PE_INTRINSIC_COLOR:
               AddCostImageProjection(problem,
                                      loss_function,
                                      errorType,
@@ -2502,8 +2737,14 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
     {
       //TICK("SetupARAPCost"  + std::to_string( currLevel ) );
 
+	  ceres::LossFunction* pArapLossFunction = NULL;
+	  if (trackerSettings.arapHuberWidth)
+	  {
+		  pArapLossFunction = new ceres::HuberLoss(trackerSettings.arapHuberWidth);
+	  }
+
       ceres::ScaledLoss* arapScaledLoss = new ceres::ScaledLoss(
-                                                                NULL,
+																pArapLossFunction,
                                                                 weightParaLevel.arapTermWeight,
                                                                 ceres::TAKE_OWNERSHIP);
       AddARAPCost(problem, arapScaledLoss);
@@ -3133,4 +3374,31 @@ void DeformNRSFMTracker::AttachFeatureToMesh(PangaeaMeshData* pMesh,
 
     }
 
+}
+
+void DeformNRSFMTracker::readSHCoeff(const std::string _sh_coeff_filename)
+{
+	ifstream ifs(_sh_coeff_filename);
+
+	if (!ifs.is_open())
+	{
+		cerr << "could not open file " << _sh_coeff_filename << endl;
+		return;
+	}
+
+	double value;
+	while (ifs >> value) {
+		sh_coeff.push_back(value);
+	}
+
+	ifs.close();
+
+	sh_order = std::sqrt(sh_coeff.size()) - 1;
+
+	if ((sh_order + 1) * (sh_order + 1) != sh_coeff.size())
+	{
+		cerr << "The number of SH coefficients is not correct (" << _sh_coeff_filename
+			<< "). It should be equal to (n + 1)^2 where n is the SH order." << endl;
+		return;
+	}
 }
