@@ -108,7 +108,8 @@ public:
     double weightTransPrior;
     double photometricHuberWidth;
     double tvHuberWidth;
-    double tvRotHuberWidth;
+	double tvRotHuberWidth;
+	double arapHuberWidth;
 
     double meshScaleUpFactor;
 

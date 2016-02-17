@@ -260,6 +260,7 @@ TrackerSettings::TrackerSettings()
     tvHuberWidth = 0.2;
     tvRotHuberWidth = 0.2;
     meshScaleUpFactor = 1.0;
+	arapHuberWidth = 0.2;
 
     // ceres parameter
     linearSolver = "CG";
@@ -385,6 +386,9 @@ void TrackerSettings::read(const cv::FileNode& node)
 
     if(!node["mesh_scale_up_factor"].empty())
     node["mesh_scale_up_factor"] >> meshScaleUpFactor;
+
+	if (!node["arap_huber_width"].empty())
+		node["arap_huber_width"] >> arapHuberWidth;
 
     // ceres
     if(!node["linear_solver"].empty())
