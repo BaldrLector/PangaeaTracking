@@ -52,6 +52,9 @@ typedef std::vector<vector< pair<int, int> > > VecVecPairType;
 typedef std::vector<vector< vector<int> > > VecVecVecType;
 typedef vector<vector<double> > MeshDeformation;
 
+// Vertex albedo changes
+typedef vector<vector<double> > AlbedoVariation;
+
 typedef cv::Vec<PixelType,3> Vec3b;
 typedef cv::Vec<CoordinateType,3> Vec3d;
 

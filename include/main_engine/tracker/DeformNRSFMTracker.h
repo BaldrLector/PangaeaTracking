@@ -123,6 +123,17 @@ public:
                               CameraInfo* pCamera,
                               Level* pFrame);
 
+  void AddCostImageProjectionIntrinsic(ceres::Problem& problem,
+	  ceres::LossFunction* loss_function,
+	  dataTermErrorType errorType,
+	  PangaeaMeshData& templateMesh,
+	  MeshDeformation& meshTrans,
+	  vector<double>& shCoeffChange,
+	  AlbedoVariation& albedoChange,
+	  vector<bool>& visibilityMask,
+	  CameraInfo* pCamera,
+	  Level* pFrame);
+
   void AddCostImageProjectionPatch(ceres::Problem& problem,
                                    ceres::LossFunction* loss_function,
                                    dataTermErrorType errorType,
@@ -219,6 +230,10 @@ private:
   vector< MeshDeformation > meshRotPyramid;
   vector< MeshDeformation > prevMeshTransPyramid;
   vector< MeshDeformation > prevMeshRotPyramid;
+  vector< AlbedoVariation > albedoChangePyramid;
+  vector< AlbedoVariation > prevAlbedoChangePyramid;
+  vector< double > shCoeffChange;
+  vector< double > prevSHCoeffChange;
 
   // what about if we use dual quarternion representation?
   // In that case, we will need a dual quarternion

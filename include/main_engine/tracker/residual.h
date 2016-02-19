@@ -1,7 +1,7 @@
 #pragma once
 
 #include "./Mesh.h"
-#include "./ImagePyramid.h"
+#include "./FeaturePyramid.h"
 
 #include "sample.h"
 #include "jet_extras.h"
@@ -1309,7 +1309,8 @@ void computeNormal(const T* p, const vector<T*> &adjP, const vector<unsigned int
 // Computes shading value given normal direction, spherical harmonic coefficients 
 // and the SH order
 template <typename T>
-T computeShading(const T* _normal, const double* _sh_coeff, int _sh_order)
+T computeShading(const T* _normal, const double* _sh_coeff, const int _sh_order, 
+	const T* _sh_coeff_incr)
 {
 	T n_x = _normal[0];
 	T n_y = _normal[1];
@@ -1323,43 +1324,43 @@ T computeShading(const T* _normal, const double* _sh_coeff, int _sh_order)
 	T n_yz = n_y * n_z;
 	T n_x2_y2 = n_x2 - n_y2;
 
-	T shading = T(_sh_coeff[0]);
+	T shading = T(_sh_coeff[0]) + _sh_coeff_incr[0];
 
 	if (_sh_order > 0)
 		shading = shading
-		+ T(_sh_coeff[1]) * n_x					// x
-		+ T(_sh_coeff[2]) * n_y					// y
-		+ T(_sh_coeff[3]) * n_z;				// z
+		+ (T(_sh_coeff[1]) + _sh_coeff_incr[1]) * n_x					// x
+		+ (T(_sh_coeff[2]) + _sh_coeff_incr[2]) * n_y					// y
+		+ (T(_sh_coeff[3]) + _sh_coeff_incr[3]) * n_z;				// z
 
 	if (_sh_order > 1)
 		shading = shading
-		+ T(_sh_coeff[4]) * n_xy						// x * y
-		+ T(_sh_coeff[5]) * n_xz						// x * z
-		+ T(_sh_coeff[6]) * n_yz						// y * z
-		+ T(_sh_coeff[7]) * n_x2_y2						// x^2 - y^2
-		+ T(_sh_coeff[8]) * (T(3.0) * n_z2 - T(1.0));	// 3 * z^2 - 1
+		+ (T(_sh_coeff[4]) + _sh_coeff_incr[4]) * n_xy						// x * y
+		+ (T(_sh_coeff[5]) + _sh_coeff_incr[5]) * n_xz						// x * z
+		+ (T(_sh_coeff[6]) + _sh_coeff_incr[6]) * n_yz						// y * z
+		+ (T(_sh_coeff[7]) + _sh_coeff_incr[7]) * n_x2_y2						// x^2 - y^2
+		+ (T(_sh_coeff[8]) + _sh_coeff_incr[8]) * (T(3.0) * n_z2 - T(1.0));	// 3 * z^2 - 1
 
 	if (_sh_order > 2)
 		shading = shading
-		+ T(_sh_coeff[9]) * (T(3.0) * n_x2 - n_y2) * n_y		// (3 * x^2 - y^2) * y 
-		+ T(_sh_coeff[10]) * n_x * n_y * n_z					// x * y * z
-		+ T(_sh_coeff[11]) * (T(5.0) * n_z2 - T(1.0)) * n_y		// (5 * z^2 - 1) * y
-		+ T(_sh_coeff[12]) * (T(5.0) * n_z2 - T(3.0)) * n_z		// (5 * z^2 - 3) * z
-		+ T(_sh_coeff[13]) * (T(5.0) * n_z2 - T(1.0)) * n_x		// (5 * z^2 - 1) * x
-		+ T(_sh_coeff[14]) * n_x2_y2 * n_z						// (x^2 - y^2) * z
-		+ T(_sh_coeff[15]) * (n_x2 - T(3.0) * n_y2) * n_x;		// (x^2 - 3 * y^2) * x
+		+ (T(_sh_coeff[9]) + _sh_coeff_incr[9]) * (T(3.0) * n_x2 - n_y2) * n_y		// (3 * x^2 - y^2) * y 
+		+ (T(_sh_coeff[10]) + _sh_coeff_incr[10]) * n_x * n_y * n_z					// x * y * z
+		+ (T(_sh_coeff[11]) + _sh_coeff_incr[11]) * (T(5.0) * n_z2 - T(1.0)) * n_y		// (5 * z^2 - 1) * y
+		+ (T(_sh_coeff[12]) + _sh_coeff_incr[12]) * (T(5.0) * n_z2 - T(3.0)) * n_z		// (5 * z^2 - 3) * z
+		+ (T(_sh_coeff[13]) + _sh_coeff_incr[13]) * (T(5.0) * n_z2 - T(1.0)) * n_x		// (5 * z^2 - 1) * x
+		+ (T(_sh_coeff[14]) + _sh_coeff_incr[14]) * n_x2_y2 * n_z						// (x^2 - y^2) * z
+		+ (T(_sh_coeff[15]) + _sh_coeff_incr[15]) * (n_x2 - T(3.0) * n_y2) * n_x;		// (x^2 - 3 * y^2) * x
 
 	if (_sh_order > 3)
 		shading = shading
-		+ T(_sh_coeff[16]) * n_x2_y2 * n_x * n_y								// (x^2 - y^2) * x * y
-		+ T(_sh_coeff[17]) * (T(3.0) * n_x2 - n_y2) * n_yz						// (3 * x^2 - y^2) * yz
-		+ T(_sh_coeff[18]) * (T(7.0) * n_z2 - T(1.0)) * n_xy					// (7 * z^2 - 1) * x * y
-		+ T(_sh_coeff[19]) * (T(7.0) * n_z2 - T(3.0)) * n_yz					// (7 * z^2 - 3) * y * z
-		+ T(_sh_coeff[20]) * (T(3.0) - T(30.0) * n_z2 + T(35.0) * n_z2 * n_z2)	// 3 - 30 * z^2 + 35 * z^4
-		+ T(_sh_coeff[21]) * (T(7.0) * n_z - T(3.0)) * n_xz						// (7 * z^2 - 3) * x * z
-		+ T(_sh_coeff[22]) * (T(7.0) * n_z - T(1.0)) * n_x2_y2					// (7 * z^2 - 1) * (x^2 - y^2)
-		+ T(_sh_coeff[23]) * (n_x2 - T(3.0) * n_y2) * n_xz						// (x^2 - 3 * y^2) * x * z
-		+ T(_sh_coeff[24]) * ((n_x2 - T(3.0) * n_y2) * n_x2					// (x^2 - 3 * y^2) * x^2 - (3 * x^2 - y^2) * y^2 
+		+ (T(_sh_coeff[16]) + _sh_coeff_incr[16]) * n_x2_y2 * n_x * n_y								// (x^2 - y^2) * x * y
+		+ (T(_sh_coeff[17]) + _sh_coeff_incr[17]) * (T(3.0) * n_x2 - n_y2) * n_yz						// (3 * x^2 - y^2) * yz
+		+ (T(_sh_coeff[18]) + _sh_coeff_incr[18]) * (T(7.0) * n_z2 - T(1.0)) * n_xy					// (7 * z^2 - 1) * x * y
+		+ (T(_sh_coeff[19]) + _sh_coeff_incr[19]) * (T(7.0) * n_z2 - T(3.0)) * n_yz					// (7 * z^2 - 3) * y * z
+		+ (T(_sh_coeff[20]) + _sh_coeff_incr[20]) * (T(3.0) - T(30.0) * n_z2 + T(35.0) * n_z2 * n_z2)	// 3 - 30 * z^2 + 35 * z^4
+		+ (T(_sh_coeff[21]) + _sh_coeff_incr[21]) * (T(7.0) * n_z - T(3.0)) * n_xz						// (7 * z^2 - 3) * x * z
+		+ (T(_sh_coeff[22]) + _sh_coeff_incr[22]) * (T(7.0) * n_z - T(1.0)) * n_x2_y2					// (7 * z^2 - 1) * (x^2 - y^2)
+		+ (T(_sh_coeff[23]) + _sh_coeff_incr[23]) * (n_x2 - T(3.0) * n_y2) * n_xz						// (x^2 - 3 * y^2) * x * z
+		+ (T(_sh_coeff[24]) + _sh_coeff_incr[24]) * ((n_x2 - T(3.0) * n_y2) * n_x2					// (x^2 - 3 * y^2) * x^2 - (3 * x^2 - y^2) * y^2 
 		- (T(3.0) * n_x2 - n_y2) * n_y2);
 
 	return shading;
@@ -1367,7 +1368,8 @@ T computeShading(const T* _normal, const double* _sh_coeff, int _sh_order)
 
 template<typename T>
 void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level* pFrame,
-	double* pValue, T* shading, T* p, T* residuals, const dataTermErrorType& PE_TYPE)
+	const double* _albedo, const T* _albedo_incr, const T* shading, const T* p, T* residuals,
+	const dataTermErrorType& PE_TYPE)
 {
 	T transformed_r, transformed_c;
 
@@ -1382,7 +1384,7 @@ void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level*
 		switch (PE_TYPE)
 		{
 		case PE_INTRINSIC:
-			templateValue = T(pValue[0]) * shading[0];
+			templateValue = (T(_albedo[0]) + _albedo_incr[0]) * shading[0];
 			currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->grayImage,
 				pImageLevel->gradXImage,
 				pImageLevel->gradYImage,
@@ -1394,7 +1396,7 @@ void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level*
 		case PE_INTRINSIC_COLOR:
 			for (int i = 0; i < 3; ++i)
 			{
-				templateValue = T(pValue[i]) * shading[0];
+				templateValue = (T(_albedo[i]) + _albedo_incr[i]) * shading[0];
 				currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->colorImageSplit[i],
 					pImageLevel->colorImageGradXSplit[i],
 					pImageLevel->colorImageGradYSplit[i],
@@ -1466,10 +1468,14 @@ public:
 			delete[] adjP[i];
 		}
 
-		T shading = computeShading(normal, sh_coeff, sh_order);
+		const T* sh_coeff_incr = parameters[3 + num_neighbours];
 
-		getResidualIntrinsic(weight, pCamera, pFrame, pValue, &shading, p, residuals,
-			PE_TYPE);
+		T shading = computeShading(normal, sh_coeff, sh_order, sh_coeff_incr);
+
+		const T* albedo_incr = parameters[3 + num_neighbours + 1];
+
+		getResidualIntrinsic(weight, pCamera, pFrame, pValue, albedo_incr, &shading,
+			p, residuals, PE_TYPE);
 
 		return true;
 
@@ -1489,6 +1495,7 @@ private:
 	const int sh_order;
 	//SH coefficients
 	const double* sh_coeff;
+
 };
 
 // Residual of the difference between the previous SH coefficients and the current ones
