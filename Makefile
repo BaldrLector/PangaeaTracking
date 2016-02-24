@@ -49,7 +49,7 @@ WX_LIB := `wx-config --libs --gl-libs`
 
 BOOST_LIB := -lboost_filesystem -lboost_system -lboost_thread
 
-OPENCV_LIB := -lopencv_core -lopencv_highgui -lopencv_imgproc
+OPENCV_LIB := -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_imgcodecs
 
 CERES_LIB := -lceres -lglog -ltbb -ltbbmalloc -lcholmod -lccolamd \
 	-lcamd -lcolamd -lamd -lsuitesparseconfig -llapack -lf77blas -latlas

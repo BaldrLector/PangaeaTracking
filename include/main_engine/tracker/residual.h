@@ -1530,7 +1530,7 @@ public:
 	{
 		for (int i = 0; i < n_channels; i++)
 		{
-			residuals[i] = current_albedo[i];
+			residuals[i] = diff_albedo[i];
 		}
 
 		return true;
