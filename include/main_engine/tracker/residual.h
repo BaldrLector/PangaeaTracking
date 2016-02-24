@@ -1539,4 +1539,8 @@ public:
 private:
 	// Number of albedo channels
 	const int n_channels;
+<<<<<<< HEAD
 };
+=======
+};
+>>>>>>> 66ea330734cce9125dc558af2742d6d33ba7774c
