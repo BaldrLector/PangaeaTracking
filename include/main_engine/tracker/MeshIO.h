@@ -1325,6 +1325,60 @@ void MeshIO<FloatType>::setupMeshFromFile(MeshData<FloatType>& meshData)
   //     meshData.computeNormalsNeil();
   //   }
 
+  // Compute list of a vertices of adjacent faces per vertex
+  meshData.adjFacesVerticesInd.resize(meshData.numVertices);
+  for (int i = 0; i < meshData.numVertices; i++)
+  {
+	  int num_adj_faces = (int)meshData.adjFacesInd[i].size();
+
+	  // List of local indexes of adjacent vertices per face.
+	  // Its size is twice the number or adjacent points.
+	  // Stored as it was defined in the mesh (clockwise or anti-clockwise)
+	  meshData.adjFacesVerticesInd[i].resize(num_adj_faces);
+
+	  // For the current vertex, loop for each adjacent face
+	  for (int j = 0; j < meshData.adjFacesInd[i].size(); j++)
+	  {
+		  int faceIdx = meshData.adjFacesInd[i][j];
+
+		  int fv_idx0 = meshData.facesVerticesInd[faceIdx][0];
+		  int fv_idx1 = meshData.facesVerticesInd[faceIdx][1];
+		  int fv_idx2 = meshData.facesVerticesInd[faceIdx][2];
+
+		  // Neighbours anticlockwise from current vertex
+		  pair<unsigned int, unsigned int> neigh_idxs;
+
+		  if (fv_idx0 == i)
+		  {
+			  neigh_idxs.first = fv_idx1;
+			  neigh_idxs.second = fv_idx2;
+		  }
+		  else
+		  {
+			  if (fv_idx1 == i)
+			  {
+				  neigh_idxs.first = fv_idx2;
+				  neigh_idxs.second = fv_idx0;
+			  }
+			  else // fv_idx2 == i
+			  {
+				  neigh_idxs.first = fv_idx0;
+				  neigh_idxs.second = fv_idx1;
+			  }
+		  }
+
+		  vector<unsigned int>::iterator it1 = find(meshData.adjVerticesInd[i].begin(), 
+			  meshData.adjVerticesInd[i].end(), neigh_idxs.first);
+		  vector<unsigned int>::iterator it2 = find(meshData.adjVerticesInd[i].begin(),
+			  meshData.adjVerticesInd[i].end(), neigh_idxs.second);
+
+		  unsigned int adjv_idx1 = distance(meshData.adjVerticesInd[i].begin(), it1);
+		  unsigned int adjv_idx2 = distance(meshData.adjVerticesInd[i].begin(), it2);
+
+		  meshData.adjFacesVerticesInd[i][j].first = adjv_idx1;
+		  meshData.adjFacesVerticesInd[i][j].second = adjv_idx2;
+	  }
+  }
 }
 
 template<class FloatType>
