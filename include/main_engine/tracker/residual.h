@@ -1235,7 +1235,7 @@ void computeNormal(const T* p, const vector<T*> &adjP, const vector<pair<unsigne
 	normal[1] = T(0.0);
 	normal[2] = T(0.0);
 
-	for (int i = 0; i < face_vIdxs.size() / 2; i++)
+	for (int i = 0; i < face_vIdxs.size(); i++)
 	{
 		unsigned int vIdx1 = face_vIdxs[i].first;
 		unsigned int vIdx2 = face_vIdxs[i].second;
