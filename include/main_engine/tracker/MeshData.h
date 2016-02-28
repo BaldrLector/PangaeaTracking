@@ -44,6 +44,8 @@ public:
 
 		clockwise = d.clockwise;
     features = d.features;
+	
+	adjFacesVerticesInd = d.adjFacesVerticesInd;
 
   }
 
@@ -68,6 +70,8 @@ public:
 		clockwise = d.clockwise;
 
     features = d.features;
+
+	adjFacesVerticesInd = d.adjFacesVerticesInd;
 
     return *this;
   }
@@ -94,6 +98,8 @@ public:
 
     features = std::move(d.features);
 
+	adjFacesVerticesInd = std::move(d.adjFacesVerticesInd);
+
 	};
 	MeshData& operator=(MeshData&& d) {
     vertices = std::move(d.vertices);
@@ -114,6 +120,8 @@ public:
 		clockwise = d.clockwise;
 
     features = std::move(d.features);
+
+	adjFacesVerticesInd = std::move(d.adjFacesVerticesInd);
 
     return *this;
 	};
@@ -145,6 +153,9 @@ public:
 
   // error with ground truth
   vector<vector<FloatType> > diffWithGT;
+
+  // Pair of vertex indeces of adjacent faces. Index correspondent to the position in adjVerticesInd
+  vector< vector< pair<unsigned int, unsigned int> > > adjFacesVerticesInd;
 };
 
 template<typename FloatType>
@@ -161,6 +172,8 @@ void MeshData<FloatType>::clear()
   modelLabels.clear();
 
   features.clear();
+
+  adjFacesVerticesInd.clear();
 }
 
 template<typename FloatType>
