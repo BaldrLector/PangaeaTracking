@@ -45,7 +45,8 @@ public:
 		clockwise = d.clockwise;
     features = d.features;
 	
-	adjFacesVerticesInd = d.adjFacesVerticesInd;
+	// adjFacesVerticesInd = d.adjFacesVerticesInd;
+    has_full_ring = d.has_full_ring;
 
   }
 
@@ -71,7 +72,8 @@ public:
 
     features = d.features;
 
-	adjFacesVerticesInd = d.adjFacesVerticesInd;
+	// adjFacesVerticesInd = d.adjFacesVerticesInd;
+    has_full_ring = d.has_full_ring;
 
     return *this;
   }
@@ -98,7 +100,8 @@ public:
 
     features = std::move(d.features);
 
-	adjFacesVerticesInd = std::move(d.adjFacesVerticesInd);
+	// adjFacesVerticesInd = std::move(d.adjFacesVerticesInd);
+    has_full_ring = std::move(d.has_full_ring);
 
 	};
 	MeshData& operator=(MeshData&& d) {
@@ -121,7 +124,8 @@ public:
 
     features = std::move(d.features);
 
-	adjFacesVerticesInd = std::move(d.adjFacesVerticesInd);
+	// adjFacesVerticesInd = std::move(d.adjFacesVerticesInd);
+    has_full_ring = std::move(d.has_full_ring);
 
     return *this;
 	};
@@ -155,7 +159,10 @@ public:
   vector<vector<FloatType> > diffWithGT;
 
   // Pair of vertex indeces of adjacent faces. Index correspondent to the position in adjVerticesInd
-  vector< vector< pair<unsigned int, unsigned int> > > adjFacesVerticesInd;
+  // vector< vector< pair<unsigned int, unsigned int> > > adjFacesVerticesInd;
+
+  // Indicates if a vertex has a full one-ring neighbourhood
+  vector<bool> has_full_ring;
 };
 
 template<typename FloatType>
@@ -173,7 +180,8 @@ void MeshData<FloatType>::clear()
 
   features.clear();
 
-  adjFacesVerticesInd.clear();
+  // adjFacesVerticesInd.clear();
+  has_full_ring.clear();
 }
 
 template<typename FloatType>
