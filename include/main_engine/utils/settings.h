@@ -120,6 +120,7 @@ public:
   double weightARAP;
   double weightINEXTENT;
   double weightTransPrior;
+  double weightLaplacianSmoothing;
   double photometricHuberWidth;
   double tvHuberWidth;
   double tvRotHuberWidth;

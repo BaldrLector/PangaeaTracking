@@ -193,6 +193,7 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
   weightPara.arapTermWeight     = trackerSettings.weightARAP;
   weightPara.inextentTermWeight = trackerSettings.weightINEXTENT;
   weightPara.transWeight        = trackerSettings.weightTransPrior;
+  weightPara.smoothingTermWeight = trackerSettings.weightLaplacianSmoothing;
   weightPara.rotWeight = 0;
 
   //    weightPara.dataHuberWidth = trackerSettings.dataHuberWidth;
@@ -1262,7 +1263,7 @@ void DeformNRSFMTracker::AddCostImageProjection(ceres::Problem& problem,
 				  new ResidualImageProjectionIntrinsic(1, 
 				  errorType == PE_INTRINSIC ? &templateMesh.grays[i] : &templateMesh.colors[i][0],
 				  &templateMesh.vertices[i][0], pCamera, pFrame, templateMesh.vertices,
-				  templateMesh.adjVerticesInd[i], templateMesh.adjFacesVerticesInd[i], 
+				  templateMesh.adjVerticesInd[i], templateMesh.adjFacesInd[i].size(),
 				  errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0]));
 
 			  // List of pointers to translations per vertex
@@ -2409,6 +2410,88 @@ void DeformNRSFMTracker::AddTemporalMotionCost(ceres::Problem& problem,
 
 }
 
+void DeformNRSFMTracker::AddSmoothingCost(ceres::Problem& problem,
+	ceres::LossFunction* loss_function)
+{
+	vector<std::pair<int, int> >& smoothing_pairs =
+		pStrategy->optimizationSettings[currLevel].regTermPairs;
+	int num_smoothing_pairs = smoothing_pairs.size();
+
+	for (int k = 0; k < num_smoothing_pairs; ++k)
+	{
+		std::pair<int, int>& smoothing_pair = smoothing_pairs[k];
+
+		bool same_level = smoothing_pair.first == smoothing_pair.second;
+
+		cout << "rot_tv pair" << endl;
+		cout << smoothing_pair.first << "->" << smoothing_pair.second << endl;
+
+		PangaeaMeshData& templateMesh = templateMeshPyramid.levels[smoothing_pair.first];
+
+		vector<vector<double> >& meshRot = meshRotPyramid[smoothing_pair.first];
+		vector<vector<double> >& neighborMeshRot = meshRotPyramid[smoothing_pair.second];
+
+		MeshDeformation& meshTrans = meshTransPyramid[smoothing_pair.first];
+		MeshDeformation& neighborMeshTrans = meshTransPyramid[smoothing_pair.second];
+
+		vector<vector<double> >& meshRotGT = meshRotPyramidGT[smoothing_pair.first];
+		vector<vector<double> >& neighborMeshRotGT = meshRotPyramidGT[smoothing_pair.second];
+
+		MeshDeformation& meshTransGT = meshTransPyramidGT[smoothing_pair.first];
+		MeshDeformation& neighborMeshTransGT = meshTransPyramidGT[smoothing_pair.second];
+
+		vector<vector<unsigned int> >& meshNeighbors = same_level ?
+			templateMesh.adjVerticesInd : meshPropagation.getNeighbors(smoothing_pair);
+		vector<vector<double> >& meshWeights = meshPropagation.getWeights(smoothing_pair);
+
+		for (int vertex = 0; vertex < templateMesh.numVertices; ++vertex)
+		{
+			//double weight = same_level ? 1 : meshWeights[vertex][neighbor];
+			double weight = 1;
+
+			ResidualLaplacianSmoothing* pResidual = 
+				new ResidualLaplacianSmoothing(weight, &templateMesh.vertices[vertex][0],
+				templateMesh.vertices, meshNeighbors[vertex],
+				templateMesh.adjFacesInd[vertex].size(), templateMesh.clockwise);
+
+			ceres::DynamicAutoDiffCostFunction<ResidualLaplacianSmoothing, 5> *cost_function =
+				new ceres::DynamicAutoDiffCostFunction< ResidualLaplacianSmoothing, 5 >(pResidual);
+
+			// List of pointers to translations per vertex
+			vector<double*> v_parameter_blocks;
+
+			// Rigid rotation
+			cost_function->AddParameterBlock(3);
+			v_parameter_blocks.push_back(&camPose[0]);
+			// Rigid translation
+			v_parameter_blocks.push_back(&camPose[3]);
+			cost_function->AddParameterBlock(3);
+
+			// Local translations
+			v_parameter_blocks.push_back(&meshTrans[vertex][0]);
+			cost_function->AddParameterBlock(3);
+			for (int j = 0; j < meshNeighbors.size(); j++)
+			{
+				int v_idx = meshNeighbors[vertex][j];
+				v_parameter_blocks.push_back(&meshTrans[v_idx][0]);
+				cost_function->AddParameterBlock(3);
+			}
+
+			cost_function->SetNumResiduals(1);
+
+			ceres::ResidualBlockId residualBlockId = problem.AddResidualBlock(
+				cost_function,
+				loss_function,
+				v_parameter_blocks);
+
+			if (modeGT)
+				problemWrapperGT.addSmoothingTerm(currLevel, residualBlockId);
+			else
+				problemWrapper.addSmoothingTerm(currLevel, residualBlockId);
+		}
+	}
+}
+
 void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem)
 {
   // now we are already to construct the energy
@@ -2606,6 +2689,19 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
   if(weightParaLevel.transWeight || weightParaLevel.rotWeight)
     AddTemporalMotionCost(problem, sqrt(weightParaLevel.rotWeight),
                           sqrt(weightParaLevel.transWeight));
+
+  if (weightParaLevel.smoothingTermWeight)
+  {
+	  //TICK("SetupDeformationCost"  + std::to_string( currLevel ) );
+
+	  ceres::ScaledLoss* smoothingScaledLoss = new ceres::ScaledLoss(
+		  NULL,
+		  weightParaLevel.smoothingTermWeight,
+		  ceres::TAKE_OWNERSHIP);
+	  AddSmoothingCost(problem, smoothingScaledLoss);
+
+	  //TOCK("SetupDeformationCost" + std::to_string( currLevel ) );
+  }
 }
 
 void DeformNRSFMTracker::EnergyMinimization(ceres::Problem& problem)
@@ -2744,19 +2840,20 @@ void DeformNRSFMTracker::EnergyMinimization(ceres::Problem& problem)
   // print energy
   if(trackerSettings.printEnergy)
     {
-      double cost[10];
+      double cost[NUM_PRINT_COSTS];
 
-      problemWrapper.getAllCost(currLevel, cost, &cost[9], &cost[8]);
+	  problemWrapper.getAllCost(currLevel, cost, &cost[NUM_PRINT_COSTS - 1], 
+		  &cost[NUM_PRINT_COSTS - 2]);
 
       energyOutput << std::left << setw(15) << currentFrameNo << std::left << setw(15) << currLevel
                    << std::left << setw(15) << 0;
 
-      for(int i = 0; i < 10; ++i)
+	  for (int i = 0; i < NUM_PRINT_COSTS; ++i)
         energyOutput << std::left << setw(15) << cost[i];
 
       energyOutput << endl;
 
-      for(int i = 0; i < 10; ++i)
+	  for (int i = 0; i < NUM_PRINT_COSTS; ++i)
         energyOutputForR << std::left << setw(15) << currentFrameNo << std::left << setw(15) << currLevel
                          << std::left << setw(15) << cost[i] << std::left << setw(15) << "NotGT"
                          << std::left << setw(15) << costNames[i] << endl;

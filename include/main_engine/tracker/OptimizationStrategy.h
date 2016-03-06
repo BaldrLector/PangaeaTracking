@@ -38,6 +38,9 @@ struct WeightPara
     double rotWeight;
     double transWeight;
 
+	// Laplacian smoothing weight
+	double smoothingTermWeight;
+
     // Huber width
     double dataHuberWidth;
     double tvHuberWidth;
@@ -63,7 +66,9 @@ struct WeightScale
     vector<double> rotScale;
     vector<double> transScale;
 
-  vector<double> featureTermScale;
+	vector<double> featureTermScale;
+
+	vector<double> smoothingTermScale;
 };
 
 class OptimizationStrategy

@@ -311,6 +311,7 @@ TrackerSettings::TrackerSettings()
   weightARAP = 0;
   weightINEXTENT = 0;
   weightTransPrior = 0;
+  weightLaplacianSmoothing = 0;
   photometricHuberWidth = 0.1;
   tvHuberWidth = 0.2;
   tvRotHuberWidth = 0.2;
@@ -449,6 +450,9 @@ void TrackerSettings::read(const cv::FileNode& node)
 
   if(!node["trans_weight"].empty())
     node["trans_weight"] >> weightTransPrior;
+
+  if (!node["smoothing_weight"].empty())
+	  node["smoothing_weight"] >> weightLaplacianSmoothing;
 
   if(!node["photometric_huber_width"].empty())
     node["photometric_huber_width"] >> photometricHuberWidth;

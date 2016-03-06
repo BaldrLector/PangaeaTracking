@@ -21,6 +21,7 @@ public:
   void addINEXTENTTerm(int nLevel, ceres::ResidualBlockId& residualBlockId);
   void addDeformTerm(int nLevel, ceres::ResidualBlockId& residualBlockId);
   void addTemporalTerm(int nLevel, ceres::ResidualBlockId& residualBlockId);
+  void addSmoothingTerm(int nLevel, ceres::ResidualBlockId& residualBlockId);
 
   void clearDataTerm(int nLevel);
   void clearFeatureTerm(int nLevel);
@@ -34,6 +35,7 @@ public:
   void getINEXTENTTermCost(int nLevel, double* cost);
   void getDeformTermCost(int nLevel, double* cost);
   void getTemporalTermCost(int nLevel, double* cost);
+  void getSmoothingTermCost(int nLevel, double* cost);
 
   void getAllCost(int nLevel, double cost[7], double* total_cost, double* sum_cost);
 
@@ -78,6 +80,7 @@ private:
   vector<vector<ceres::ResidualBlockId> > inextentTermResidualBlocks;
   vector<vector<ceres::ResidualBlockId> > deformTermResidualBlocks;
   vector<vector<ceres::ResidualBlockId> > temporalTermResidualBlocks;
+  vector<vector<ceres::ResidualBlockId> > smoothingTermResidualBlocks;
 
   int numLevels;
 

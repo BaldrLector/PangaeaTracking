@@ -1325,16 +1325,14 @@ void MeshIO<FloatType>::setupMeshFromFile(MeshData<FloatType>& meshData)
   //     meshData.computeNormalsNeil();
   //   }
 
-  // Compute list of a vertices of adjacent faces per vertex
-  vector< vector< pair<unsigned int, unsigned int> > > adjFacesVerticesInd(meshData.numVertices);
+  // Sort faces and vertices clockwise or anti-clockwise depending on the definition of faces
   for (int i = 0; i < meshData.numVertices; i++)
   {
 	  int num_adj_faces = (int)meshData.adjFacesInd[i].size();
 
-	  // List of local indexes of adjacent vertices per face.
-	  // Its size is twice the number or adjacent points.
+	  // List of local indexes of pair of adjacent vertices per face.
 	  // Stored as it was defined in the mesh (clockwise or anti-clockwise)
-	  adjFacesVerticesInd[i].resize(num_adj_faces);
+	  vector< pair<unsigned int, unsigned int> > adjFacesVerticesInd(num_adj_faces);
 
 	  // For the current vertex, loop for each adjacent face
 	  for (int j = 0; j < meshData.adjFacesInd[i].size(); j++)
@@ -1366,103 +1364,98 @@ void MeshIO<FloatType>::setupMeshFromFile(MeshData<FloatType>& meshData)
 				  neigh_idxs.second = fv_idx1;
 			  }
 		  }
-
-		  // vector<unsigned int>::iterator it1 = find(meshData.adjVerticesInd[i].begin(), 
-			 //  meshData.adjVerticesInd[i].end(), neigh_idxs.first);
-		  // vector<unsigned int>::iterator it2 = find(meshData.adjVerticesInd[i].begin(),
-			 //  meshData.adjVerticesInd[i].end(), neigh_idxs.second);
-
-		  // unsigned int adjv_idx1 = distance(meshData.adjVerticesInd[i].begin(), it1);
-		  // unsigned int adjv_idx2 = distance(meshData.adjVerticesInd[i].begin(), it2);
-
-		  // meshData.adjFacesVerticesInd[i][j].first = adjv_idx1;
-		  // meshData.adjFacesVerticesInd[i][j].second = adjv_idx2;
-
-      adjFacesVerticesInd[i][j] = neigh_idxs;
+		  
+		  adjFacesVerticesInd[j] = neigh_idxs;
 	  }
-  }
 
-  meshData.has_full_ring.resize(meshData.numVertices, true);
-  
-  // Loop around the neighbour pair of vertices per face to sort them in the 
-  // order that faces are defined (clockwise or anti-clockwise) 
-  for (int i = 0; i < meshData.numVertices; ++i)
-  {
-    vector<unsigned int> ordered_neigh_vertices;
-    vector<unsigned int> ordered_neigh_faces;
-    unsigned int next_idx = adjFacesVerticesInd[i][0].first;
-    for (int j = 0; j < meshData.adjVerticesInd[i].size(); j++)
-    {
-      // Add current neighbour vertex idx
-      ordered_neigh_vertices.push_back(next_idx);
+	  vector<unsigned int> ordered_neigh_vertices;
+	  vector<unsigned int> ordered_neigh_faces;
+	  unsigned int next_idx = adjFacesVerticesInd[0].first;
+	  bool has_full_ring = true;
+	  for (int j = 0; j < meshData.adjVerticesInd[i].size(); j++)
+	  {
+		  // Add current neighbour vertex idx
+		  ordered_neigh_vertices.push_back(next_idx);
 
-      // Find the neighbour edge that has the current vertex index as start
-      std::vector<unsigned int, unsigned int>::iterator it = 
-        find_if( adjFacesVerticesInd[i].begin(), 
-          adjFacesVerticesInd[i].end(), 
-          [](const pair<unsigned int, unsigned int>& element){ 
-            return element.first == next_idx
-          } );
+		  // Find the neighbour edge that has the current vertex index as start
+		  std::vector< pair<unsigned int, unsigned int> >::iterator it =
+			  find_if(adjFacesVerticesInd.begin(),
+			  adjFacesVerticesInd.end(),
+			  [&next_idx](const pair<unsigned int, unsigned int>& element){
+					return element.first == next_idx;
+				}
+		  );
 
-      // If it was found, add the face and update the next index to find
-      if (it != adjFacesVerticesInd[i].end())
-      {
-        next_idx = *it.second;
+		  // If it was found, add the face and update the next index to find
+		  if (it != adjFacesVerticesInd.end())
+		  {
+			  next_idx = (*it).second;
 
-        int neigh_face_index = it - adjFacesVerticesInd[i].begin();
-        ordered_neigh_faces.push_back(meshData.adjFacesInd[neigh_face_index]);
-      } 
-      else // the current vertex has not a full ring and we stop 
-      {
-        meshData.has_full_ring[i] = false;
-        break;
-      }
-    }
+			  int neigh_face_index = it - adjFacesVerticesInd.begin();
+			  ordered_neigh_faces.push_back(meshData.adjFacesInd[i][neigh_face_index]);
+		  }
+		  else // the current vertex has not a full ring and we stop 
+		  {
+			  has_full_ring = false;
+			  break;
+		  }
+	  }
 
-    // If the vertex has not complete one-ring neighbours, there could be 
-    // vertices that we have not added yet in the oppositte direction to the way 
-    // that the faces are defined
-    if (!meshData.has_full_ring[i])
-    {
-      // Number of vertex that have to be added yet 
-      int n_neigh_left = meshData.adjVerticesInd[i].size() 
-        - ordered_neigh_vertices.size();
-      unsigned int next_idx = ordered_neigh_vertices[0];
-      vector<unsigned int> ordered_neigh_vertices_left;
-      vector<unsigned int> ordered_neigh_faces_left;
-      for (int j = 0; j < n_neigh_left; ++j)
-      {
-        std::vector<unsigned int, unsigned int>::iterator it = 
-          find_if( adjFacesVerticesInd[i].begin(), 
-            adjFacesVerticesInd[i].end(), 
-            [](const pair<unsigned int, unsigned int>& element){ 
-              return element.second == next_idx
-            } );
-        next_idx = *it.first;
-        ordered_neigh_vertices_left.push_back(next_idx);
+	  // If the vertex has not complete one-ring neighbours, there could be 
+	  // vertices that we have not added yet in the opposite direction to the way 
+	  // that the faces are defined
+	  if (!has_full_ring)
+	  {
+		  // Number of vertex that have to be added yet 
+		  int n_neigh_left = meshData.adjVerticesInd[i].size()
+			  - ordered_neigh_vertices.size();
+		  unsigned int next_idx = ordered_neigh_vertices[0];
+		  vector<unsigned int> ordered_neigh_vertices_left;
+		  vector<unsigned int> ordered_neigh_faces_left;
+		  for (int j = 0; j < n_neigh_left; ++j)
+		  {
+			  std::vector< pair<unsigned int, unsigned int> >::iterator it =
+				  find_if(adjFacesVerticesInd.begin(),
+				  adjFacesVerticesInd.end(),
+				  [&next_idx](const pair<unsigned int, unsigned int>& element){
+						return element.second == next_idx;
+					}
+			  );
 
-        int neigh_face_index = it - adjFacesVerticesInd[i].begin();
-        ordered_neigh_faces_left.push_back(meshData.adjFacesInd[neigh_face_index]);
-      }
+			  // If it was found, add the face and update the next index to find
+			  if (it != adjFacesVerticesInd.end())
+			  {
+				  next_idx = (*it).first;
+				  ordered_neigh_vertices_left.push_back(next_idx);
 
-      // Reverse vertices left and add them to the beginning of the list
-      reverse(ordered_neigh_vertices_left.begin(), 
-        ordered_neigh_vertices_left.end());
-      ordered_neigh_vertices.insert(ordered_neigh_vertices.begin(), 
-        ordered_neigh_vertices_left.begin(), ordered_neigh_vertices_left.end());
+				  int neigh_face_index = it - adjFacesVerticesInd.begin();
+				  ordered_neigh_faces_left.push_back(meshData.adjFacesInd[i][neigh_face_index]);
+			  }
+			  else // there are holes in the neighbour faces of the current vertex
+			  {
+				  cout << "Vertex " << i << " has holes in the neighbour faces" << endl;
+				  exit(0);
+			  }
+		  }
 
-      // Reverse faces left and add them to the beginning of the list
-      reverse(ordered_neigh_faces_left.begin(), 
-        ordered_neigh_faces_left.end());
-      ordered_neigh_faces.insert(ordered_neigh_faces.begin(), 
-        ordered_neigh_faces_left.begin(), ordered_neigh_faces_left.end());
-    }
+		  // Reverse vertices left and add them to the beginning of the list
+		  reverse(ordered_neigh_vertices_left.begin(),
+			  ordered_neigh_vertices_left.end());
+		  ordered_neigh_vertices.insert(ordered_neigh_vertices.begin(),
+			  ordered_neigh_vertices_left.begin(), ordered_neigh_vertices_left.end());
 
-    // Overwrite ordered faces and vertices
-    meshData.adjVerticesInd[i].assign(
-      ordered_neigh_vertices.begin(), ordered_neigh_vertices.end());
-    meshData.adjFacesInd[i].assign(
-      ordered_neigh_faces.begin(), ordered_neigh_faces.end());
+		  // Reverse faces left and add them to the beginning of the list
+		  reverse(ordered_neigh_faces_left.begin(),
+			  ordered_neigh_faces_left.end());
+		  ordered_neigh_faces.insert(ordered_neigh_faces.begin(),
+			  ordered_neigh_faces_left.begin(), ordered_neigh_faces_left.end());
+	  }
+
+	  // Overwrite ordered faces and vertices
+	  meshData.adjVerticesInd[i].assign(
+		  ordered_neigh_vertices.begin(), ordered_neigh_vertices.end());
+	  meshData.adjFacesInd[i].assign(
+		  ordered_neigh_faces.begin(), ordered_neigh_faces.end());
   }
 }
 

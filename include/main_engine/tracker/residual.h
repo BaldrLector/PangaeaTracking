@@ -1229,22 +1229,16 @@ void getRotTransP(const T* const rotation, const T* const translation,
 // and the corresponding face indexes. Can handle clockwise and counter-clockwise
 template <typename T>
 void computeNormal(const T* p, const vector<T*> &adjP, 
-  const bool &_has_full_ring, const bool clockwise, T* normal)
+  const int &_n_faces, const bool clockwise, T* normal)
 {
 	normal[0] = T(0.0);
 	normal[1] = T(0.0);
 	normal[2] = T(0.0);
 
-  int n_faces = adjP.size();
-  if (!_has_full_ring)
-  {
-    n_faces--;
-  }
-
-	for (int i = 0; i < face_vIdxs.size(); i++)
+	for (int i = 0; i < _n_faces; i++)
 	{
-		unsigned int vIdx1 = face_vIdxs[i].first;
-		unsigned int vIdx2 = face_vIdxs[i].second;
+		unsigned int vIdx1 = i;
+		unsigned int vIdx2 = (i + 1) % adjP.size();
 
 		T face_normal[3];
 		//compnorm(p, adjP[vIdx1], adjP[vIdx2], face_normal, false);
@@ -1423,12 +1417,15 @@ class ResidualImageProjectionIntrinsic : public ResidualImageProjection
 public:
 	ResidualImageProjectionIntrinsic(double weight, double* pValue, double* pVertex,
 		const CameraInfo* pCamera, const Level* pFrame, 
-		const bool &_has_full_ring,
+		const vector< vector<double> > &_vertices, 
+		const vector<unsigned int> &_adjVerticesInd, const int &_n_adj_faces,
 		dataTermErrorType PE_TYPE = PE_INTRINSIC, const bool _clockwise = true,
 		const int _sh_order = 0, const double* _sh_coeff = 0) :
 		ResidualImageProjection(weight, pValue, pVertex,
 		pCamera, pFrame, PE_TYPE),
-		has_full_ring(_has_full_ring),
+		vertices(_vertices),
+		adjVerticesInd(_adjVerticesInd),
+		n_adj_faces(_n_adj_faces),
 		clockwise(_clockwise),
 		sh_order(_sh_order),
 		sh_coeff(_sh_coeff)
@@ -1466,7 +1463,7 @@ public:
 		}
 
 		T normal[3];
-		computeNormal(p, adjP, has_full_ring, clockwise, normal);
+		computeNormal(p, adjP, n_adj_faces, clockwise, normal);
 
 		for (int i = 0; i < num_neighbours; i++)
 		{
@@ -1483,8 +1480,12 @@ public:
 	}
 
 private:
-  // Whether the vertex has a closed one-ring neighbourhood or not 
-  const bool has_full_ring;
+	// List of vertices
+	const vector< vector<double> > &vertices;
+	// List of ordered adjacent vertices
+	const vector<unsigned int> &adjVerticesInd;
+	// Number of adjacent faces
+	const int n_adj_faces;
 
 	// Identifies if faces are defined clockwise
 	const bool clockwise;
@@ -1550,63 +1551,17 @@ class ResidualLaplacianSmoothing
 {
 public:
   public:
-  ResidualLaplacianSmoothing(double* _pVertex, 
+  ResidualLaplacianSmoothing(const double _weight, double* _pVertex, 
     const vector< vector<double> > &_vertices, 
-    const vector<unsigned int> &_adjVerticesInd,
-    const vector<pair<unsigned int, unsigned int>> &_adjFaceVerticesInd,
+	const vector<unsigned int> &_adjVerticesInd,
+	const int _nAdjFaces,
     const bool _clockwise = true) :
-    pVertex(_pVertex),
+	weight(_weight),
+	pVertex(_pVertex),
     vertices(_vertices),
     adjVerticesInd(_adjVerticesInd),
-    adjFaceVerticesInd(_adjFaceVerticesInd),
     clockwise(_clockwise)
   {
-
-  }
-
-  template<typename T>
-  bool operator()(const T* const* const parameters, T* residuals) const
-  {
-    // Parameters:
-    // 0 - Rotation
-    // 1 - Translation
-    // 2 - Current vertex position or translation
-    // >2 - Neighbour vertices positions or translations
-
-    const T* rotation = parameters[0];
-    const T* translation = parameters[1];
-
-    T p[3];
-    getRotTransP(rotation, translation, parameters[2], pVertex,
-      optimizeDeformation, p);
-
-    vector<T*> adjP;
-    T* p_neighbour;
-    int num_neighbours = adjVerticesInd.size();
-    for (int i = 0; i < num_neighbours; i++)
-    {
-      int v_idx = adjVerticesInd[i];
-
-      p_neighbour = new T[3];
-      getRotTransP(rotation, translation, parameters[3 + i], &vertices[v_idx][0],
-        optimizeDeformation, p_neighbour);
-      adjP.push_back(p_neighbour);
-    }
-
-    T normal[3];
-    computeNormal(p, adjP, adjFaceVerticesInd, clockwise, normal);
-
-    for (int i = 0; i < num_neighbours; i++)
-    {
-      delete[] adjP[i];
-    }
-
-    T shading = computeShading(normal, sh_coeff, sh_order);
-
-    getResidualIntrinsic(weight, pCamera, pFrame, pValue, &shading, p, residuals,
-      PE_TYPE);
-
-    return true;
 
   }
 
@@ -1639,26 +1594,25 @@ public:
       adjP.push_back(p_neighbour);
     }
 
-    int n_faces = adjFaceVerticesInd.size();
-
     T laplacian_x = T(0.0);
     T laplacian_y = T(0.0);
     T laplacian_z = T(0.0);
     T weight_norm = T(0.0);
 
-    for (int i = 0; i < n_faces; i++)
+	for (int i = 0; i < num_neighbours; i++)
     {
       T weight = T(0.0);
       T area = T(0.0);
       
-      weight += computeCotangent(p(0)), T(y(0)), _z_0,
-        T(x(1)), T(y(1)), _z_1, T(x(7)), T(y(7)), _z_7);
-      weight += computeCotangent(T(x(0)), T(y(0)), _z_0,
-        T(x(1)), T(y(1)), _z_1, T(x(2)), T(y(2)), _z_2);
+	  int prev_i = (i - 1) % num_neighbours;
+	  int next_i = (i + 1) % num_neighbours;
 
-      laplacian_x += weight * (T(x(1)) - T(x(0)));
-      laplacian_y += weight * (T(y(1)) - T(y(0)));
-      laplacian_z += weight * (_z_1[0] - _z_0[0]);
+	  weight += computeCotangent(p, adjP[i], adjP[prev_i]);
+	  weight += computeCotangent(p, adjP[i], adjP[next_i]);
+
+	  laplacian_x += weight * (adjP[i][0] - p[0]);
+	  laplacian_y += weight * (adjP[i][1] - p[1]);
+	  laplacian_z += weight * (adjP[i][2] - p[2]);
 
       weight_norm += weight;
     }
@@ -1667,7 +1621,7 @@ public:
     laplacian_y /= weight_norm;
     laplacian_z /= weight_norm;
 
-    _residual[0] = ceres::sqrt(laplacian_x * laplacian_x 
+    residuals[0] = T(weight) * ceres::sqrt(laplacian_x * laplacian_x 
       + laplacian_y * laplacian_y
       + laplacian_z * laplacian_z);
 
@@ -1675,59 +1629,66 @@ public:
   }
 
   template <typename T>
-  T computeTangentWeight(const T* const _p0, const T* const _p1,
-    const T* const _p2) const {
+  T computeCotangent(const T* const _p0, const T* const _p1,
+	  const T* const _p2) const {
 
-    // Vector from the center of the ring to the current neighbour vertex
-    T v1_x = _p1[0] - _p0[0];
-    T v1_y = _p1[1] - _p0[1];
-    T v1_z = _p1[2] - _p0[2];
+	  // Vector from the thrid vertex to the center of the ring
+	  T v1_x = _p0[0] - _p2[0];
+	  T v1_y = _p0[1] - _p2[1];
+	  T v1_z = _p0[2] - _p2[2];
 
-    // Normalize first vector
-    T v1_norm = ceres::sqrt(v1_x * v1_x + v1_y * v1_y + v1_z * v1_z);
-    v1_x /= v1_norm;
-    v1_y /= v1_norm;
-    v1_z /= v1_norm;
+	  // Normalize first vector
+	  T v1_norm = ceres::sqrt(v1_x * v1_x + v1_y * v1_y + v1_z * v1_z);
+	  v1_x /= v1_norm;
+	  v1_y /= v1_norm;
+	  v1_z /= v1_norm;
 
-    // Vector from the center of the ring to the second neighbour vector
-    T v2_x = _p2[0] - _p0[0];
-    T v2_y = _p2[1] - _p0[1];
-    T v2_z = _p2[2] - _p0[2];
+	  // Vector from the third vertex to the current neighbour
+	  T v2_x = _p1[0] - _p2[0];
+	  T v2_y = _p1[1] - _p2[1];
+	  T v2_z = _p1[2] - _p2[2];
 
-    // Normalize second vector
-    T v2_norm = ceres::sqrt(v2_x * v2_x + v2_y * v2_y + v2_z * v2_z);
-    v2_x /= v2_norm;
-    v2_y /= v2_norm;
-    v2_z /= v2_norm;
+	  // Normalize second vector
+	  T v2_norm = ceres::sqrt(v2_x * v2_x + v2_y * v2_y + v2_z * v2_z);
+	  v2_x /= v2_norm;
+	  v2_y /= v2_norm;
+	  v2_z /= v2_norm;
 
-    // Cosine of alpha as the dot product of both vectors
-    T cos_a = v1_x * v2_x + v1_y * v2_y + v1_z * v2_z;
+	  // Cosine of alpha as the dot product of both vectors
+	  T cos_a = v1_x * v2_x + v1_y * v2_y + v1_z * v2_z;
 
-    // Angle formed by the v1 and v2
-    T angle = ceres::acos(cos_a);
+	  // Projection of the first vector onto the orthogonal component of the 
+	  // second vector on the plane v1-v2
+	  T v1p_x = v1_x - cos_a * v2_x;
+	  T v1p_y = v1_y - cos_a * v2_y;
+	  T v1p_z = v1_z - cos_a * v2_z;
 
-    // Tangent of half the angle
-    T tan_a2 = ceres::tan(angle / T(2.0));
+	  // Sine of alpha as the norm of the projcted vector
+	  T sin_a = ceres::sqrt(v1p_x * v1p_x + v1p_y * v1p_y + v1p_z * v1p_z);
 
-    // Weight = tan(a/2) / ||v1||
-    T weight = tan_a2 / v1_norm;
+	  //if (sin_a < T(1e-20) && sin_a > T(-1e-20))
+	  //{
+	  //	std::cout << "ERROR!!!!! sin(a) == 0" << endl;
+	  //}
 
-    return weight;
+	  // cot(a) = cos(a) / sin(a)
+	  T cot_a = cos_a / sin_a;
+
+	  return cot_a;
   }
 
 private:
-  // Whether optimize deformation directly
-  bool optimizeDeformation;
-  // Current vertex of interest
-  double* pVertex;
-  // Adjacent faces vertex indexes
-  const vector< pair<unsigned int, unsigned int> > &adjFaceVerticesInd;
-  // Adjacent faces vertex indexes
-  const vector< unsigned int > &adjVerticesInd;
-  // Vertices coordinates
-  const vector< vector<double> > &vertices;
+	const double weight;
+	// Whether optimize deformation directly
+	bool optimizeDeformation;
+	// Current vertex of interest
+	double* pVertex;
+	// Vertices coordinates
+	const vector< vector<double> > &vertices;
+	// Adjacent vertex indexes
+	const vector< unsigned int > &adjVerticesInd;
 
-  // Identifies if faces are defined clockwise
-  const bool clockwise;
+	// Identifies if faces are defined clockwise
+	const bool clockwise;
 
 };
