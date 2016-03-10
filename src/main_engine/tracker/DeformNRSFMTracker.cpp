@@ -112,7 +112,8 @@ DeformNRSFMTracker::DeformNRSFMTracker(TrackerSettings& settings, int width, int
     }
 
   vector<std::string> temp({"DataTerm", "FeatureTerm", "TVTerm", "RotTVTerm", "ARAPTerm",
-        "INEXTENTTerm", "DeformTerm", "TermporalTerm", "SumCost", "TotalCost"});
+        "INEXTENTTerm", "DeformTerm", "TermporalTerm", "SumCost", "TotalCost",
+		"SmoothingTerm"});
   costNames = std::move(temp);
 
 	if (PEType == PE_INTRINSIC || PEType == PE_INTRINSIC_COLOR)
@@ -2470,7 +2471,7 @@ void DeformNRSFMTracker::AddSmoothingCost(ceres::Problem& problem,
 			// Local translations
 			v_parameter_blocks.push_back(&meshTrans[vertex][0]);
 			cost_function->AddParameterBlock(3);
-			for (int j = 0; j < meshNeighbors.size(); j++)
+			for (int j = 0; j < meshNeighbors[vertex].size(); j++)
 			{
 				int v_idx = meshNeighbors[vertex][j];
 				v_parameter_blocks.push_back(&meshTrans[v_idx][0]);

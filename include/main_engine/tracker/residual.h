@@ -1599,20 +1599,21 @@ public:
     T laplacian_z = T(0.0);
     T weight_norm = T(0.0);
 
-	for (int i = 0; i < num_neighbours; i++)
+	for (int i = 1; i <= num_neighbours; i++)
     {
       T weight = T(0.0);
       T area = T(0.0);
       
 	  int prev_i = (i - 1) % num_neighbours;
+	  int curr_i = i % num_neighbours;
 	  int next_i = (i + 1) % num_neighbours;
 
-	  weight += computeCotangent(p, adjP[i], adjP[prev_i]);
-	  weight += computeCotangent(p, adjP[i], adjP[next_i]);
+	  weight += computeCotangent(p, adjP[curr_i], adjP[prev_i]);
+	  weight += computeCotangent(p, adjP[curr_i], adjP[next_i]);
 
-	  laplacian_x += weight * (adjP[i][0] - p[0]);
-	  laplacian_y += weight * (adjP[i][1] - p[1]);
-	  laplacian_z += weight * (adjP[i][2] - p[2]);
+	  laplacian_x += weight * (adjP[curr_i][0] - p[0]);
+	  laplacian_y += weight * (adjP[curr_i][1] - p[1]);
+	  laplacian_z += weight * (adjP[curr_i][2] - p[2]);
 
       weight_norm += weight;
     }
