@@ -98,8 +98,8 @@ DeformNRSFMTracker::DeformNRSFMTracker(TrackerSettings& settings, int width, int
         std::left << setw(15)  << "FeatureTerm" << std::left << setw(15)  << "TVTerm" <<
         std::left << setw(15)  << "RotTVTerm" << std::left << setw(15) << "ARAPTerm" <<
         std::left << setw(15)  << "INEXTENTTerm" << std::left << setw(15)  << "DeformTerm" <<
-        std::left << setw(15)  << "TemporalTerm" << std::left << setw(15)  << "SumCost" <<
-        std::left << setw(15)  << "TotalCost" << endl;
+		std::left << setw(15) << "TemporalTerm" << std::left << setw(15) << "SmoothingTerm" << 
+		std::left << setw(15) << "SumCost" << std::left << setw(15)  << "TotalCost" << endl;
 
       std::stringstream energyOutputForRPath;
       energyOutputForRPath << settings.savePath << "energy_output_for_R.txt";
@@ -112,8 +112,8 @@ DeformNRSFMTracker::DeformNRSFMTracker(TrackerSettings& settings, int width, int
     }
 
   vector<std::string> temp({"DataTerm", "FeatureTerm", "TVTerm", "RotTVTerm", "ARAPTerm",
-        "INEXTENTTerm", "DeformTerm", "TermporalTerm", "SumCost", "TotalCost",
-		"SmoothingTerm"});
+        "INEXTENTTerm", "DeformTerm", "TermporalTerm", "SmoothingTerm", 
+		"SumCost", "TotalCost"});
   costNames = std::move(temp);
 
 	if (PEType == PE_INTRINSIC || PEType == PE_INTRINSIC_COLOR)
@@ -2460,13 +2460,6 @@ void DeformNRSFMTracker::AddSmoothingCost(ceres::Problem& problem,
 
 			// List of pointers to translations per vertex
 			vector<double*> v_parameter_blocks;
-
-			// Rigid rotation
-			cost_function->AddParameterBlock(3);
-			v_parameter_blocks.push_back(&camPose[0]);
-			// Rigid translation
-			v_parameter_blocks.push_back(&camPose[3]);
-			cost_function->AddParameterBlock(3);
 
 			// Local translations
 			v_parameter_blocks.push_back(&meshTrans[vertex][0]);

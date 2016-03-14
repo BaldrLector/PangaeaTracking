@@ -1555,12 +1555,14 @@ public:
     const vector< vector<double> > &_vertices, 
 	const vector<unsigned int> &_adjVerticesInd,
 	const int _nAdjFaces,
-    const bool _clockwise = true) :
+    const bool _clockwise = true,
+	const bool _optimizeDeformation = true) :
 	weight(_weight),
 	pVertex(_pVertex),
     vertices(_vertices),
     adjVerticesInd(_adjVerticesInd),
-    clockwise(_clockwise)
+    clockwise(_clockwise),
+	optimizeDeformation(_optimizeDeformation)
   {
 
   }
@@ -1569,17 +1571,20 @@ public:
   bool operator()(const T* const* const parameters, T* residuals) const 
   {
     // Parameters:
-    // 0 - Rotation
-    // 1 - Translation
-    // 2 - Current vertex position or translation
-    // >2 - Neighbour vertices positions or translations
-
-    const T* rotation = parameters[0];
-    const T* translation = parameters[1];
+    // 0 - Current vertex position or translation
+    // >0 - Neighbour vertices positions or translations
 
     T p[3];
-    getRotTransP(rotation, translation, parameters[2], pVertex,
-      optimizeDeformation, p);
+	p[0] = parameters[0][0];
+	p[1] = parameters[0][1];
+	p[2] = parameters[0][2];
+
+	if (optimizeDeformation)
+	{
+		p[0] += T(pVertex[0]);
+		p[1] += T(pVertex[1]);
+		p[2] += T(pVertex[2]);
+	}
 
     vector<T*> adjP;
     T* p_neighbour;
@@ -1589,8 +1594,18 @@ public:
       int v_idx = adjVerticesInd[i];
 
       p_neighbour = new T[3];
-      getRotTransP(rotation, translation, parameters[3 + i], &vertices[v_idx][0],
-        optimizeDeformation, p_neighbour);
+
+	  p_neighbour[0] = parameters[i + 1][0];
+	  p_neighbour[1] = parameters[i + 1][1];
+	  p_neighbour[2] = parameters[i + 1][2];
+
+	  if (optimizeDeformation)
+	  {
+		  p_neighbour[0] += T(vertices[v_idx][0]);
+		  p_neighbour[1] += T(vertices[v_idx][1]);
+		  p_neighbour[2] += T(vertices[v_idx][2]);
+	  }
+
       adjP.push_back(p_neighbour);
     }
 
@@ -1617,6 +1632,11 @@ public:
 
       weight_norm += weight;
     }
+
+	for (int i = 0; i < num_neighbours; i++)
+	{
+		delete[] adjP[i];
+	}
 
     laplacian_x /= weight_norm;
     laplacian_y /= weight_norm;
