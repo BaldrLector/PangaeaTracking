@@ -447,7 +447,7 @@ void DeformNRSFMTracker::loadGTMeshFromFile(int nFrame)
   currentMeshPyramidGT = std::move(
                                    PangaeaMeshPyramid(trackerSettings.meshPathGT,
                                                       trackerSettings.meshLevelFormatGT,
-                                                      nFrame,
+                                                      nFrame + trackerSettings.firstFrameGT,
                                                       trackerSettings.meshLevelListGT,
                                                       trackerSettings.clockwise));
 }
@@ -633,7 +633,8 @@ bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
       for(int i = 0; i < m_nMeshLevels; ++i)
         {
           std::stringstream meshFileGT;
-          sprintf(buffer, trackerSettings.meshLevelFormatGT.c_str(), currentFrameNo,
+          sprintf(buffer, trackerSettings.meshLevelFormatGT.c_str(), 
+                  currentFrameNo + trackerSettings.firstFrameGT,
                   trackerSettings.meshLevelListGT[i]);
 
           meshFileGT << trackerSettings.meshPathGT << buffer;
@@ -3059,12 +3060,14 @@ bool DeformNRSFMTracker::SaveMeshPyramid()
     }
 
   // save mesh pyramid
-  for(int i = 0; i < m_nMeshLevels; ++i)
+  for(int i = 0; i < trackerSettings.levelsMeshPyramidSave.size(); ++i)
     {
-      sprintf(buffer, trackerSettings.meshPyramidFormat.c_str(), currentFrameNo, i);
+      int mesh_level = trackerSettings.levelsMeshPyramidSave[i];
+
+      sprintf(buffer, trackerSettings.meshPyramidFormat.c_str(), currentFrameNo, mesh_level);
       mesh_file << mesh_pyramid_path.str() << buffer;
 
-      PangaeaMeshIO::writeToFile(mesh_file.str(), outputInfoPyramid[i].meshData);
+      PangaeaMeshIO::writeToFile(mesh_file.str(), outputInfoPyramid[mesh_level].meshData);
 
       mesh_file.str("");
       //memset(&buffer[0], 0, sizeof(buffer));
