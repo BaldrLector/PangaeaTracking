@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./MeshData.h"
+#include "../third_party/ply.h"
 
 #define OBJ_LINE_BUF_SIZE 256
 
@@ -56,19 +57,25 @@ private:
 
 	static void loadFromOBJ(const std::string& filename, MeshData<FloatType>& meshData);
 
+  static void updateFromPLY(const std::string& filename, MeshData<FloatType>& meshData);
+
   static void updateFromOBJ(const std::string& filename, MeshData<FloatType>& meshData);
 
 	/************************************************************************/
 	/* Write Functions													    */
 	/************************************************************************/
 
-	static void writeToPLY(const std::string& filename, const MeshData<FloatType>& meshData) {};
+	static void writeToPLY(const std::string& filename, const MeshData<FloatType>& meshData);
 
 	static void writeToOFF(const std::string& filename, const MeshData<FloatType>& meshData) {};
 
 	static void writeToOBJ(const std::string& filename, const MeshData<FloatType>& meshData);
 
   static void skipLine(char * buf, int size, FILE * fp);
+
+  template<typename VertexType>
+  static void ply_read_vertices(PlyFile *_ply, int _vertex_type, int _num_vertices,
+	  MeshData<FloatType>& meshData);
 
 };
 
@@ -90,6 +97,8 @@ void MeshIO<FloatType>::loadfromFile(const std::string& filename,
 
   //cout << filePath.extension().c_str() << endl;
 
+  meshData.clockwise = clockwise;
+
   if(filePath.extension().compare(std::string(".off")) == 0) {
     loadFromOFF(filename,meshData);
   } else if(filePath.extension().compare(std::string(".ply")) == 0){
@@ -99,8 +108,6 @@ void MeshIO<FloatType>::loadfromFile(const std::string& filename,
   } else {
     cerr << "file format not supported for mesh loading" << endl;
   }
-
-  meshData.clockwise = clockwise;
 
   // we will update the number of vertices, faces and mesh center in the
   // following line
@@ -116,7 +123,8 @@ void MeshIO<FloatType>::updateFromFile(const std::string& filename, MeshData<Flo
   if(filePath.extension().compare(std::string(".off")) == 0) {
     cout << "not supported yet" << endl;
   } else if(filePath.extension().compare(std::string(".ply")) == 0){
-    cout << "not supported yet" << endl;
+    // cout << "not supported yet" << endl;
+    updateFromPLY(filename,meshData);
   } else if(filePath.extension().compare(std::string(".obj")) == 0){
     updateFromOBJ(filename,meshData);
   } else {
@@ -125,9 +133,172 @@ void MeshIO<FloatType>::updateFromFile(const std::string& filename, MeshData<Flo
 }
 
 template<class FloatType>
+template<typename VertexType>
+void MeshIO<FloatType>::ply_read_vertices(PlyFile *_ply, int _vertex_type, int _num_vertices,
+	MeshData<FloatType>& meshData)
+{
+	/* set up for getting vertex elements */
+	for (int i = 0; i < ply::n_vprops[_vertex_type]; i++)
+	{
+		PlyProperty* prop = ply::get_vertex_property(_vertex_type, i);
+
+		ply_get_property(_ply, ply::elem_names[0], prop);
+	}
+
+	meshData.vertices.resize(_num_vertices);
+	meshData.colors.resize(_num_vertices);
+
+  if(_vertex_type == PLY_VERTEX_NORMAL_RGB || _vertex_type == PLY_VERTEX_NORMAL_RGBA)
+    meshData.normals.resize(_num_vertices);
+
+	/* grab all the vertex elements */
+	for (int i = 0; i < _num_vertices; i++) {
+		VertexType vertex;
+
+		/* grab an element from the file */
+		ply_get_element(_ply, (void *)&vertex);
+
+		vector<FloatType> v = { (FloatType)vertex.x, (FloatType)vertex.y, (FloatType)vertex.z };
+		meshData.vertices[i] = std::move(v);
+
+		// For now, normals are not loaded
+		//if (_vertex_type & 0x01)
+		//{
+		//	vector<float> n = { vertex.nx, vertex.ny, vertex.nz };
+		// vector<FloatType> n = { 0, 0, 0 };
+		// meshData.normals[i] = n;
+    if(_vertex_type == PLY_VERTEX_NORMAL_RGB)
+      {
+        vector<FloatType> n = {(FloatType)((ply::VertexNormalColor*)&vertex)->nx,
+                               (FloatType)((ply::VertexNormalColor*)&vertex)->ny,
+                               (FloatType)((ply::VertexNormalColor*)&vertex)->nz};
+        meshData.normals[i] = std::move(n);
+      }
+
+    if(_vertex_type == PLY_VERTEX_NORMAL_RGBA)
+      {
+        vector<FloatType> n = {(FloatType)((ply::VertexNormalColorAlpha*)&vertex)->nx,
+                               (FloatType)((ply::VertexNormalColorAlpha*)&vertex)->ny,
+                               (FloatType)((ply::VertexNormalColorAlpha*)&vertex)->nz};
+        meshData.normals[i] = std::move(n);
+      }
+
+    //cout << meshData.normals[0][0] <<  " " <<  meshData.normals[0][1] << " " <<  meshData.normals[0][2] << endl;
+
+		//}
+
+		vector<FloatType> c = { (FloatType)vertex.r, (FloatType)vertex.g, (FloatType)vertex.b };
+		c[0] /= 255.f;
+		c[1] /= 255.f;
+		c[2] /= 255.f;
+
+		meshData.colors[i] = std::move(c);
+	}
+}
+
+template<class FloatType>
 void MeshIO<FloatType>::loadFromPLY(const std::string& filename,
                                     MeshData<FloatType>& meshData)
-{}
+{
+	PlyFile *ply;
+	char **elist;
+	int file_type;
+	float version;
+	int nelems, num_elems, nprops;
+	char *elem_name;
+	PlyProperty **plist;
+	int num_comments;
+	char **comments;
+	int num_obj_info;
+	char **obj_info;
+
+	/* open a PLY file for reading */
+	ply = ply_open_for_reading(filename.c_str(), &nelems, &elist, &file_type, &version);
+
+	/* go through each kind of element that we learned is in the file */
+	/* and read them */
+
+  unsigned int vertex_type;
+
+	for (int i = 0; i < nelems; i++) {
+
+		/* get the description of the first element */
+		elem_name = elist[i];
+		plist = ply_get_element_description(ply, elem_name, &num_elems, &nprops);
+
+		/* if we're on vertex elements, read them in */
+		if (equal_strings(ply::elem_names[0], elem_name)) {
+			int num_vertices = num_elems;
+
+			vertex_type = ply::get_vertex_type(plist, nprops);
+
+			switch (vertex_type)
+			{
+			case PLY_VERTEX_RGB:
+				ply_read_vertices<ply::VertexColor>(ply, vertex_type, num_vertices,
+					meshData);
+				break;
+			case PLY_VERTEX_NORMAL_RGB:
+				ply_read_vertices<ply::VertexNormalColor>(ply, vertex_type, num_vertices,
+					meshData);
+				break;
+			case PLY_VERTEX_RGBA:
+				ply_read_vertices<ply::VertexColorAlpha>(ply, vertex_type, num_vertices,
+					meshData);
+				break;
+			case PLY_VERTEX_NORMAL_RGBA:
+				ply_read_vertices<ply::VertexNormalColorAlpha>(ply, vertex_type, num_vertices,
+					meshData);
+				break;
+			default:
+				break;
+			}
+		}
+
+		/* if we're on face elements, read them in */
+		if (equal_strings(ply::elem_names[1], elem_name)) {
+			int num_faces = num_elems;
+
+			/* set up for getting face elements */
+			for (int i = 0; i < nprops; i++)
+			{
+				ply_get_property(ply, elem_name, &ply::face_props[i]);
+			}
+
+			meshData.facesVerticesInd.resize(num_faces);
+
+			/* grab all the face elements */
+			for (int j = 0; j < num_faces; j++) {
+				ply::Face face;
+				/* grab and element from the file */
+				ply_get_element(ply, (void *)&face);
+
+				vector<unsigned int> f;
+				for (int k = 0; k < face.nverts; k++)
+				{
+					f.push_back(face.verts[k]);
+				}
+				meshData.facesVerticesInd[j] = f;
+			}
+		}
+	}
+
+	/* grab and print out the comments in the file */
+	comments = ply_get_comments(ply, &num_comments);
+
+	/* grab and print out the object information */
+	obj_info = ply_get_obj_info(ply, &num_obj_info);
+
+	/* close the PLY file */
+	ply_close(ply);
+
+  meshData.numVertices = meshData.vertices.size();
+  meshData.numFaces = meshData.facesVerticesInd.size();
+
+  if(vertex_type == PLY_VERTEX_RGBA || vertex_type == PLY_VERTEX_RGB)
+    meshData.computeNormalsNeil();
+
+}
 
 template<class FloatType>
 void MeshIO<FloatType>::loadFromOFF(const std::string& filename,
@@ -385,6 +556,88 @@ void MeshIO<FloatType>::loadFromOBJ(const std::string& filename,
 
   fclose(fp);
 
+  meshData.numVertices = meshData.vertices.size();
+  meshData.numFaces = meshData.facesVerticesInd.size();
+
+  if(meshData.normals.size() == 0)
+    meshData.computeNormalsNeil();
+
+}
+
+template<class FloatType>
+void MeshIO<FloatType>::updateFromPLY(const std::string& filename,
+                                      MeshData<FloatType>& meshData)
+{
+
+  PlyFile *ply;
+	char **elist;
+	int file_type;
+	float version;
+	int nelems, num_elems, nprops;
+	char *elem_name;
+	PlyProperty **plist;
+	int num_comments;
+	char **comments;
+	int num_obj_info;
+	char **obj_info;
+
+	/* open a PLY file for reading */
+	ply = ply_open_for_reading(filename.c_str(), &nelems, &elist, &file_type, &version);
+
+	/* go through each kind of element that we learned is in the file */
+	/* and read them */
+
+  unsigned int vertex_type;
+
+	for (int i = 0; i < nelems; i++) {
+
+		/* get the description of the first element */
+		elem_name = elist[i];
+		plist = ply_get_element_description(ply, elem_name, &num_elems, &nprops);
+
+		/* if we're on vertex elements, read them in */
+		if (equal_strings(ply::elem_names[0], elem_name)) {
+			int num_vertices = num_elems;
+
+			vertex_type = ply::get_vertex_type(plist, nprops);
+
+			switch (vertex_type)
+			{
+			case PLY_VERTEX_RGB:
+				ply_read_vertices<ply::VertexColor>(ply, vertex_type, num_vertices,
+					meshData);
+				break;
+			case PLY_VERTEX_NORMAL_RGB:
+				ply_read_vertices<ply::VertexNormalColor>(ply, vertex_type, num_vertices,
+					meshData);
+				break;
+			case PLY_VERTEX_RGBA:
+				ply_read_vertices<ply::VertexColorAlpha>(ply, vertex_type, num_vertices,
+					meshData);
+				break;
+			case PLY_VERTEX_NORMAL_RGBA:
+				ply_read_vertices<ply::VertexNormalColorAlpha>(ply, vertex_type, num_vertices,
+					meshData);
+				break;
+			default:
+				break;
+			}
+		}
+
+	}
+
+	/* grab and print out the comments in the file */
+	comments = ply_get_comments(ply, &num_comments);
+
+	/* grab and print out the object information */
+	obj_info = ply_get_obj_info(ply, &num_obj_info);
+
+	/* close the PLY file */
+	ply_close(ply);
+
+  if(vertex_type == PLY_VERTEX_RGBA || vertex_type == PLY_VERTEX_RGB)
+    meshData.computeNormalsNeil();
+
 }
 
 template<class FloatType>
@@ -457,6 +710,9 @@ void MeshIO<FloatType>::updateFromOBJ(const std::string& filename,
 
   fclose(fp);
 
+  if(normal_id == 0)
+    meshData.computeNormalsNeil();
+
 }
 
 template<class FloatType>
@@ -523,6 +779,79 @@ void MeshIO<FloatType>::writeToOBJ(const std::string& filename,
 
   file.close();
 
+}
+
+template<class FloatType>
+void MeshIO<FloatType>::writeToPLY(const std::string& filename, const MeshData<FloatType>& meshData)
+{
+	PlyFile *ply;
+	float version;
+
+	/* open either a binary or ascii PLY file for writing */
+	/* (the file will be called "test.ply" because the routines */
+	/*  enforce the .ply filename extension) */
+
+#ifdef PLY_SAVE_ASCII
+	ply = ply_open_for_writing(filename.c_str(), 2, ply::elem_names, PLY_ASCII, &version);
+#else
+	ply = ply_open_for_writing(filename.c_str(), 2, ply::elem_names, PLY_BINARY_LE, &version);
+#endif
+
+	/* describe what properties go into the vertex and face elements */
+
+	int num_vertices = meshData.numVertices;
+	ply_element_count(ply, ply::elem_names[0], num_vertices);
+	int vertex_type = 1;
+	for (int i = 0; i < ply::n_vprops[vertex_type]; i++)
+	{
+		PlyProperty* prop = ply::get_vertex_property(vertex_type, i);
+		ply_describe_property(ply, ply::elem_names[0], prop);
+	}
+
+	int num_faces = meshData.numFaces;
+	ply_element_count(ply, ply::elem_names[1], num_faces);
+	for (int i = 0; i < ply::n_fprops; i++)
+	{
+		ply_describe_property(ply, ply::elem_names[1], &ply::face_props[i]);
+	}
+
+	/* we have described exactly what we will put in the file, so */
+	/* we are now done with the header info */
+	ply_header_complete(ply);
+
+	/* set up and write the vertex elements */
+	ply_put_element_setup(ply, ply::elem_names[0]);
+	//for (i = 0; i < nverts; i++)
+	for (int i = 0; i < num_vertices; i++){
+		ply::VertexNormalColor v;
+		v.x = meshData.vertices[i][0];
+		v.y = meshData.vertices[i][1];
+		v.z = meshData.vertices[i][2];
+		v.nx = meshData.normals[i][0];
+		v.ny = meshData.normals[i][1];
+		v.nz = meshData.normals[i][2];
+		v.r = (unsigned char)(meshData.colors[i][0] * 255.f);
+		v.g = (unsigned char)(meshData.colors[i][1] * 255.f);
+		v.b = (unsigned char)(meshData.colors[i][2] * 255.f);
+		ply_put_element(ply, (void *)&v);
+	}
+
+	/* set up and write the face elements */
+	ply_put_element_setup(ply, ply::elem_names[1]);
+	ply::Face f;
+	f.verts = new int[10];
+	for (int i = 0; i < num_faces; i++)
+	{
+		f.nverts = (unsigned char)meshData.facesVerticesInd[i].size();
+		for (int j = 0; j < f.nverts; j++)
+		{
+			f.verts[j] = meshData.facesVerticesInd[i][j];
+		}
+		ply_put_element(ply, (void *)&f);
+	}
+
+	/* close the PLY file */
+	ply_close(ply);
 }
 
 template<class FloatType>
@@ -915,8 +1244,8 @@ void MeshIO<FloatType>::setupMeshFromFile(MeshData<FloatType>& meshData)
 {
   // set up numVertices, numFaces, gray values, modelColors, and etc
   // the adjacent edges information for the mesh
-  meshData.numVertices = meshData.vertices.size();
-  meshData.numFaces = meshData.facesVerticesInd.size();
+  // meshData.numVertices = meshData.vertices.size();
+  // meshData.numFaces = meshData.facesVerticesInd.size();
 
   if(meshData.colors.size() > 0)
     {
@@ -987,13 +1316,14 @@ void MeshIO<FloatType>::setupMeshFromFile(MeshData<FloatType>& meshData)
   for(int i = 0; i < meshData.numVertices; ++i)
     meshData.modelColors[i] = labelColor;
 
-  // normals
-  if(meshData.normals.size() != meshData.numVertices) // if there is no normals
-    {
-      meshData.normals.resize(meshData.numVertices);
-      for(int i = 0; i < meshData.numVertices; ++i)
-        meshData.normals[i].resize(3);
-    }
+  // // normals
+  // if(meshData.normals.size() != meshData.numVertices) // if there is no normals
+  //   {
+  //     meshData.normals.resize(meshData.numVertices);
+  //     for(int i = 0; i < meshData.numVertices; ++i)
+  //       meshData.normals[i].resize(3);
+  //     meshData.computeNormalsNeil();
+  //   }
 
 }
 

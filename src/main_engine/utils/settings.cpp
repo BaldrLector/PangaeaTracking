@@ -380,6 +380,8 @@ TrackerSettings::TrackerSettings()
   printEnergy = false;
   printEnergyGT = false;
   computeError = false;
+
+  // savePLY = false;
 }
 
 void TrackerSettings::read(const cv::FileNode& node)
@@ -643,6 +645,8 @@ void TrackerSettings::read(const cv::FileNode& node)
   if (!node["sh_coeff_file"].empty())
 	  node["sh_coeff_file"] >> sh_coeff_file;
 
+  // if(!node["save_ply"].empty())
+  //   node["save_ply"] >> savePLY;
 }
 
 FeatureSettings::FeatureSettings()
