@@ -375,6 +375,7 @@ TrackerSettings::TrackerSettings()
   hasGT = false;
   meshPathGT = "/cvfish/home/Work/data/Qi_synthetic/remeshed_0180/cropped_remeshed_color_obj/";
   meshLevelFormatGT = "cropped_remeshed_color_%04d_%02dk.obj";
+  firstFrameGT = 0;
 
   // print energy
   printEnergy = false;
@@ -641,12 +642,29 @@ void TrackerSettings::read(const cv::FileNode& node)
   if(!node["meshLevelListGT"].empty())
     node["meshLevelListGT"] >> meshLevelListGT;
 
+  if(!node["firstFrameGT"].empty())
+    node["firstFrameGT"] >> firstFrameGT;
+
+  // if(!node["save_ply"].empty())
+  //   node["save_ply"] >> savePLY;
+
   // Read Spherical Harmonic Coefficients for Illumination
   if (!node["sh_coeff_file"].empty())
 	  node["sh_coeff_file"] >> sh_coeff_file;
 
-  // if(!node["save_ply"].empty())
-  //   node["save_ply"] >> savePLY;
+  // Read list of pyramid levels to save
+  if (!node["levelsMeshPyramidSave"].empty())
+    node["levelsMeshPyramidSave"] >> levelsMeshPyramidSave;
+  else
+  {
+    levelsMeshPyramidSave.reserve(meshVertexNum.size());
+    int n(0);
+    std::generate_n(
+      std::back_inserter(levelsMeshPyramidSave), 
+      meshVertexNum.size(), 
+      [n]()mutable { return n++; }
+      );
+  }
 }
 
 FeatureSettings::FeatureSettings()

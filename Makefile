@@ -49,7 +49,7 @@ WX_LIB := `wx-config --libs --gl-libs`
 
 BOOST_LIB := -lboost_filesystem -lboost_system -lboost_thread
 
-OPENCV_LIB := -lopencv_core -lopencv_highgui -lopencv_imgproc
+OPENCV_LIB := -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_imgcodecs
 
 CERES_LIB := -lceres -lglog -ltbb -ltbbmalloc -lcholmod -lccolamd \
 	-lcamd -lcolamd -lamd -lsuitesparseconfig -llapack -lf77blas -latlas
@@ -74,6 +74,9 @@ endif
 
 # Automatic dependency generation
 CXXFLAGS += -MMD -MP
+
+# Disable offsetof macro warnings
+CXXFLAGS += -Wno-invalid-offsetof 
 
 # Get all source files
 MAIN_ENGINE_SRCS := $(shell find src/main_engine -name "*.cpp" ! -name "Deform*.cpp")

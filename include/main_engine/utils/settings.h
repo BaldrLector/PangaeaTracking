@@ -219,6 +219,7 @@ public:
   std::string meshPathGT;
   std::string meshLevelFormatGT;
   IntegerContainerType meshLevelListGT;
+  int firstFrameGT;
 
   // print energy and error compared with ground truth
   bool printEnergy;
@@ -227,6 +228,9 @@ public:
 
   // save the mesh as ply files
   // bool savePLY;
+
+  // List of pyramid levels to save
+  IntegerContainerType levelsMeshPyramidSave; 
 };
 
 class FeatureSettings

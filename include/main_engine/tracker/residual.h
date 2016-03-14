@@ -1228,17 +1228,17 @@ void getRotTransP(const T* const rotation, const T* const translation,
 // Computes vertex normal direction given its position, its one-ring neighbours 
 // and the corresponding face indexes. Can handle clockwise and counter-clockwise
 template <typename T>
-void computeNormal(const T* p, const vector<T*> &adjP, const vector<unsigned int> &face_vIdxs,
+void computeNormal(const T* p, const vector<T*> &adjP, const vector<pair<unsigned int, unsigned int>> &face_vIdxs,
 	const bool clockwise, T* normal)
 {
 	normal[0] = T(0.0);
 	normal[1] = T(0.0);
 	normal[2] = T(0.0);
 
-	for (int i = 0; i < face_vIdxs.size() / 2; i++)
+	for (int i = 0; i < face_vIdxs.size(); i++)
 	{
-		unsigned int vIdx1 = face_vIdxs[2 * i];
-		unsigned int vIdx2 = face_vIdxs[2 * i + 1];
+		unsigned int vIdx1 = face_vIdxs[i].first;
+		unsigned int vIdx2 = face_vIdxs[i].second;
 
 		T face_normal[3];
 		//compnorm(p, adjP[vIdx1], adjP[vIdx2], face_normal, false);
@@ -1418,15 +1418,16 @@ class ResidualImageProjectionIntrinsic : public ResidualImageProjection
 {
 public:
 	ResidualImageProjectionIntrinsic(double weight, double* pValue, double* pVertex,
-		const CameraInfo* pCamera, const Level* pFrame, const int _num_neighbours,
-		const vector<double*> &_adjPVertex, const vector<unsigned int> &_face_vIdxs,
+		const CameraInfo* pCamera, const Level* pFrame, 
+		const vector< vector<double> > &_vertices, const vector<unsigned int> &_adjVerticesInd,
+		const vector<pair<unsigned int, unsigned int>> &_adjFaceVerticesInd,
 		dataTermErrorType PE_TYPE = PE_INTRINSIC, const bool _clockwise = true,
 		const int _sh_order = 0, const double* _sh_coeff = 0) :
 		ResidualImageProjection(weight, pValue, pVertex,
 		pCamera, pFrame, PE_TYPE),
-		num_neighbours(_num_neighbours),
-		adjPVertex(_adjPVertex),
-		face_vIdxs(_face_vIdxs),
+		vertices(_vertices),
+		adjVerticesInd(_adjVerticesInd),
+		adjFaceVerticesInd(_adjFaceVerticesInd),
 		clockwise(_clockwise),
 		sh_order(_sh_order),
 		sh_coeff(_sh_coeff)
@@ -1452,16 +1453,19 @@ public:
 
 		vector<T*> adjP;
 		T* p_neighbour;
+		int num_neighbours = adjVerticesInd.size();
 		for (int i = 0; i < num_neighbours; i++)
 		{
+			int v_idx = adjVerticesInd[i];
+
 			p_neighbour = new T[3];
-			getRotTransP(rotation, translation, parameters[3 + i], adjPVertex[i],
+			getRotTransP(rotation, translation, parameters[3 + i], &vertices[v_idx][0],
 				optimizeDeformation, p_neighbour);
 			adjP.push_back(p_neighbour);
 		}
 
 		T normal[3];
-		computeNormal(p, adjP, face_vIdxs, clockwise, normal);
+		computeNormal(p, adjP, adjFaceVerticesInd, clockwise, normal);
 
 		for (int i = 0; i < num_neighbours; i++)
 		{
@@ -1482,12 +1486,12 @@ public:
 	}
 
 private:
-	// Number of one-ring neighbours
-	const int num_neighbours;
-	// Adjacent faces indexes
-	const vector<unsigned int> face_vIdxs;
-	// Adjacent vertices coordinates
-	const vector<double*> adjPVertex;
+	// Adjacent faces vertex indexes
+	const vector< pair<unsigned int, unsigned int> > &adjFaceVerticesInd;
+	// Adjacent faces vertex indexes
+	const vector< unsigned int > &adjVerticesInd;
+	// Vertices coordinates
+	const vector< vector<double> > &vertices;
 
 	// Identifies if faces are defined clockwise
 	const bool clockwise;
@@ -1537,7 +1541,7 @@ public:
 	{
 		for (int i = 0; i < n_channels; i++)
 		{
-			residuals[i] = current_albedo[i];
+			residuals[i] = diff_albedo[i];
 		}
 
 		return true;
@@ -1546,4 +1550,5 @@ public:
 private:
 	// Number of albedo channels
 	const int n_channels;
+
 };
