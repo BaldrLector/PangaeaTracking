@@ -283,6 +283,12 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
   prevMeshTransPyramid.resize(m_nMeshLevels);
   prevMeshRotPyramid.resize(m_nMeshLevels);
 
+  albedoChangePyramid.resize(m_nMeshLevels);
+  prevAlbedoChangePyramid.resize(m_nMeshLevels);
+
+  shCoeffChange.resize((sh_order + 1) * (sh_order + 1), 0);
+  prevSHCoeffChange.resize((sh_order + 1) * (sh_order + 1), 0);
+
   outputInfoPyramid.resize(m_nMeshLevels);
   outputPropPyramid.resize(m_nMeshLevels);
 
@@ -304,6 +310,9 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
 
       prevMeshTransPyramid[i].resize(numVertices, zeros3D);
       prevMeshRotPyramid[i].resize(numVertices, zeros3D);
+
+	  albedoChangePyramid[i].resize(numVertices, zeros3D);
+	  prevAlbedoChangePyramid[i].resize(numVertices, zeros3D);
 
       for(int j = 0; j < numVertices; ++j)
         {
@@ -1254,58 +1263,83 @@ void DeformNRSFMTracker::AddCostImageProjection(ceres::Problem& problem,
 
             }
 
-		  case PE_INTRINSIC:
-		  case PE_INTRINSIC_COLOR:
-			  {
-			  // Dynamic photometric cost function
-			  ceres::DynamicAutoDiffCostFunction<ResidualImageProjectionIntrinsic, 5>* dyn_cost_function
-				  = new ceres::DynamicAutoDiffCostFunction< ResidualImageProjectionIntrinsic, 5 >(
-				  new ResidualImageProjectionIntrinsic(1, 
-				  errorType == PE_INTRINSIC ? &templateMesh.grays[i] : &templateMesh.colors[i][0],
-				  &templateMesh.vertices[i][0], pCamera, pFrame, templateMesh.vertices,
-				  templateMesh.adjVerticesInd[i], templateMesh.adjFacesVerticesInd[i], 
-				  errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0]));
-
-			  // List of pointers to translations per vertex
-			  vector<double*> v_parameter_blocks;
-
-			  // Rigid rotation
-			  dyn_cost_function->AddParameterBlock(3);
-			  v_parameter_blocks.push_back(&camPose[0]);
-			  // Rigid translation
-			  v_parameter_blocks.push_back(&camPose[3]);
-			  dyn_cost_function->AddParameterBlock(3);
-
-			  // Local translations
-			  v_parameter_blocks.push_back(&meshTrans[i][0]);
-			  dyn_cost_function->AddParameterBlock(3);
-			  for (int j = 0; j < templateMesh.adjVerticesInd[i].size(); j++)
-			  {
-				  int v_idx = templateMesh.adjVerticesInd[i][j];
-				  v_parameter_blocks.push_back(&meshTrans[v_idx][0]);
-				  dyn_cost_function->AddParameterBlock(3);
-			  }
-
-			  dyn_cost_function->SetNumResiduals(PE_RESIDUAL_NUM_ARRAY[errorType]);
-
-			  ceres::ResidualBlockId residualBlockId = problem.AddResidualBlock(
-				  dyn_cost_function,
-				  loss_function,
-				  v_parameter_blocks);
-
-			  if (modeGT)
-				  problemWrapperGT.addDataTerm(currLevel, residualBlockId);
-			  else
-				  problemWrapper.addDataTerm(currLevel, residualBlockId);
-
-			  break;
-			  }
           }
 
 
       }
 
   }
+
+}
+
+void DeformNRSFMTracker::AddCostImageProjectionIntrinsic(ceres::Problem& problem,
+	ceres::LossFunction* loss_function,
+	dataTermErrorType errorType,
+	PangaeaMeshData& templateMesh,
+	MeshDeformation& meshTrans,
+	vector<double>& shCoeffChange,
+	AlbedoVariation& albedoChange,
+	vector<bool>& visibilityMask,
+	CameraInfo* pCamera,
+	Level* pFrame)
+{
+	for (int i = 0; i < templateMesh.numVertices; ++i){
+
+		if (visibilityMask[i])
+		{
+			// PE_INTRINSIC or PE_INTRINSIC_COLOR
+
+			// Dynamic photometric cost function
+			ceres::DynamicAutoDiffCostFunction<ResidualImageProjectionIntrinsic, 5>* dyn_cost_function
+				= new ceres::DynamicAutoDiffCostFunction< ResidualImageProjectionIntrinsic, 5 >(
+				new ResidualImageProjectionIntrinsic(1,
+				errorType == PE_INTRINSIC ? &templateMesh.grays[i] : &templateMesh.colors[i][0],
+				&templateMesh.vertices[i][0], pCamera, pFrame, templateMesh.vertices,
+				templateMesh.adjVerticesInd[i], templateMesh.adjFacesVerticesInd[i],
+				errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0]));
+
+			// List of pointers to translations per vertex
+			vector<double*> v_parameter_blocks;
+
+			// Rigid rotation
+			dyn_cost_function->AddParameterBlock(3);
+			v_parameter_blocks.push_back(&camPose[0]);
+			// Rigid translation
+			v_parameter_blocks.push_back(&camPose[3]);
+			dyn_cost_function->AddParameterBlock(3);
+
+			// Local translations
+			v_parameter_blocks.push_back(&meshTrans[i][0]);
+			dyn_cost_function->AddParameterBlock(3);
+			for (int j = 0; j < templateMesh.adjVerticesInd[i].size(); j++)
+			{
+				int v_idx = templateMesh.adjVerticesInd[i][j];
+				v_parameter_blocks.push_back(&meshTrans[v_idx][0]);
+				dyn_cost_function->AddParameterBlock(3);
+			}
+
+			// Change of Spherical Harmonic coefficients
+			v_parameter_blocks.push_back(&shCoeffChange[0]);
+			dyn_cost_function->AddParameterBlock((sh_order + 1) + (sh_order + 1));
+			
+			// Change of Albedo vertex from the template shape
+			v_parameter_blocks.push_back(&albedoChange[i][0]);
+			dyn_cost_function->AddParameterBlock(3);
+
+			dyn_cost_function->SetNumResiduals(PE_RESIDUAL_NUM_ARRAY[errorType]);
+
+			ceres::ResidualBlockId residualBlockId = problem.AddResidualBlock(
+				dyn_cost_function,
+				loss_function,
+				v_parameter_blocks);
+
+			if (modeGT)
+				problemWrapperGT.addDataTerm(currLevel, residualBlockId);
+			else
+				problemWrapper.addDataTerm(currLevel, residualBlockId);
+		}
+
+	}
 
 }
 
@@ -1638,6 +1672,10 @@ void DeformNRSFMTracker::AddPhotometricCostNew(ceres::Problem& problem,
         meshTransPyramidGT[ data_pair.first ] :
         meshTransPyramid[ data_pair.first ];
 
+	  AlbedoVariation& albedoChange 
+		  = modeGT ? std::move(AlbedoVariation(meshTrans.size(), vector<double>(3, 0.0))) 
+		  : albedoChangePyramid[data_pair.first];
+
       vector<bool>& visibilityMask = visibilityMaskPyramid[ data_pair.first ];
 
       MeshNeighbors& patchNeighbors = meshPropagation.getPatchNeighbors( data_pair.first );
@@ -1651,8 +1689,6 @@ void DeformNRSFMTracker::AddPhotometricCostNew(ceres::Problem& problem,
             case PE_INTENSITY:
             case PE_COLOR:
             case PE_FEATURE:
-			case PE_INTRINSIC:
-			case PE_INTRINSIC_COLOR:
               AddCostImageProjection(problem,
                                      loss_function,
                                      errorType,
@@ -1677,6 +1713,19 @@ void DeformNRSFMTracker::AddPhotometricCostNew(ceres::Problem& problem,
                                           pCamera,
                                           pFrame);
               break;
+			case PE_INTRINSIC:
+			case PE_INTRINSIC_COLOR:
+				AddCostImageProjectionIntrinsic(problem,
+					loss_function,
+					errorType,
+					templateMesh,
+					meshTrans,
+					shCoeffChange,
+					albedoChange,
+					visibilityMask,
+					pCamera,
+					pFrame);
+				break;
             }
         }
       else{
@@ -2410,6 +2459,43 @@ void DeformNRSFMTracker::AddTemporalMotionCost(ceres::Problem& problem,
 
 }
 
+void DeformNRSFMTracker::AddTempAlbedoChangeCost(ceres::Problem& problem,
+	ceres::LossFunction* loss_function, const dataTermErrorType errorType)
+{
+	AlbedoVariation& albedoChange = albedoChangePyramid[currLevel];
+	AlbedoVariation& prevAlbedoChange = prevAlbedoChangePyramid[currLevel];
+
+	for (int k = 0; k < albedoChange.size(); ++k)
+	{
+		ResidualTempAlbedo* pResidual = 
+			new ResidualTempAlbedo(&prevAlbedoChange[k][0], 
+			PE_RESIDUAL_NUM_ARRAY[errorType]);
+
+		switch (errorType)
+		{
+		case PE_INTRINSIC:
+		{
+			ceres::AutoDiffCostFunction<ResidualTempAlbedo, 1, 1>* cost_function =
+				new ceres::AutoDiffCostFunction<ResidualTempAlbedo, 1, 1>(pResidual);
+		}
+			break;
+		case PE_INTRINSIC_COLOR:
+		{
+			ceres::AutoDiffCostFunction<ResidualTempAlbedo, 3, 3>* cost_function =
+				new ceres::AutoDiffCostFunction<ResidualTempAlbedo, 3, 3>(pResidual);
+		}
+		default:
+			break;
+		}
+
+		//if (modeGT)
+		//	problemWrapperGT.addTVTerm(currLevel, residualBlockId);
+		//else
+		//	problemWrapper.addTVTerm(currLevel, residualBlockId);
+	}
+
+}
+
 void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem)
 {
   // now we are already to construct the energy
@@ -2607,6 +2693,24 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
   if(weightParaLevel.transWeight || weightParaLevel.rotWeight)
     AddTemporalMotionCost(problem, sqrt(weightParaLevel.rotWeight),
                           sqrt(weightParaLevel.transWeight));
+
+  // temporal change in albedo
+  if (weightParaLevel.temp_albedo_weight)
+  {
+	  ceres::ScaledLoss* tempAlbedoScaledLoss = new ceres::ScaledLoss(
+		  NULL,
+		  weightParaLevel.temp_albedo_weight,
+		  ceres::TAKE_OWNERSHIP);
+  }
+
+  // temporal change in sh coeff
+  if (weightParaLevel.temp_sh_coeff_weight)
+  {
+	  ceres::ScaledLoss* tempSHCoeffScaledLoss = new ceres::ScaledLoss(
+		  NULL,
+		  weightParaLevel.temp_sh_coeff_weight,
+		  ceres::TAKE_OWNERSHIP);
+  }
 }
 
 void DeformNRSFMTracker::EnergyMinimization(ceres::Problem& problem)

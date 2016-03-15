@@ -32,6 +32,10 @@ void OptimizationStrategy::setWeightScale(IntegerContainerType& meshVertexNum)
 
     weightScale.featureTermScale.resize(numOptimizationLevels, 1);
 
+	weightScale.tempAlbedoTermScale.resize(numOptimizationLevels, 1);
+
+	weightScale.tempSHCoeffTermScale.resize(numOptimizationLevels, 1);
+
     // // all the 0th level have scale 1
     // weightScale.dataTermScale[0] = 1;
     // weightScale.tvTermScale[0] = 1;
@@ -65,6 +69,10 @@ void OptimizationStrategy::setWeightScale(IntegerContainerType& meshVertexNum)
         weightScale.transScale[i] = decreaseFactor * weightScale.transScale[0];
 
         weightScale.featureTermScale[i] = 1;
+
+		weightScale.tempAlbedoTermScale[i] = 1;
+
+		weightScale.tempSHCoeffTermScale[i] = 1;
     }
 
 }
@@ -92,6 +100,12 @@ void OptimizationStrategy::setWeightParametersVec()
             weightScale.inextentTermScale[currLevel];
         weightParaLevel.deformWeight = weightPara.deformWeight *
             weightScale.deformTermScale[currLevel];
+
+		// Temporal albedo and sh coeff changes
+		weightParaLevel.temp_albedo_weight = weightPara.temp_albedo_weight *
+			weightScale.tempAlbedoTermScale[currLevel];
+		weightParaLevel.temp_sh_coeff_weight = weightPara.temp_sh_coeff_weight *
+			weightScale.tempSHCoeffTermScale[currLevel];
 
         // always the same dataHuberWidth and tvHuberWidth
         weightParaLevel.dataHuberWidth = weightPara.dataHuberWidth;

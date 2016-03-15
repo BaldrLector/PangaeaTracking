@@ -38,6 +38,11 @@ struct WeightPara
     double rotWeight;
     double transWeight;
 
+	// Temporal change in albedo weight
+	double temp_albedo_weight;
+	// Temporal change in sh coeff weight
+	double temp_sh_coeff_weight;
+
     // Huber width
     double dataHuberWidth;
     double tvHuberWidth;
@@ -57,6 +62,12 @@ struct WeightScale
     vector<double> arapTermScale;
     vector<double> inextentTermScale;
     vector<double> deformTermScale;
+
+	// Temporal change in albedo scale
+	vector<double> tempAlbedoTermScale;
+
+	// Temporal change in sh coeff scale
+	vector<double> tempSHCoeffTermScale;
 
     // rigid transformation weighting scale
     // change over different levels of the pyramid

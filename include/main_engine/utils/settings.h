@@ -120,6 +120,12 @@ public:
   double weightARAP;
   double weightINEXTENT;
   double weightTransPrior;
+
+  // Weight of the regularisation on temporal changes in albedo
+  double weightTempAlbedo;
+  // Weight of the regularisation on temporal changes in sh coeff
+  double weightTempSHCoeff;
+
   double photometricHuberWidth;
   double tvHuberWidth;
   double tvRotHuberWidth;

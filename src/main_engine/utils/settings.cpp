@@ -311,6 +311,9 @@ TrackerSettings::TrackerSettings()
   weightARAP = 0;
   weightINEXTENT = 0;
   weightTransPrior = 0;
+  weightTempAlbedo = 0;
+  weightTempSHCoeff = 0;
+
   photometricHuberWidth = 0.1;
   tvHuberWidth = 0.2;
   tvRotHuberWidth = 0.2;
@@ -450,6 +453,12 @@ void TrackerSettings::read(const cv::FileNode& node)
 
   if(!node["trans_weight"].empty())
     node["trans_weight"] >> weightTransPrior;
+
+  if (!node["temp_albedo_weight"].empty())
+	  node["temp_albedo_weight"] >> weightTempAlbedo;
+
+  if (!node["temp_sh_coeff_weight"].empty())
+	  node["temp_sh_coeff_weight"] >> weightTempSHCoeff;
 
   if(!node["photometric_huber_width"].empty())
     node["photometric_huber_width"] >> photometricHuberWidth;

@@ -1241,56 +1241,56 @@ void computeNormal(const T* p, const vector<T*> &adjP, const vector<pair<unsigne
 		unsigned int vIdx2 = face_vIdxs[i].second;
 
 		T face_normal[3];
-		//compnorm(p, adjP[vIdx1], adjP[vIdx2], face_normal, false);
+		compnorm(p, adjP[vIdx1], adjP[vIdx2], face_normal, false);
 
 		// WORKAROUND
 		// Problems with ambiguity with compnorm. This should be solved.
 		// For now, the function has just been copied and pasted here
 
-		const T* ver1 = p;
-		const T* ver2 = adjP[vIdx1];
-		const T* ver3 = adjP[vIdx2];
+		//const T* ver1 = p;
+		//const T* ver2 = adjP[vIdx1];
+		//const T* ver3 = adjP[vIdx2];
 
-		T a[3];
-		T b[3];
+		//T a[3];
+		//T b[3];
 
-		if (clockwise)
-		{
-			a[0] = ver1[0] - ver3[0];
-			a[1] = ver1[1] - ver3[1];
-			a[2] = ver1[2] - ver3[2];
+		//if (clockwise)
+		//{
+		//	a[0] = ver1[0] - ver3[0];
+		//	a[1] = ver1[1] - ver3[1];
+		//	a[2] = ver1[2] - ver3[2];
 
-			b[0] = ver1[0] - ver2[0];
-			b[1] = ver1[1] - ver2[1];
-			b[2] = ver1[2] - ver2[2];
-		}
-		else	// Anti-clockwsie
-		{
-			a[0] = ver1[0] - ver2[0];
-			a[1] = ver1[1] - ver2[1];
-			a[2] = ver1[2] - ver2[2];
+		//	b[0] = ver1[0] - ver2[0];
+		//	b[1] = ver1[1] - ver2[1];
+		//	b[2] = ver1[2] - ver2[2];
+		//}
+		//else	// Anti-clockwsie
+		//{
+		//	a[0] = ver1[0] - ver2[0];
+		//	a[1] = ver1[1] - ver2[1];
+		//	a[2] = ver1[2] - ver2[2];
 
-			b[0] = ver1[0] - ver3[0];
-			b[1] = ver1[1] - ver3[1];
-			b[2] = ver1[2] - ver3[2];
-		}
+		//	b[0] = ver1[0] - ver3[0];
+		//	b[1] = ver1[1] - ver3[1];
+		//	b[2] = ver1[2] - ver3[2];
+		//}
 
-		face_normal[0] = a[1] * b[2] - a[2] * b[1];
-		face_normal[1] = a[2] * b[0] - a[0] * b[2];
-		face_normal[2] = a[0] * b[1] - a[1] * b[0];
+		//face_normal[0] = a[1] * b[2] - a[2] * b[1];
+		//face_normal[1] = a[2] * b[0] - a[0] * b[2];
+		//face_normal[2] = a[0] * b[1] - a[1] * b[0];
 
-		if (face_normal[1] * face_normal[1]
-			+ face_normal[2] * face_normal[2]
-			+ face_normal[0] * face_normal[0] != T(0))
-		{
-			T temp = T(1.0f) /
-				sqrt(face_normal[1] * face_normal[1]
-				+ face_normal[2] * face_normal[2]
-				+ face_normal[0] * face_normal[0]);
-			face_normal[0] *= temp;
-			face_normal[1] *= temp;
-			face_normal[2] *= temp;
-		}
+		//if (face_normal[1] * face_normal[1]
+		//	+ face_normal[2] * face_normal[2]
+		//	+ face_normal[0] * face_normal[0] != T(0))
+		//{
+		//	T temp = T(1.0f) /
+		//		sqrt(face_normal[1] * face_normal[1]
+		//		+ face_normal[2] * face_normal[2]
+		//		+ face_normal[0] * face_normal[0]);
+		//	face_normal[0] *= temp;
+		//	face_normal[1] *= temp;
+		//	face_normal[2] *= temp;
+		//}
 
 		normal[0] += face_normal[0];
 		normal[1] += face_normal[1];
@@ -1309,7 +1309,8 @@ void computeNormal(const T* p, const vector<T*> &adjP, const vector<pair<unsigne
 // Computes shading value given normal direction, spherical harmonic coefficients 
 // and the SH order
 template <typename T>
-T computeShading(const T* _normal, const double* _sh_coeff, int _sh_order)
+T computeShading(const T* _normal, const double* _sh_coeff, int _sh_order,
+	const T* _sh_coeff_change)
 {
 	T n_x = _normal[0];
 	T n_y = _normal[1];
@@ -1323,43 +1324,43 @@ T computeShading(const T* _normal, const double* _sh_coeff, int _sh_order)
 	T n_yz = n_y * n_z;
 	T n_x2_y2 = n_x2 - n_y2;
 
-	T shading = T(_sh_coeff[0]);
+	T shading = T(_sh_coeff[0]) + _sh_coeff_change[0];
 
 	if (_sh_order > 0)
 		shading = shading
-		+ T(_sh_coeff[1]) * n_x					// x
-		+ T(_sh_coeff[2]) * n_y					// y
-		+ T(_sh_coeff[3]) * n_z;				// z
+		+ (T(_sh_coeff[1]) + _sh_coeff_change[1]) * n_x					// x
+		+ (T(_sh_coeff[2]) + _sh_coeff_change[2]) * n_y					// y
+		+ (T(_sh_coeff[3]) + _sh_coeff_change[3]) * n_z;				// z
 
 	if (_sh_order > 1)
 		shading = shading
-		+ T(_sh_coeff[4]) * n_xy						// x * y
-		+ T(_sh_coeff[5]) * n_xz						// x * z
-		+ T(_sh_coeff[6]) * n_yz						// y * z
-		+ T(_sh_coeff[7]) * n_x2_y2						// x^2 - y^2
-		+ T(_sh_coeff[8]) * (T(3.0) * n_z2 - T(1.0));	// 3 * z^2 - 1
+		+ (T(_sh_coeff[4]) + _sh_coeff_change[4]) * n_xy						// x * y
+		+ (T(_sh_coeff[5]) + _sh_coeff_change[5]) * n_xz						// x * z
+		+ (T(_sh_coeff[6]) + _sh_coeff_change[6]) * n_yz						// y * z
+		+ (T(_sh_coeff[7]) + _sh_coeff_change[7]) * n_x2_y2						// x^2 - y^2
+		+ (T(_sh_coeff[8]) + _sh_coeff_change[8]) * (T(3.0) * n_z2 - T(1.0));	// 3 * z^2 - 1
 
 	if (_sh_order > 2)
 		shading = shading
-		+ T(_sh_coeff[9]) * (T(3.0) * n_x2 - n_y2) * n_y		// (3 * x^2 - y^2) * y 
-		+ T(_sh_coeff[10]) * n_x * n_y * n_z					// x * y * z
-		+ T(_sh_coeff[11]) * (T(5.0) * n_z2 - T(1.0)) * n_y		// (5 * z^2 - 1) * y
-		+ T(_sh_coeff[12]) * (T(5.0) * n_z2 - T(3.0)) * n_z		// (5 * z^2 - 3) * z
-		+ T(_sh_coeff[13]) * (T(5.0) * n_z2 - T(1.0)) * n_x		// (5 * z^2 - 1) * x
-		+ T(_sh_coeff[14]) * n_x2_y2 * n_z						// (x^2 - y^2) * z
-		+ T(_sh_coeff[15]) * (n_x2 - T(3.0) * n_y2) * n_x;		// (x^2 - 3 * y^2) * x
+		+ (T(_sh_coeff[9]) + _sh_coeff_change[9]) * (T(3.0) * n_x2 - n_y2) * n_y		// (3 * x^2 - y^2) * y 
+		+ (T(_sh_coeff[10]) + _sh_coeff_change[10]) * n_x * n_y * n_z					// x * y * z
+		+ (T(_sh_coeff[11]) + _sh_coeff_change[11]) * (T(5.0) * n_z2 - T(1.0)) * n_y	// (5 * z^2 - 1) * y
+		+ (T(_sh_coeff[12]) + _sh_coeff_change[12]) * (T(5.0) * n_z2 - T(3.0)) * n_z	// (5 * z^2 - 3) * z
+		+ (T(_sh_coeff[13]) + _sh_coeff_change[13]) * (T(5.0) * n_z2 - T(1.0)) * n_x	// (5 * z^2 - 1) * x
+		+ (T(_sh_coeff[14]) + _sh_coeff_change[14]) * n_x2_y2 * n_z						// (x^2 - y^2) * z
+		+ (T(_sh_coeff[15]) + _sh_coeff_change[15]) * (n_x2 - T(3.0) * n_y2) * n_x;		// (x^2 - 3 * y^2) * x
 
 	if (_sh_order > 3)
 		shading = shading
-		+ T(_sh_coeff[16]) * n_x2_y2 * n_x * n_y								// (x^2 - y^2) * x * y
-		+ T(_sh_coeff[17]) * (T(3.0) * n_x2 - n_y2) * n_yz						// (3 * x^2 - y^2) * yz
-		+ T(_sh_coeff[18]) * (T(7.0) * n_z2 - T(1.0)) * n_xy					// (7 * z^2 - 1) * x * y
-		+ T(_sh_coeff[19]) * (T(7.0) * n_z2 - T(3.0)) * n_yz					// (7 * z^2 - 3) * y * z
-		+ T(_sh_coeff[20]) * (T(3.0) - T(30.0) * n_z2 + T(35.0) * n_z2 * n_z2)	// 3 - 30 * z^2 + 35 * z^4
-		+ T(_sh_coeff[21]) * (T(7.0) * n_z - T(3.0)) * n_xz						// (7 * z^2 - 3) * x * z
-		+ T(_sh_coeff[22]) * (T(7.0) * n_z - T(1.0)) * n_x2_y2					// (7 * z^2 - 1) * (x^2 - y^2)
-		+ T(_sh_coeff[23]) * (n_x2 - T(3.0) * n_y2) * n_xz						// (x^2 - 3 * y^2) * x * z
-		+ T(_sh_coeff[24]) * ((n_x2 - T(3.0) * n_y2) * n_x2					// (x^2 - 3 * y^2) * x^2 - (3 * x^2 - y^2) * y^2 
+		+ (T(_sh_coeff[16]) + _sh_coeff_change[16]) * n_x2_y2 * n_x * n_y								// (x^2 - y^2) * x * y
+		+ (T(_sh_coeff[17]) + _sh_coeff_change[17]) * (T(3.0) * n_x2 - n_y2) * n_yz						// (3 * x^2 - y^2) * yz
+		+ (T(_sh_coeff[18]) + _sh_coeff_change[18]) * (T(7.0) * n_z2 - T(1.0)) * n_xy					// (7 * z^2 - 1) * x * y
+		+ (T(_sh_coeff[19]) + _sh_coeff_change[19]) * (T(7.0) * n_z2 - T(3.0)) * n_yz					// (7 * z^2 - 3) * y * z
+		+ (T(_sh_coeff[20]) + _sh_coeff_change[20]) * (T(3.0) - T(30.0) * n_z2 + T(35.0) * n_z2 * n_z2)	// 3 - 30 * z^2 + 35 * z^4
+		+ (T(_sh_coeff[21]) + _sh_coeff_change[21]) * (T(7.0) * n_z - T(3.0)) * n_xz					// (7 * z^2 - 3) * x * z
+		+ (T(_sh_coeff[22]) + _sh_coeff_change[22]) * (T(7.0) * n_z - T(1.0)) * n_x2_y2					// (7 * z^2 - 1) * (x^2 - y^2)
+		+ (T(_sh_coeff[23]) + _sh_coeff_change[23]) * (n_x2 - T(3.0) * n_y2) * n_xz						// (x^2 - 3 * y^2) * x * z
+		+ (T(_sh_coeff[24]) + _sh_coeff_change[24]) * ((n_x2 - T(3.0) * n_y2) * n_x2					// (x^2 - 3 * y^2) * x^2 - (3 * x^2 - y^2) * y^2 
 		- (T(3.0) * n_x2 - n_y2) * n_y2);
 
 	return shading;
@@ -1367,7 +1368,8 @@ T computeShading(const T* _normal, const double* _sh_coeff, int _sh_order)
 
 template<typename T>
 void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level* pFrame,
-	double* pValue, T* shading, T* p, T* residuals, const dataTermErrorType& PE_TYPE)
+	double* pValue, const T* albedo_change, T* shading, T* p, T* residuals, 
+	const dataTermErrorType& PE_TYPE)
 {
 	T transformed_r, transformed_c;
 
@@ -1382,7 +1384,7 @@ void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level*
 		switch (PE_TYPE)
 		{
 		case PE_INTRINSIC:
-			templateValue = T(pValue[0]) * shading[0];
+			templateValue = (T(pValue[0]) + albedo_change[0]) * shading[0];
 			currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->grayImage,
 				pImageLevel->gradXImage,
 				pImageLevel->gradYImage,
@@ -1394,7 +1396,7 @@ void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level*
 		case PE_INTRINSIC_COLOR:
 			for (int i = 0; i < 3; ++i)
 			{
-				templateValue = T(pValue[i]) * shading[0];
+				templateValue = (T(pValue[i]) + albedo_change[i]) * shading[0];
 				currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->colorImageSplit[i],
 					pImageLevel->colorImageGradXSplit[i],
 					pImageLevel->colorImageGradYSplit[i],
@@ -1470,10 +1472,13 @@ public:
 			delete[] adjP[i];
 		}
 
-		T shading = computeShading(normal, sh_coeff, sh_order);
+		const T* shCoeffChange = parameters[3 + num_neighbours];
+		const T* albedoChange = parameters[3 + num_neighbours + 1];
 
-		getResidualIntrinsic(weight, pCamera, pFrame, pValue, &shading, p, residuals,
-			PE_TYPE);
+		T shading = computeShading(normal, sh_coeff, sh_order, shCoeffChange);
+
+		getResidualIntrinsic(weight, pCamera, pFrame, pValue, albedoChange, 
+			&shading, p, residuals, PE_TYPE);
 
 		return true;
 
@@ -1496,51 +1501,61 @@ private:
 };
 
 // Residual of the difference between the previous SH coefficients and the current ones
-class ResidualSHCoeff
+class ResidualTempSHCoeff
 {
 public:
-	ResidualSHCoeff(const int _n_sh_coeff) : n_sh_coeff(_n_sh_coeff)
+	ResidualTempSHCoeff(const double* _prev_sh_coeff_change, const int _n_sh_coeff)
+		: prev_sh_coeff_change(_prev_sh_coeff_change), 
+		n_sh_coeff(_n_sh_coeff)
 	{
 
 	}
 
 	template<typename T>
-	bool operator()(const T* const diff_sh_coeff, T* residuals) const
+	bool operator()(const T* const _sh_coeff_change, T* residuals) const
 	{
 		for (int i = 0; i < n_sh_coeff; i++)
 		{
-			residuals[i] = diff_sh_coeff[i];
+			residuals[i] = _sh_coeff_change[i] - T(prev_sh_coeff_change[i]);
 		}
 
 		return true;
 	}
 
 private:
+	// Variation of sh coefficients on the previous frame
+	const double* prev_sh_coeff_change;
+
 	// Number of SH coeff
 	const int n_sh_coeff;
 };
 
 // Residual of the difference between the previous albedo values and the current ones
-class ResidualAlbedo
+class ResidualTempAlbedo
 {
 public:
-	ResidualAlbedo(const bool _is_grayscale) : n_channels(_is_grayscale ? 1 : 3)
+	ResidualTempAlbedo(const double* _prev_albedo_change, const int _n_channels)
+		: prev_albedo_change(_prev_albedo_change), 
+		n_channels(_n_channels)
 	{
 
 	}
 
 	template<typename T>
-	bool operator()(const T* const diff_albedo, T* residuals) const
+	bool operator()(const T* const _albedo_change, T* residuals) const
 	{
 		for (int i = 0; i < n_channels; i++)
 		{
-			residuals[i] = diff_albedo[i];
+			residuals[i] = _albedo_change[i] - T(_prev_albedo_change[i]);
 		}
 
 		return true;
 	}
 
 private:
+	// Variation of albedo from template on the previous frame
+	const double* prev_albedo_change;
+
 	// Number of albedo channels
 	const int n_channels;
 

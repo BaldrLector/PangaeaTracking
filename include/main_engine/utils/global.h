@@ -52,6 +52,9 @@ typedef std::vector<vector< pair<int, int> > > VecVecPairType;
 typedef std::vector<vector< vector<int> > > VecVecVecType;
 typedef vector<vector<double> > MeshDeformation;
 
+// Vertex albedo changes
+typedef vector<vector<double> > AlbedoVariation;
+
 typedef cv::Vec<PixelType,3> Vec3b;
 typedef cv::Vec<CoordinateType,3> Vec3d;
 
@@ -136,8 +139,8 @@ void flipnorm(FloatType* normals, int num)
 }
 
 template<typename FloatType>
-void compnorm(FloatType* ver1,  FloatType* ver2, FloatType* ver3, FloatType* location,
-	bool clockwise)
+void compnorm(const FloatType* ver1,  const FloatType* ver2, const FloatType* ver3, 
+	FloatType* location, bool clockwise)
 {
     // compute normals assume that the normal at each point
     //   is defined by the triangle consisting of the previous two

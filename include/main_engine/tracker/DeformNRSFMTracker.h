@@ -70,6 +70,13 @@ public:
   void AddTemporalMotionCost(ceres::Problem& problem,
                              double rotWeight, double transWeight);
 
+  // Temporal change on albedo
+  void AddTempAlbedoChangeCost(ceres::Problem& problem,
+	  ceres::LossFunction* loss_function, const dataTermErrorType errorType);
+  // Temporal change on illumination
+  void AddTempSHCoeffChangeCost(ceres::Problem& problem,
+	  ceres::LossFunction* loss_function);
+
   void AddVariableMask(ceres::Problem& problem, baType BA);
   void AddConstantMask(ceres::Problem& problem, baType BA);
 
@@ -122,6 +129,19 @@ public:
                               vector<bool>& visibilityMask,
                               CameraInfo* pCamera,
                               Level* pFrame);
+
+  // Photometric error data term where the albedo and the illumination can be
+  // optimize
+  void AddCostImageProjectionIntrinsic(ceres::Problem& problem,
+	  ceres::LossFunction* loss_function,
+	  dataTermErrorType errorType,
+	  PangaeaMeshData& templateMesh,
+	  MeshDeformation& meshTrans,
+	  vector<double>& shCoeffChange,
+	  AlbedoVariation& albedoChange,
+	  vector<bool>& visibilityMask,
+	  CameraInfo* pCamera,
+	  Level* pFrame);
 
   void AddCostImageProjectionPatch(ceres::Problem& problem,
                                    ceres::LossFunction* loss_function,
@@ -219,6 +239,11 @@ private:
   vector< MeshDeformation > meshRotPyramid;
   vector< MeshDeformation > prevMeshTransPyramid;
   vector< MeshDeformation > prevMeshRotPyramid;
+
+  vector< AlbedoVariation > albedoChangePyramid;
+  vector< AlbedoVariation > prevAlbedoChangePyramid;
+  vector< double > shCoeffChange;
+  vector< double > prevSHCoeffChange;
 
   // what about if we use dual quarternion representation?
   // In that case, we will need a dual quarternion
