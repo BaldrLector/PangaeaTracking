@@ -1241,56 +1241,7 @@ void computeNormal(const T* p, const vector<T*> &adjP, const vector<pair<unsigne
 		unsigned int vIdx2 = face_vIdxs[i].second;
 
 		T face_normal[3];
-		//compnorm(p, adjP[vIdx1], adjP[vIdx2], face_normal, false);
-
-		// WORKAROUND
-		// Problems with ambiguity with compnorm. This should be solved.
-		// For now, the function has just been copied and pasted here
-
-		const T* ver1 = p;
-		const T* ver2 = adjP[vIdx1];
-		const T* ver3 = adjP[vIdx2];
-
-		T a[3];
-		T b[3];
-
-		if (clockwise)
-		{
-			a[0] = ver1[0] - ver3[0];
-			a[1] = ver1[1] - ver3[1];
-			a[2] = ver1[2] - ver3[2];
-
-			b[0] = ver1[0] - ver2[0];
-			b[1] = ver1[1] - ver2[1];
-			b[2] = ver1[2] - ver2[2];
-		}
-		else	// Anti-clockwsie
-		{
-			a[0] = ver1[0] - ver2[0];
-			a[1] = ver1[1] - ver2[1];
-			a[2] = ver1[2] - ver2[2];
-
-			b[0] = ver1[0] - ver3[0];
-			b[1] = ver1[1] - ver3[1];
-			b[2] = ver1[2] - ver3[2];
-		}
-
-		face_normal[0] = a[1] * b[2] - a[2] * b[1];
-		face_normal[1] = a[2] * b[0] - a[0] * b[2];
-		face_normal[2] = a[0] * b[1] - a[1] * b[0];
-
-		if (face_normal[1] * face_normal[1]
-			+ face_normal[2] * face_normal[2]
-			+ face_normal[0] * face_normal[0] != T(0))
-		{
-			T temp = T(1.0f) /
-				sqrt(face_normal[1] * face_normal[1]
-				+ face_normal[2] * face_normal[2]
-				+ face_normal[0] * face_normal[0]);
-			face_normal[0] *= temp;
-			face_normal[1] *= temp;
-			face_normal[2] *= temp;
-		}
+		compnorm(p, adjP[vIdx1], adjP[vIdx2], face_normal, false);
 
 		normal[0] += face_normal[0];
 		normal[1] += face_normal[1];

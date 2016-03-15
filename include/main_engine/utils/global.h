@@ -136,7 +136,7 @@ void flipnorm(FloatType* normals, int num)
 }
 
 template<typename FloatType>
-void compnorm(FloatType* ver1,  FloatType* ver2, FloatType* ver3, FloatType* location,
+void compnorm(const FloatType* ver1,  const FloatType* ver2, const FloatType* ver3, FloatType* location,
 	bool clockwise)
 {
     // compute normals assume that the normal at each point
