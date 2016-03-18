@@ -1546,7 +1546,7 @@ public:
 	{
 		for (int i = 0; i < n_channels; i++)
 		{
-			residuals[i] = _albedo_change[i] - T(_prev_albedo_change[i]);
+			residuals[i] = _albedo_change[i] - T(prev_albedo_change[i]);
 		}
 
 		return true;
