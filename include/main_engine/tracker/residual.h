@@ -1228,17 +1228,17 @@ void getRotTransP(const T* const rotation, const T* const translation,
 // Computes vertex normal direction given its position, its one-ring neighbours 
 // and the corresponding face indexes. Can handle clockwise and counter-clockwise
 template <typename T>
-void computeNormal(const T* p, const vector<T*> &adjP, const vector<pair<unsigned int, unsigned int>> &face_vIdxs,
-	const bool clockwise, T* normal)
+void computeNormal(const T* p, const vector<T*> &adjP, 
+  const int &_n_faces, const bool clockwise, T* normal)
 {
 	normal[0] = T(0.0);
 	normal[1] = T(0.0);
 	normal[2] = T(0.0);
 
-	for (int i = 0; i < face_vIdxs.size(); i++)
+	for (int i = 0; i < _n_faces; i++)
 	{
-		unsigned int vIdx1 = face_vIdxs[i].first;
-		unsigned int vIdx2 = face_vIdxs[i].second;
+		unsigned int vIdx1 = i;
+		unsigned int vIdx2 = (i + 1) % adjP.size();
 
 		T face_normal[3];
 		compnorm(p, adjP[vIdx1], adjP[vIdx2], face_normal, false);
@@ -1370,15 +1370,15 @@ class ResidualImageProjectionIntrinsic : public ResidualImageProjection
 public:
 	ResidualImageProjectionIntrinsic(double weight, double* pValue, double* pVertex,
 		const CameraInfo* pCamera, const Level* pFrame, 
-		const vector< vector<double> > &_vertices, const vector<unsigned int> &_adjVerticesInd,
-		const vector<pair<unsigned int, unsigned int>> &_adjFaceVerticesInd,
+		const vector< vector<double> > &_vertices, 
+		const vector<unsigned int> &_adjVerticesInd, const int &_n_adj_faces,
 		dataTermErrorType PE_TYPE = PE_INTRINSIC, const bool _clockwise = true,
 		const int _sh_order = 0, const double* _sh_coeff = 0) :
 		ResidualImageProjection(weight, pValue, pVertex,
 		pCamera, pFrame, PE_TYPE),
 		vertices(_vertices),
 		adjVerticesInd(_adjVerticesInd),
-		adjFaceVerticesInd(_adjFaceVerticesInd),
+		n_adj_faces(_n_adj_faces),
 		clockwise(_clockwise),
 		sh_order(_sh_order),
 		sh_coeff(_sh_coeff)
@@ -1416,7 +1416,7 @@ public:
 		}
 
 		T normal[3];
-		computeNormal(p, adjP, adjFaceVerticesInd, clockwise, normal);
+		computeNormal(p, adjP, n_adj_faces, clockwise, normal);
 
 		for (vector<T*>::iterator it = adjP.begin(); it != adjP.end(); ++it)
 		{
@@ -1437,12 +1437,12 @@ public:
 	}
 
 private:
-	// Adjacent faces vertex indexes
-	const vector< pair<unsigned int, unsigned int> > &adjFaceVerticesInd;
-	// Adjacent faces vertex indexes
-	const vector< unsigned int > &adjVerticesInd;
-	// Vertices coordinates
+	// List of vertices
 	const vector< vector<double> > &vertices;
+	// List of ordered adjacent vertices
+	const vector<unsigned int> &adjVerticesInd;
+	// Number of adjacent faces
+	const int n_adj_faces;
 
 	// Identifies if faces are defined clockwise
 	const bool clockwise;
