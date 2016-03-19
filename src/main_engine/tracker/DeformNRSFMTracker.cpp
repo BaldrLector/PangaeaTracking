@@ -1263,7 +1263,7 @@ void DeformNRSFMTracker::AddCostImageProjection(ceres::Problem& problem,
 				  new ResidualImageProjectionIntrinsic(1, 
 				  errorType == PE_INTRINSIC ? &templateMesh.grays[i] : &templateMesh.colors[i][0],
 				  &templateMesh.vertices[i][0], pCamera, pFrame, templateMesh.vertices,
-				  templateMesh.adjVerticesInd[i], templateMesh.adjFacesVerticesInd[i], 
+				  templateMesh.adjVerticesInd[i], templateMesh.adjFacesInd[i].size(),
 				  errorType, trackerSettings.clockwise, sh_order, &sh_coeff[0]));
 
 			  // List of pointers to translations per vertex
