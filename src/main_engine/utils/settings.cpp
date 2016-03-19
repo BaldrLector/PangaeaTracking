@@ -666,13 +666,21 @@ void TrackerSettings::read(const cv::FileNode& node)
     node["levelsMeshPyramidSave"] >> levelsMeshPyramidSave;
   else
   {
-    levelsMeshPyramidSave.reserve(meshVertexNum.size());
-    int n(0);
-    std::generate_n(
-      std::back_inserter(levelsMeshPyramidSave), 
-      meshVertexNum.size(), 
-      [n]()mutable { return n++; }
-      );
+	// Commented because the cluster has g++ 4.4.7 which does not support c++11
+	// Then, it does not support lambda definitions
+	//levelsMeshPyramidSave.reserve(meshVertexNum.size());
+    //int n(0);
+    //std::generate_n(
+    //  std::back_inserter(levelsMeshPyramidSave), 
+    //  meshVertexNum.size(), 
+    //  [n]()mutable { return n++; }
+    //  );
+
+	levelsMeshPyramidSave.resize(meshVertexNum.size());
+	for (int i = 0; i < meshVertexNum.size(); i++)
+	{
+		levelsMeshPyramidSave[i] = i;
+	}
   }
 }
 
