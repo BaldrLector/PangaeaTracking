@@ -98,7 +98,9 @@ DeformNRSFMTracker::DeformNRSFMTracker(TrackerSettings& settings, int width, int
         std::left << setw(15)  << "FeatureTerm" << std::left << setw(15)  << "TVTerm" <<
         std::left << setw(15)  << "RotTVTerm" << std::left << setw(15) << "ARAPTerm" <<
         std::left << setw(15)  << "INEXTENTTerm" << std::left << setw(15)  << "DeformTerm" <<
-        std::left << setw(15)  << "TemporalTerm" << std::left << setw(15)  << "SumCost" <<
+		std::left << setw(15) << "TemporalTerm" << 
+		std::left << setw(15) << "TemporalAlbedoTerm" << std::left << setw(15) << "TemporalSHCoeffTerm" <<
+		std::left << setw(15) << "SumCost" <<
         std::left << setw(15)  << "TotalCost" << endl;
 
       std::stringstream energyOutputForRPath;
@@ -112,7 +114,8 @@ DeformNRSFMTracker::DeformNRSFMTracker(TrackerSettings& settings, int width, int
     }
 
   vector<std::string> temp({"DataTerm", "FeatureTerm", "TVTerm", "RotTVTerm", "ARAPTerm",
-        "INEXTENTTerm", "DeformTerm", "TermporalTerm", "SumCost", "TotalCost"});
+	  "INEXTENTTerm", "DeformTerm", "TermporalTerm", "TermporalAlbedoTerm", "TermporalSHCoeffTerm", 
+	  "SumCost", "TotalCost" });
   costNames = std::move(temp);
 
 	if (PEType == PE_INTRINSIC || PEType == PE_INTRINSIC_COLOR)
@@ -194,11 +197,14 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
   weightPara.inextentTermWeight = trackerSettings.weightINEXTENT;
   weightPara.transWeight        = trackerSettings.weightTransPrior;
   weightPara.rotWeight = 0;
+  weightPara.temp_albedo_weight = trackerSettings.weightTempAlbedo;
+  weightPara.temp_sh_coeff_weight = trackerSettings.weightTempSHCoeff;
 
   //    weightPara.dataHuberWidth = trackerSettings.dataHuberWidth;
   weightPara.dataHuberWidth  = trackerSettings.photometricHuberWidth;
   weightPara.tvHuberWidth    = trackerSettings.tvHuberWidth;
   weightPara.tvRotHuberWidth = trackerSettings.tvRotHuberWidth;
+  weightPara.arapHuberWidth = trackerSettings.arapHuberWidth;
 
   weightPara.featureTermWeight = featureSettings.featureTermWeight;
   weightPara.featureHuberWidth = featureSettings.featureHuberWidth;
@@ -286,8 +292,8 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
   albedoChangePyramid.resize(m_nMeshLevels);
   prevAlbedoChangePyramid.resize(m_nMeshLevels);
 
-  shCoeffChange.resize((sh_order + 1) * (sh_order + 1), 0);
-  prevSHCoeffChange.resize((sh_order + 1) * (sh_order + 1), 0);
+  shCoeffChangePyramid.resize(m_nMeshLevels);
+  prevSHCoeffChangePyramid.resize(m_nMeshLevels);
 
   outputInfoPyramid.resize(m_nMeshLevels);
   outputPropPyramid.resize(m_nMeshLevels);
@@ -313,6 +319,9 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
 
 	  albedoChangePyramid[i].resize(numVertices, zeros3D);
 	  prevAlbedoChangePyramid[i].resize(numVertices, zeros3D);
+
+	  shCoeffChangePyramid[i].resize(n_sh_coeff, 0);
+	  prevSHCoeffChangePyramid[i].resize(n_sh_coeff, 0);
 
       for(int j = 0; j < numVertices; ++j)
         {
@@ -384,6 +393,11 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
   prevMeshRotPyramidGT = prevMeshRotPyramid;
   prevMeshTransPyramidGT = prevMeshTransPyramid;
   templateMeshPyramidGT = templateMeshPyramid;
+
+  albedoChangePyramidGT = albedoChangePyramid;
+  prevAlbedoChangePyramidGT = prevAlbedoChangePyramid;
+  shCoeffChangePyramidGT = shCoeffChangePyramid;
+  prevSHCoeffChangePyramidGT = prevSHCoeffChangePyramid;
 
   // load ground truth if there is any
   if(trackerSettings.hasGT)
@@ -900,6 +914,12 @@ void DeformNRSFMTracker::UpdateResultsLevel(int level)
   MeshDeformation& mesh_rot = meshRotPyramid[level];
   MeshDeformation& prev_mesh_rot = prevMeshRotPyramid[level];
 
+  AlbedoVariation& albedoChange = albedoChangePyramid[level];
+  AlbedoVariation& prevAlbedoChange = prevAlbedoChangePyramid[level];
+
+  SHCoeffVariation& shCoeffChange = shCoeffChangePyramid[level];
+  SHCoeffVariation& prevSHCoeffChange = prevSHCoeffChangePyramid[level];
+
   // update output results
   TrackerOutputInfo& output_info = outputInfoPyramid[level];
 
@@ -936,8 +956,13 @@ void DeformNRSFMTracker::UpdateResultsLevel(int level)
       prev_mesh_rot[i][0] = mesh_rot[i][0];
       prev_mesh_rot[i][1] = mesh_rot[i][1];
       prev_mesh_rot[i][2] = mesh_rot[i][2];
+
+	  prevAlbedoChange[i][0] = albedoChange[i][0];
+	  prevAlbedoChange[i][1] = albedoChange[i][1];
+	  prevAlbedoChange[i][2] = albedoChange[i][2];
     }
 
+  prevSHCoeffChange = shCoeffChange;
 }
 
 void DeformNRSFMTracker::UpdateResults()
@@ -982,6 +1007,12 @@ void DeformNRSFMTracker::PropagateMeshCoarseToFine(int coarse_level, int fine_le
 
   PangaeaMeshData& template_coarse_mesh = templateMeshPyramid.levels[coarse_level];
   PangaeaMeshData& template_fine_mesh = templateMeshPyramid.levels[fine_level];
+
+  AlbedoVariation& albedoChange_coarse = albedoChangePyramid[coarse_level];
+  SHCoeffVariation& shCoeffChange_coarse = shCoeffChangePyramid[coarse_level];
+
+  AlbedoVariation& albedoChange_fine = albedoChangePyramid[fine_level];
+  SHCoeffVariation& shCoeffChange_fine = shCoeffChangePyramid[fine_level];
 
   // For Siggraph14 case, we to do propagation from coarse level to next
   // fine level, if rotations are among the optimization variables
@@ -1093,6 +1124,26 @@ void DeformNRSFMTracker::PropagateMeshCoarseToFine(int coarse_level, int fine_le
         }
 
     }
+
+  // Interpolate albedo changes from coarse neighbours
+  for (int i = 0; i < template_fine_mesh.numVertices; ++i)
+  {
+	  albedoChange_fine[i][0] = 0;
+	  albedoChange_fine[i][1] = 0;
+	  albedoChange_fine[i][2] = 0;
+	  // find its neighbors in coarse_mesh
+	  int num_neighbors = neighbors[i].size();
+	  for (int j = 0; j < num_neighbors; ++j)
+	  {
+		  for (int index = 0; index < 3; ++index)
+		  {
+			  albedoChange_fine[i][index] += weights[i][j] * albedoChange_coarse[neighbors[i][j]][index];
+		  }
+	  }
+  }
+
+  // Use sh coefficients from the coarse level as an initialization for the fine level
+  shCoeffChange_fine = shCoeffChange_coarse;
 }
 
 void DeformNRSFMTracker::PropagateMesh()
@@ -1277,7 +1328,7 @@ void DeformNRSFMTracker::AddCostImageProjectionIntrinsic(ceres::Problem& problem
 	dataTermErrorType errorType,
 	PangaeaMeshData& templateMesh,
 	MeshDeformation& meshTrans,
-	vector<double>& shCoeffChange,
+	SHCoeffVariation& shCoeffChange,
 	AlbedoVariation& albedoChange,
 	vector<bool>& visibilityMask,
 	CameraInfo* pCamera,
@@ -1320,7 +1371,7 @@ void DeformNRSFMTracker::AddCostImageProjectionIntrinsic(ceres::Problem& problem
 
 			// Change of Spherical Harmonic coefficients
 			v_parameter_blocks.push_back(&shCoeffChange[0]);
-			dyn_cost_function->AddParameterBlock((sh_order + 1) + (sh_order + 1));
+			dyn_cost_function->AddParameterBlock(n_sh_coeff);
 			
 			// Change of Albedo vertex from the template shape
 			v_parameter_blocks.push_back(&albedoChange[i][0]);
@@ -1675,6 +1726,10 @@ void DeformNRSFMTracker::AddPhotometricCostNew(ceres::Problem& problem,
 	  AlbedoVariation& albedoChange 
 		  = modeGT ? std::move(AlbedoVariation(meshTrans.size(), vector<double>(3, 0.0))) 
 		  : albedoChangePyramid[data_pair.first];
+
+	  SHCoeffVariation& shCoeffChange
+		  = modeGT ? std::move(SHCoeffVariation(n_sh_coeff, 0))
+		  : shCoeffChangePyramid[data_pair.first];
 
       vector<bool>& visibilityMask = visibilityMaskPyramid[ data_pair.first ];
 
@@ -2465,11 +2520,17 @@ void DeformNRSFMTracker::AddTempAlbedoChangeCost(ceres::Problem& problem,
 	AlbedoVariation& albedoChange = albedoChangePyramid[currLevel];
 	AlbedoVariation& prevAlbedoChange = prevAlbedoChangePyramid[currLevel];
 
+	AlbedoVariation& albedoChangeGT = albedoChangePyramidGT[currLevel];
+	AlbedoVariation& prevAlbedoChangeGT = prevAlbedoChangePyramidGT[currLevel];
+
 	for (int k = 0; k < albedoChange.size(); ++k)
 	{
-		ResidualTempAlbedo* pResidual = 
-			new ResidualTempAlbedo(&prevAlbedoChange[k][0], 
+		ResidualTempAlbedo* pResidual =
+			new ResidualTempAlbedo(
+			modeGT ? &prevAlbedoChangeGT[k][0] : &prevAlbedoChange[k][0],
 			PE_RESIDUAL_NUM_ARRAY[errorType]);
+
+		ceres::ResidualBlockId residualBlockId;
 
 		switch (errorType)
 		{
@@ -2477,23 +2538,70 @@ void DeformNRSFMTracker::AddTempAlbedoChangeCost(ceres::Problem& problem,
 		{
 			ceres::AutoDiffCostFunction<ResidualTempAlbedo, 1, 1>* cost_function =
 				new ceres::AutoDiffCostFunction<ResidualTempAlbedo, 1, 1>(pResidual);
+			residualBlockId = problem.AddResidualBlock(
+				cost_function,
+				NULL,
+				modeGT ? &albedoChangeGT[k][0] : &albedoChange[k][0]);
 		}
 			break;
 		case PE_INTRINSIC_COLOR:
 		{
 			ceres::AutoDiffCostFunction<ResidualTempAlbedo, 3, 3>* cost_function =
 				new ceres::AutoDiffCostFunction<ResidualTempAlbedo, 3, 3>(pResidual);
+			residualBlockId = problem.AddResidualBlock(
+				cost_function,
+				NULL,
+				modeGT ? &albedoChangeGT[k][0] : &albedoChange[k][0]);
 		}
 		default:
 			break;
 		}
 
-		//if (modeGT)
-		//	problemWrapperGT.addTVTerm(currLevel, residualBlockId);
-		//else
-		//	problemWrapper.addTVTerm(currLevel, residualBlockId);
+		if (modeGT)
+			problemWrapperGT.addTemporalAlbedoTerm(currLevel, residualBlockId);
+		else
+			problemWrapper.addTemporalAlbedoTerm(currLevel, residualBlockId);
 	}
+}
 
+void DeformNRSFMTracker::AddTempSHCoeffChangeCost(ceres::Problem& problem,
+	ceres::LossFunction* loss_function)
+{
+	SHCoeffVariation& shCoeffChange = shCoeffChangePyramid[currLevel];
+	SHCoeffVariation& prevSHCoeffChange = prevSHCoeffChangePyramid[currLevel];
+
+	SHCoeffVariation& shCoeffChangeGT = shCoeffChangePyramidGT[currLevel];
+	SHCoeffVariation& prevSHCoeffChangeGT = prevSHCoeffChangePyramidGT[currLevel];
+
+	ResidualTempSHCoeff* pResidual =
+		new ResidualTempSHCoeff(
+		modeGT ? &prevSHCoeffChangeGT[0] : &prevSHCoeffChange[0], 
+		modeGT ? prevSHCoeffChangeGT.size() : prevSHCoeffChange.size());
+
+	// Dynamic cost function
+	ceres::DynamicAutoDiffCostFunction<ResidualTempSHCoeff, 5>* dyn_cost_function
+		= new ceres::DynamicAutoDiffCostFunction< ResidualTempSHCoeff, 5 >(
+		pResidual);
+
+	vector<double*> v_parameter_blocks;
+
+	dyn_cost_function->AddParameterBlock(
+		modeGT ? shCoeffChangeGT.size() : shCoeffChange.size());
+	v_parameter_blocks.push_back(
+		modeGT ? &shCoeffChangeGT[0] : &shCoeffChange[0]);
+
+	dyn_cost_function->SetNumResiduals(
+		modeGT ? shCoeffChangeGT.size() : shCoeffChange.size());
+
+	ceres::ResidualBlockId residualBlockId = problem.AddResidualBlock(
+		dyn_cost_function,
+		loss_function,
+		v_parameter_blocks);
+
+	if (modeGT)
+		problemWrapperGT.addTemporalSHCoeffTerm(currLevel, residualBlockId);
+	else
+		problemWrapper.addTemporalSHCoeffTerm(currLevel, residualBlockId);
 }
 
 void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem)
@@ -2643,9 +2751,9 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
       //TICK("SetupARAPCost"  + std::to_string( currLevel ) );
 
 	  ceres::LossFunction* pArapLossFunction = NULL;
-	  if (trackerSettings.arapHuberWidth)
+	  if (weightParaLevel.arapHuberWidth)
 	  {
-		  pArapLossFunction = new ceres::HuberLoss(trackerSettings.arapHuberWidth);
+		  pArapLossFunction = new ceres::HuberLoss(weightParaLevel.arapHuberWidth);
 	  }
 
       ceres::ScaledLoss* arapScaledLoss = new ceres::ScaledLoss(
@@ -2701,6 +2809,8 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
 		  NULL,
 		  weightParaLevel.temp_albedo_weight,
 		  ceres::TAKE_OWNERSHIP);
+
+	  AddTempAlbedoChangeCost(problem, tempAlbedoScaledLoss, PEType);
   }
 
   // temporal change in sh coeff
@@ -2710,6 +2820,8 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
 		  NULL,
 		  weightParaLevel.temp_sh_coeff_weight,
 		  ceres::TAKE_OWNERSHIP);
+
+	  AddTempSHCoeffChangeCost(problem, tempSHCoeffScaledLoss);
   }
 }
 
@@ -2849,19 +2961,20 @@ void DeformNRSFMTracker::EnergyMinimization(ceres::Problem& problem)
   // print energy
   if(trackerSettings.printEnergy)
     {
-      double cost[10];
+      double* cost = new double[PROBLEM_WRAPPER_N_COSTS + 2];
 
-      problemWrapper.getAllCost(currLevel, cost, &cost[9], &cost[8]);
+	  problemWrapper.getAllCost(currLevel, cost, 
+		  &cost[PROBLEM_WRAPPER_N_COSTS + 1], &cost[PROBLEM_WRAPPER_N_COSTS]);
 
       energyOutput << std::left << setw(15) << currentFrameNo << std::left << setw(15) << currLevel
                    << std::left << setw(15) << 0;
 
-      for(int i = 0; i < 10; ++i)
+	  for (int i = 0; i < PROBLEM_WRAPPER_N_COSTS + 2; ++i)
         energyOutput << std::left << setw(15) << cost[i];
 
       energyOutput << endl;
 
-      for(int i = 0; i < 10; ++i)
+	  for (int i = 0; i < PROBLEM_WRAPPER_N_COSTS + 2; ++i)
         energyOutputForR << std::left << setw(15) << currentFrameNo << std::left << setw(15) << currLevel
                          << std::left << setw(15) << cost[i] << std::left << setw(15) << "NotGT"
                          << std::left << setw(15) << costNames[i] << endl;
@@ -2942,19 +3055,20 @@ void DeformNRSFMTracker::EnergyMinimizationGT(ceres::Problem& problem)
   // print energy
   if(trackerSettings.printEnergy)
     {
-      double cost[10];
+      double* cost = new double[PROBLEM_WRAPPER_N_COSTS + 2];
 
-      problemWrapperGT.getAllCost(currLevel, cost, &cost[9], &cost[8]);
+	  problemWrapperGT.getAllCost(currLevel, cost, 
+		  &cost[PROBLEM_WRAPPER_N_COSTS + 1], &cost[PROBLEM_WRAPPER_N_COSTS]);
 
       energyOutput << std::left << setw(15) << currentFrameNo << std::left << setw(15) << currLevel
                    << std::left << setw(15) << 1;
 
-      for(int i = 0; i < 10; ++i)
+	  for (int i = 0; i < PROBLEM_WRAPPER_N_COSTS + 2; ++i)
         energyOutput << std::left << setw(15) << cost[i];
 
       energyOutput << endl;
 
-      for(int i = 0; i < 10; ++i)
+	  for (int i = 0; i < PROBLEM_WRAPPER_N_COSTS + 2; ++i)
         energyOutputForR << std::left << setw(15) << currentFrameNo << std::left << setw(15) << currLevel
                          << std::left << setw(15) << cost[i] << std::left << setw(15) << "GT"
                          << std::left << setw(15) << costNames[i] << endl;
@@ -3319,8 +3433,9 @@ void DeformNRSFMTracker::readSHCoeff(const std::string _sh_coeff_filename)
 	ifs.close();
 
 	sh_order = std::sqrt(sh_coeff.size()) - 1;
+	n_sh_coeff = sh_coeff.size();
 
-	if ((sh_order + 1) * (sh_order + 1) != sh_coeff.size())
+	if ((sh_order + 1) * (sh_order + 1) != n_sh_coeff)
 	{
 		cerr << "The number of SH coefficients is not correct (" << _sh_coeff_filename
 			<< "). It should be equal to (n + 1)^2 where n is the SH order." << endl;

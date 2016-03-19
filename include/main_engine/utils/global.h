@@ -44,6 +44,7 @@ typedef unsigned char uchar;
 #define err cerr
 
 typedef double CoordinateType;
+typedef double ColorType;
 
 typedef unsigned char PixelType;
 typedef std::vector< CoordinateType >             CoordinateContainerType;
@@ -53,7 +54,10 @@ typedef std::vector<vector< vector<int> > > VecVecVecType;
 typedef vector<vector<double> > MeshDeformation;
 
 // Vertex albedo changes
-typedef vector<vector<double> > AlbedoVariation;
+typedef vector<vector<ColorType> > AlbedoVariation;
+
+// SH Coefficients changes
+typedef vector<ColorType> SHCoeffVariation;
 
 typedef cv::Vec<PixelType,3> Vec3b;
 typedef cv::Vec<CoordinateType,3> Vec3d;

@@ -28,6 +28,17 @@ void UpdateHelper(MeshData<CoordinateType>& meshData, vector<vector<CoordinateTy
 
 }
 
+void UpdateHelper(MeshData<CoordinateType>& meshData, vector<vector<CoordinateType> >& meshProj, int vertex,
+	CoordinateType trans_uvd[3], CoordinateType trans_normals[3], double KK[3][3],
+	ColorType color[3])
+{
+	UpdateHelper(meshData, meshProj, vertex, trans_uvd, trans_normals, KK);
+
+	meshData.colors[vertex][0] = color[0];
+	meshData.colors[vertex][1] = color[1];
+	meshData.colors[vertex][2] = color[2];
+}
+
 void UpdateRenderingData(TrackerOutputInfo& outputInfo, double KK[3][3],
                          CoordinateType camPose[6], PangaeaMeshData& currentMesh, bool updateGT)
 {
@@ -101,7 +112,8 @@ void UpdateRenderingData(TrackerOutputInfo& outputInfo, double KK[3][3],
 
 void UpdateRenderingData(TrackerOutputInfo& outputInfo, double KK[3][3],
                          CoordinateType camPose[6], PangaeaMeshData& templateMesh,
-                         MeshDeformation& mesh_trans, bool updateGT)
+                         MeshDeformation& mesh_trans, bool updateGT, 
+						 AlbedoVariation& albedoChange, bool updateColor)
 {
   // copy result to output, has to add rotation and translation to make proper visualization
   CoordinateType Rotation[9]; // column major due to ceres implementation
@@ -109,6 +121,8 @@ void UpdateRenderingData(TrackerOutputInfo& outputInfo, double KK[3][3],
   CoordinateType trans_uvd[3];
   CoordinateType normals[3];
   CoordinateType trans_normals[3];
+  ColorType albedo[3];
+  CoordinateType trans_albedo[3];
 
   //ceres::AngleAxisToRotationMatrix(camPose,Rotation);
   Vector3d axis;
@@ -127,6 +141,11 @@ void UpdateRenderingData(TrackerOutputInfo& outputInfo, double KK[3][3],
         {
           uvd[ind] = templateMesh.vertices[ vertex ][ind] + mesh_trans[ vertex ][ind];
           normals[ind] = templateMesh.normals[ vertex ][ind];
+
+		  if (updateColor)
+		  {
+			  albedo[ind] = templateMesh.colors[vertex][ind] + albedoChange[vertex][ind];
+		  }
         }
 
       trans_uvd[0] = uvd[0]*Rotation[0] + uvd[1]*Rotation[3] + uvd[2]*Rotation[6] + camPose[3];
@@ -137,9 +156,19 @@ void UpdateRenderingData(TrackerOutputInfo& outputInfo, double KK[3][3],
       trans_normals[2] = normals[0]*Rotation[2] + normals[1]*Rotation[5] + normals[2]*Rotation[8];
 
       if(updateGT)
-        UpdateHelper(outputInfo.meshDataGT, outputInfo.meshProjGT, vertex, trans_uvd, trans_normals, KK);
+		  if (updateColor)
+			  UpdateHelper(outputInfo.meshDataGT, outputInfo.meshProjGT, vertex, 
+			  trans_uvd, trans_normals, KK, trans_albedo);
+		  else
+			  UpdateHelper(outputInfo.meshDataGT, outputInfo.meshProjGT, vertex, 
+			  trans_uvd, trans_normals, KK);
       else
-        UpdateHelper(outputInfo.meshData, outputInfo.meshProj, vertex, trans_uvd, trans_normals, KK);
+		  if (updateColor)
+			  UpdateHelper(outputInfo.meshData, outputInfo.meshProj, vertex, 
+			  trans_uvd, trans_normals, KK, trans_albedo);
+		  else
+			  UpdateHelper(outputInfo.meshData, outputInfo.meshProj, vertex, 
+			  trans_uvd, trans_normals, KK);
 
     }
 }

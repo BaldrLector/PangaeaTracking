@@ -404,13 +404,19 @@ void AddMeshToMeshPropagation(MeshPyramid<FloatType>& meshPyramid, vector<pair<i
 void UpdateHelper(MeshData<CoordinateType>& meshData, vector<vector<CoordinateType> >& meshProj, int vertex,
                   CoordinateType trans_uvd[3], CoordinateType trans_normals[3], double KK[3][3]);
 
+void UpdateHelper(MeshData<CoordinateType>& meshData, vector<vector<CoordinateType> >& meshProj, int vertex,
+	CoordinateType trans_uvd[3], CoordinateType trans_normals[3], double KK[3][3],
+	ColorType color[3]);
+
 void UpdateRenderingData(TrackerOutputInfo& outputInfo, double KK[3][3],
                          CoordinateType camPose[6], PangaeaMeshData& currentMesh,
                          bool updateGT = false);
 
 void UpdateRenderingData(TrackerOutputInfo& outputInfo, double KK[3][3],
                          CoordinateType camPose[6], PangaeaMeshData& templateMesh,
-                         MeshDeformation& meshTrans, bool updateGT = false);
+                         MeshDeformation& meshTrans, bool updateGT = false,
+						 AlbedoVariation& albedoChange = AlbedoVariation(), 
+						 bool updateColor = false);
 
 void UpdateRenderingDataFast(TrackerOutputInfo& outputInfo, double KK[3][3],
                              PangaeaMeshData& currentMesh, bool updateGT = false);

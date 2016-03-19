@@ -137,7 +137,7 @@ public:
 	  dataTermErrorType errorType,
 	  PangaeaMeshData& templateMesh,
 	  MeshDeformation& meshTrans,
-	  vector<double>& shCoeffChange,
+	  SHCoeffVariation& shCoeffChange,
 	  AlbedoVariation& albedoChange,
 	  vector<bool>& visibilityMask,
 	  CameraInfo* pCamera,
@@ -208,6 +208,8 @@ private:
   vector<double> sh_coeff;
   // Spherical Harmonic order
   int sh_order;
+  // Number of Spherical Harmonic Coefficients
+  int n_sh_coeff;
 
   //
   CameraInfo camInfo;
@@ -242,8 +244,8 @@ private:
 
   vector< AlbedoVariation > albedoChangePyramid;
   vector< AlbedoVariation > prevAlbedoChangePyramid;
-  vector< double > shCoeffChange;
-  vector< double > prevSHCoeffChange;
+  vector< SHCoeffVariation > shCoeffChangePyramid;
+  vector< SHCoeffVariation > prevSHCoeffChangePyramid;
 
   // what about if we use dual quarternion representation?
   // In that case, we will need a dual quarternion
@@ -276,6 +278,11 @@ private:
   vector< MeshDeformation > meshRotPyramidGT;
   vector< MeshDeformation > prevMeshTransPyramidGT;
   vector< MeshDeformation > prevMeshRotPyramidGT;
+
+  vector< AlbedoVariation > albedoChangePyramidGT;
+  vector< AlbedoVariation > prevAlbedoChangePyramidGT;
+  vector< SHCoeffVariation > shCoeffChangePyramidGT;
+  vector< SHCoeffVariation > prevSHCoeffChangePyramidGT;
 
   ProblemWrapper problemWrapperGT;
 

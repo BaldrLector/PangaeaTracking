@@ -1243,55 +1243,6 @@ void computeNormal(const T* p, const vector<T*> &adjP, const vector<pair<unsigne
 		T face_normal[3];
 		compnorm(p, adjP[vIdx1], adjP[vIdx2], face_normal, false);
 
-		// WORKAROUND
-		// Problems with ambiguity with compnorm. This should be solved.
-		// For now, the function has just been copied and pasted here
-
-		//const T* ver1 = p;
-		//const T* ver2 = adjP[vIdx1];
-		//const T* ver3 = adjP[vIdx2];
-
-		//T a[3];
-		//T b[3];
-
-		//if (clockwise)
-		//{
-		//	a[0] = ver1[0] - ver3[0];
-		//	a[1] = ver1[1] - ver3[1];
-		//	a[2] = ver1[2] - ver3[2];
-
-		//	b[0] = ver1[0] - ver2[0];
-		//	b[1] = ver1[1] - ver2[1];
-		//	b[2] = ver1[2] - ver2[2];
-		//}
-		//else	// Anti-clockwsie
-		//{
-		//	a[0] = ver1[0] - ver2[0];
-		//	a[1] = ver1[1] - ver2[1];
-		//	a[2] = ver1[2] - ver2[2];
-
-		//	b[0] = ver1[0] - ver3[0];
-		//	b[1] = ver1[1] - ver3[1];
-		//	b[2] = ver1[2] - ver3[2];
-		//}
-
-		//face_normal[0] = a[1] * b[2] - a[2] * b[1];
-		//face_normal[1] = a[2] * b[0] - a[0] * b[2];
-		//face_normal[2] = a[0] * b[1] - a[1] * b[0];
-
-		//if (face_normal[1] * face_normal[1]
-		//	+ face_normal[2] * face_normal[2]
-		//	+ face_normal[0] * face_normal[0] != T(0))
-		//{
-		//	T temp = T(1.0f) /
-		//		sqrt(face_normal[1] * face_normal[1]
-		//		+ face_normal[2] * face_normal[2]
-		//		+ face_normal[0] * face_normal[0]);
-		//	face_normal[0] *= temp;
-		//	face_normal[1] *= temp;
-		//	face_normal[2] *= temp;
-		//}
-
 		normal[0] += face_normal[0];
 		normal[1] += face_normal[1];
 		normal[2] += face_normal[2];
@@ -1467,10 +1418,11 @@ public:
 		T normal[3];
 		computeNormal(p, adjP, adjFaceVerticesInd, clockwise, normal);
 
-		for (int i = 0; i < num_neighbours; i++)
+		for (vector<T*>::iterator it = adjP.begin(); it != adjP.end(); ++it)
 		{
-			delete[] adjP[i];
+			delete (*it);
 		}
+		adjP.clear();
 
 		const T* shCoeffChange = parameters[3 + num_neighbours];
 		const T* albedoChange = parameters[3 + num_neighbours + 1];
@@ -1512,11 +1464,13 @@ public:
 	}
 
 	template<typename T>
-	bool operator()(const T* const _sh_coeff_change, T* residuals) const
+	bool operator()(const T* const* const parameters, T* residuals) const
 	{
+		const T* sh_coeff_change = parameters[0];
+
 		for (int i = 0; i < n_sh_coeff; i++)
 		{
-			residuals[i] = _sh_coeff_change[i] - T(prev_sh_coeff_change[i]);
+			residuals[i] = sh_coeff_change[i] - T(prev_sh_coeff_change[i]);
 		}
 
 		return true;

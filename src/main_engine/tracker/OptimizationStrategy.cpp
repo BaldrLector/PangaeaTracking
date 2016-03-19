@@ -110,7 +110,8 @@ void OptimizationStrategy::setWeightParametersVec()
         // always the same dataHuberWidth and tvHuberWidth
         weightParaLevel.dataHuberWidth = weightPara.dataHuberWidth;
         weightParaLevel.tvHuberWidth = weightPara.tvHuberWidth;
-        weightParaLevel.tvRotHuberWidth = weightPara.tvRotHuberWidth;
+		weightParaLevel.tvRotHuberWidth = weightPara.tvRotHuberWidth;
+		weightParaLevel.arapHuberWidth = weightPara.arapHuberWidth;
 
         // rotWeight and transWeight
         weightParaLevel.rotWeight = weightPara.rotWeight *

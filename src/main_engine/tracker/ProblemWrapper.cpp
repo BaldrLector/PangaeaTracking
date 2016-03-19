@@ -34,6 +34,8 @@ void ProblemWrapper::Initialize(int num)
   inextentTermResidualBlocks.resize(num);
   deformTermResidualBlocks.resize(num);
   temporalTermResidualBlocks.resize(num);
+  temporalAlbedoTermResidualBlocks.resize(num);
+  temporalSHCoeffTermResidualBlocks.resize(num);
 }
 
 ceres::Problem& ProblemWrapper::getProblem(int nLevel)
@@ -91,6 +93,16 @@ void ProblemWrapper::addDeformTerm(int nLevel, ceres::ResidualBlockId& residualB
 void ProblemWrapper::addTemporalTerm(int nLevel, ceres::ResidualBlockId& residualBlockId)
 {
   temporalTermResidualBlocks[nLevel].push_back(residualBlockId);
+}
+
+void ProblemWrapper::addTemporalAlbedoTerm(int nLevel, ceres::ResidualBlockId& residualBlockId)
+{
+	temporalAlbedoTermResidualBlocks[nLevel].push_back(residualBlockId);
+}
+
+void ProblemWrapper::addTemporalSHCoeffTerm(int nLevel, ceres::ResidualBlockId& residualBlockId)
+{
+	temporalSHCoeffTermResidualBlocks[nLevel].push_back(residualBlockId);
 }
 
 // clear terms
@@ -261,7 +273,43 @@ void ProblemWrapper::getTemporalTermCost(int nLevel, double* cost)
 
 }
 
-void ProblemWrapper::getAllCost(int nLevel, double cost[7], double* total_cost, double* sum_cost)
+void ProblemWrapper::getTemporalAlbedoTermCost(int nLevel, double* cost)
+{
+
+	if (temporalAlbedoTermResidualBlocks[nLevel].empty())
+		cost[0] = 0;
+	else
+	{
+		ceres::Problem::EvaluateOptions evaluateOptions;
+
+		evaluateOptions.residual_blocks = std::move(temporalAlbedoTermResidualBlocks[nLevel]);
+
+		problems[nLevel]->Evaluate(evaluateOptions, cost, NULL, NULL, NULL);
+
+		temporalAlbedoTermResidualBlocks[nLevel] = std::move(evaluateOptions.residual_blocks);
+	}
+
+}
+
+void ProblemWrapper::getTemporalSHCoeffTermCost(int nLevel, double* cost)
+{
+
+	if (temporalSHCoeffTermResidualBlocks[nLevel].empty())
+		cost[0] = 0;
+	else
+	{
+		ceres::Problem::EvaluateOptions evaluateOptions;
+
+		evaluateOptions.residual_blocks = std::move(temporalSHCoeffTermResidualBlocks[nLevel]);
+
+		problems[nLevel]->Evaluate(evaluateOptions, cost, NULL, NULL, NULL);
+
+		temporalSHCoeffTermResidualBlocks[nLevel] = std::move(evaluateOptions.residual_blocks);
+	}
+
+}
+
+void ProblemWrapper::getAllCost(int nLevel, double cost[PROBLEM_WRAPPER_N_COSTS], double* total_cost, double* sum_cost)
 {
   sum_cost[0] = 0;
   total_cost[0] = 0;
@@ -276,7 +324,11 @@ void ProblemWrapper::getAllCost(int nLevel, double cost[7], double* total_cost, 
   getDeformTermCost(nLevel, &cost[6]);
   getTemporalTermCost(nLevel, &cost[7]);
 
-  for(int i = 0; i < 8; ++i)
+  getTemporalAlbedoTermCost(nLevel, &cost[8]);
+  getTemporalSHCoeffTermCost(nLevel, &cost[9]);
+
+
+  for (int i = 0; i < PROBLEM_WRAPPER_N_COSTS; ++i)
     sum_cost[0] += cost[i];
 
   getTotalEnergy(nLevel, total_cost);

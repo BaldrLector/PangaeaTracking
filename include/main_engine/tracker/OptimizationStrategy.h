@@ -47,6 +47,7 @@ struct WeightPara
     double dataHuberWidth;
     double tvHuberWidth;
     double tvRotHuberWidth;
+	double arapHuberWidth;
 
   // feature weighting parameters
   double featureTermWeight;
