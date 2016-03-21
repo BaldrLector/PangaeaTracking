@@ -1724,11 +1724,11 @@ void DeformNRSFMTracker::AddPhotometricCostNew(ceres::Problem& problem,
         meshTransPyramid[ data_pair.first ];
 
 	  AlbedoVariation& albedoChange 
-		  = modeGT ? std::move(AlbedoVariation(meshTrans.size(), vector<double>(3, 0.0))) 
+		  = modeGT ? albedoChangePyramidGT[data_pair.first]
 		  : albedoChangePyramid[data_pair.first];
 
 	  SHCoeffVariation& shCoeffChange
-		  = modeGT ? std::move(SHCoeffVariation(n_sh_coeff, 0))
+		  = modeGT ? shCoeffChangePyramidGT[data_pair.first]
 		  : shCoeffChangePyramid[data_pair.first];
 
       vector<bool>& visibilityMask = visibilityMaskPyramid[ data_pair.first ];
@@ -2517,91 +2517,110 @@ void DeformNRSFMTracker::AddTemporalMotionCost(ceres::Problem& problem,
 void DeformNRSFMTracker::AddTempAlbedoChangeCost(ceres::Problem& problem,
 	ceres::LossFunction* loss_function, const dataTermErrorType errorType)
 {
-	AlbedoVariation& albedoChange = albedoChangePyramid[currLevel];
-	AlbedoVariation& prevAlbedoChange = prevAlbedoChangePyramid[currLevel];
+	vector<std::pair<int, int> >& albedo_pairs =
+		pStrategy->optimizationSettings[currLevel].regTermPairs;
+	int num_albedo_pairs = albedo_pairs.size();
 
-	AlbedoVariation& albedoChangeGT = albedoChangePyramidGT[currLevel];
-	AlbedoVariation& prevAlbedoChangeGT = prevAlbedoChangePyramidGT[currLevel];
-
-	for (int k = 0; k < albedoChange.size(); ++k)
+	for (int i = 0; i < num_albedo_pairs; ++i)
 	{
-		ResidualTempAlbedo* pResidual =
-			new ResidualTempAlbedo(
-			modeGT ? &prevAlbedoChangeGT[k][0] : &prevAlbedoChange[k][0],
-			PE_RESIDUAL_NUM_ARRAY[errorType]);
+		std::pair<int, int>& albedo_pair = albedo_pairs[i];
 
-		ceres::ResidualBlockId residualBlockId;
+		AlbedoVariation& albedoChange
+			= modeGT ? albedoChangePyramidGT[albedo_pair.first]
+			: albedoChangePyramid[albedo_pair.first];
 
-		switch (errorType)
+		AlbedoVariation& prevAlbedoChange
+			= modeGT ? prevAlbedoChangePyramidGT[albedo_pair.first]
+			: prevAlbedoChangePyramid[albedo_pair.first];
+
+		for (int k = 0; k < albedoChange.size(); ++k)
 		{
-		case PE_INTRINSIC:
-		{
-			ceres::AutoDiffCostFunction<ResidualTempAlbedo, 1, 1>* cost_function =
-				new ceres::AutoDiffCostFunction<ResidualTempAlbedo, 1, 1>(pResidual);
-			residualBlockId = problem.AddResidualBlock(
-				cost_function,
-				NULL,
-				modeGT ? &albedoChangeGT[k][0] : &albedoChange[k][0]);
-		}
+			ResidualTempAlbedo* pResidual =
+				new ResidualTempAlbedo(
+				&prevAlbedoChange[k][0],
+				PE_RESIDUAL_NUM_ARRAY[errorType]);
+
+			ceres::ResidualBlockId residualBlockId;
+
+			switch (errorType)
+			{
+			case PE_INTRINSIC:
+			{
+				ceres::AutoDiffCostFunction<ResidualTempAlbedo, 1, 1>* cost_function =
+					new ceres::AutoDiffCostFunction<ResidualTempAlbedo, 1, 1>(pResidual);
+				residualBlockId = problem.AddResidualBlock(
+					cost_function,
+					NULL,
+					&albedoChange[k][0]);
+			}
 			break;
-		case PE_INTRINSIC_COLOR:
-		{
-			ceres::AutoDiffCostFunction<ResidualTempAlbedo, 3, 3>* cost_function =
-				new ceres::AutoDiffCostFunction<ResidualTempAlbedo, 3, 3>(pResidual);
-			residualBlockId = problem.AddResidualBlock(
-				cost_function,
-				NULL,
-				modeGT ? &albedoChangeGT[k][0] : &albedoChange[k][0]);
-		}
-		default:
-			break;
-		}
+			case PE_INTRINSIC_COLOR:
+			{
+				ceres::AutoDiffCostFunction<ResidualTempAlbedo, 3, 3>* cost_function =
+					new ceres::AutoDiffCostFunction<ResidualTempAlbedo, 3, 3>(pResidual);
+				residualBlockId = problem.AddResidualBlock(
+					cost_function,
+					NULL,
+					&albedoChange[k][0]);
+			}
+			default:
+				break;
+			}
 
-		if (modeGT)
-			problemWrapperGT.addTemporalAlbedoTerm(currLevel, residualBlockId);
-		else
-			problemWrapper.addTemporalAlbedoTerm(currLevel, residualBlockId);
+			if (modeGT)
+				problemWrapperGT.addTemporalAlbedoTerm(currLevel, residualBlockId);
+			else
+				problemWrapper.addTemporalAlbedoTerm(currLevel, residualBlockId);
+		}
 	}
 }
 
 void DeformNRSFMTracker::AddTempSHCoeffChangeCost(ceres::Problem& problem,
 	ceres::LossFunction* loss_function)
 {
-	SHCoeffVariation& shCoeffChange = shCoeffChangePyramid[currLevel];
-	SHCoeffVariation& prevSHCoeffChange = prevSHCoeffChangePyramid[currLevel];
+	vector<std::pair<int, int> >& sh_coeff_pairs =
+		pStrategy->optimizationSettings[currLevel].regTermPairs;
+	int num_sh_coeff_pairs = sh_coeff_pairs.size();
 
-	SHCoeffVariation& shCoeffChangeGT = shCoeffChangePyramidGT[currLevel];
-	SHCoeffVariation& prevSHCoeffChangeGT = prevSHCoeffChangePyramidGT[currLevel];
+	for (int i = 0; i < num_sh_coeff_pairs; ++i)
+	{
+		std::pair<int, int>& sh_coeff_pair = sh_coeff_pairs[i];
 
-	ResidualTempSHCoeff* pResidual =
-		new ResidualTempSHCoeff(
-		modeGT ? &prevSHCoeffChangeGT[0] : &prevSHCoeffChange[0], 
-		modeGT ? prevSHCoeffChangeGT.size() : prevSHCoeffChange.size());
+		SHCoeffVariation& shCoeffChange
+			= modeGT ? shCoeffChangePyramidGT[sh_coeff_pair.first]
+			: shCoeffChangePyramid[sh_coeff_pair.first];
 
-	// Dynamic cost function
-	ceres::DynamicAutoDiffCostFunction<ResidualTempSHCoeff, 5>* dyn_cost_function
-		= new ceres::DynamicAutoDiffCostFunction< ResidualTempSHCoeff, 5 >(
-		pResidual);
+		SHCoeffVariation& prevSHCoeffChange
+			= modeGT ? prevSHCoeffChangePyramidGT[sh_coeff_pair.first]
+			: prevSHCoeffChangePyramid[sh_coeff_pair.first];
 
-	vector<double*> v_parameter_blocks;
+		ResidualTempSHCoeff* pResidual =
+			new ResidualTempSHCoeff(
+			&prevSHCoeffChange[0],
+			prevSHCoeffChange.size());
 
-	dyn_cost_function->AddParameterBlock(
-		modeGT ? shCoeffChangeGT.size() : shCoeffChange.size());
-	v_parameter_blocks.push_back(
-		modeGT ? &shCoeffChangeGT[0] : &shCoeffChange[0]);
+		// Dynamic cost function
+		ceres::DynamicAutoDiffCostFunction<ResidualTempSHCoeff, 5>* dyn_cost_function
+			= new ceres::DynamicAutoDiffCostFunction< ResidualTempSHCoeff, 5 >(
+			pResidual);
 
-	dyn_cost_function->SetNumResiduals(
-		modeGT ? shCoeffChangeGT.size() : shCoeffChange.size());
+		vector<double*> v_parameter_blocks;
 
-	ceres::ResidualBlockId residualBlockId = problem.AddResidualBlock(
-		dyn_cost_function,
-		loss_function,
-		v_parameter_blocks);
+		dyn_cost_function->AddParameterBlock(shCoeffChange.size());
+		v_parameter_blocks.push_back(&shCoeffChange[0]);
 
-	if (modeGT)
-		problemWrapperGT.addTemporalSHCoeffTerm(currLevel, residualBlockId);
-	else
-		problemWrapper.addTemporalSHCoeffTerm(currLevel, residualBlockId);
+		dyn_cost_function->SetNumResiduals(shCoeffChange.size());
+
+		ceres::ResidualBlockId residualBlockId = problem.AddResidualBlock(
+			dyn_cost_function,
+			loss_function,
+			v_parameter_blocks);
+
+		if (modeGT)
+			problemWrapperGT.addTemporalSHCoeffTerm(currLevel, residualBlockId);
+		else
+			problemWrapper.addTemporalSHCoeffTerm(currLevel, residualBlockId);
+	}
 }
 
 void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem)
