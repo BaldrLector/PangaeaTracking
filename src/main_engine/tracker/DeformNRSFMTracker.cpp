@@ -3361,7 +3361,7 @@ bool DeformNRSFMTracker::SaveSHCoeffPyramid()
 		sh_coeff_file << sh_coeff_pyramid_path.str() << buffer;
 
 		std::ofstream ofs(sh_coeff_file.str());
-		std::ostream_iterator<std::string> ofs_it(ofs, "\n");
+		std::ostream_iterator<ColorType> ofs_it(ofs, "\n");
 		std::copy(
 			shCoeffChangePyramid[mesh_level].begin(), 
 			shCoeffChangePyramid[mesh_level].end(), 
