@@ -105,6 +105,7 @@ public:
   bool SaveData();
   bool SaveMeshToFile(TrackerOutputInfo& outputInfo);
   bool SaveMeshPyramid();
+  bool SaveSHCoeffPyramid();
   void SaveThread(TrackerOutputInfo** pOutputInfoRendering);
 
   void UpdateResults();

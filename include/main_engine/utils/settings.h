@@ -181,6 +181,9 @@ public:
   bool saveColorDiff;
   std::string meshColorDiffFormat;
 
+  bool saveSHCoeffPyramid;
+  std::string shCoeffPyramidFormat;
+
   // either show the window
   // or hide the window and run over all frames
   bool showWindow;

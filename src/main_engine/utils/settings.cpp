@@ -345,6 +345,9 @@ TrackerSettings::TrackerSettings()
 
   savePropPyramid = false;
 
+  saveSHCoeffPyramid = true;
+  shCoeffPyramidFormat = "sh_coeff%04d_level%02d.txt";
+
   showWindow = true;
 
   // meshPyramid
@@ -562,6 +565,11 @@ void TrackerSettings::read(const cv::FileNode& node)
     node["save_prop_pyramid"] >> savePropPyramid;
   if(!node["propPyramidFormat"].empty())
     node["propPyramidFormat"] >> propPyramidFormat;
+
+  if (!node["save_sh_coeff_pyramid"].empty())
+	  node["save_sh_coeff_pyramid"] >> saveSHCoeffPyramid;
+  if (!node["sh_coeff_pyramid_format"].empty())
+	  node["sh_coeff_pyramid_format"] >> shCoeffPyramidFormat;
 
   if(!node["show_energy"].empty())
     node["show_energy"] >> isMinimizerProgressToStdout;

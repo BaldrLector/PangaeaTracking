@@ -3328,6 +3328,51 @@ bool DeformNRSFMTracker::SaveMeshPyramid()
   return true;
 }
 
+bool DeformNRSFMTracker::SaveSHCoeffPyramid()
+{
+	// meshPyramid directory
+	char buffer[BUFFER_SIZE];
+	std::stringstream sh_coeff_pyramid_path;
+	std::stringstream sh_coeff_file;
+
+	if (!bfs::exists(trackerSettings.savePath.c_str()))
+	{
+		bfs::create_directory(trackerSettings.savePath.c_str());
+		cout << "creating dir " << trackerSettings.savePath << endl;
+	}
+
+	sh_coeff_pyramid_path << trackerSettings.savePath << "/sh_coeff_pyramid/";
+
+	cout << sh_coeff_pyramid_path.str() << endl;
+
+	if (!bfs::exists(sh_coeff_pyramid_path.str().c_str()))
+	{
+		bfs::create_directory(sh_coeff_pyramid_path.str().c_str());
+		cout << "creating dir " << sh_coeff_pyramid_path.str() << endl;
+	}
+
+	// save sh coeff pyramid
+	for (int i = 0; i < trackerSettings.levelsMeshPyramidSave.size(); ++i)
+	{
+		int mesh_level = trackerSettings.levelsMeshPyramidSave[i];
+
+		sprintf(buffer, trackerSettings.shCoeffPyramidFormat.c_str(), 
+			currentFrameNo, mesh_level);
+		sh_coeff_file << sh_coeff_pyramid_path.str() << buffer;
+
+		std::ofstream ofs(sh_coeff_file.str());
+		std::ostream_iterator<std::string> ofs_it(ofs, "\n");
+		std::copy(
+			shCoeffChangePyramid[mesh_level].begin(), 
+			shCoeffChangePyramid[mesh_level].end(), 
+			ofs_it);
+
+		ofs.close();
+	}
+
+	return true;
+}
+
 void DeformNRSFMTracker::updateRenderingLevel(TrackerOutputInfo** pOutputInfoRendering,
                                               int nRenderLevel, bool renderType)
 {
@@ -3367,6 +3412,14 @@ void DeformNRSFMTracker::SaveThread(TrackerOutputInfo** pOutputInfoRendering)
         }
       else
         SaveData();
+
+	  if (PEType == PE_INTRINSIC || PEType == PE_INTRINSIC_COLOR)
+	  {
+		  if (trackerSettings.saveSHCoeffPyramid)
+		  {
+			  SaveSHCoeffPyramid();
+		  }
+	  }
     }
 }
 
