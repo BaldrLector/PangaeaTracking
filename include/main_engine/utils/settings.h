@@ -166,6 +166,7 @@ public:
   std::string ceresOutputFile;
   std::string diffFileFormat;
   std::string savePath;
+  std::string scoresPath;
 
   std::string energyOutputFile;
 
