@@ -120,10 +120,12 @@ public:
   double weightARAP;
   double weightINEXTENT;
   double weightTransPrior;
+  double weightSmoothing;
   double photometricHuberWidth;
   double tvHuberWidth;
   double tvRotHuberWidth;
   double arapHuberWidth;
+  double smoothingHuberWidth;
 
   double meshScaleUpFactor;
 

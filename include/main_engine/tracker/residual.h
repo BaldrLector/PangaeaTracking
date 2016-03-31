@@ -1545,3 +1545,170 @@ private:
 	const int n_channels;
 
 };
+
+// Laplacian smoothing residual
+class ResidualLaplacianSmoothing
+{
+public:
+public:
+	ResidualLaplacianSmoothing(double* _pVertex,
+		const vector< vector<double> > &_vertices,
+		const vector<unsigned int> &_adjVerticesInd,
+		const int _nAdjFaces,
+		const bool _clockwise = true,
+		const bool _optimizeDeformation = true) :
+		pVertex(_pVertex),
+		vertices(_vertices),
+		adjVerticesInd(_adjVerticesInd),
+		clockwise(_clockwise),
+		optimizeDeformation(_optimizeDeformation)
+	{
+
+	}
+
+	template <typename T>
+	bool operator()(const T* const* const parameters, T* residuals) const
+	{
+		// Parameters:
+		// 0 - Current vertex position or translation
+		// >0 - Neighbour vertices positions or translations
+
+		T p[3];
+		p[0] = parameters[0][0];
+		p[1] = parameters[0][1];
+		p[2] = parameters[0][2];
+
+		if (optimizeDeformation)
+		{
+			p[0] += T(pVertex[0]);
+			p[1] += T(pVertex[1]);
+			p[2] += T(pVertex[2]);
+		}
+
+		vector<T*> adjP;
+		T* p_neighbour;
+		int num_neighbours = adjVerticesInd.size();
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			int v_idx = adjVerticesInd[i];
+
+			p_neighbour = new T[3];
+
+			p_neighbour[0] = parameters[i + 1][0];
+			p_neighbour[1] = parameters[i + 1][1];
+			p_neighbour[2] = parameters[i + 1][2];
+
+			if (optimizeDeformation)
+			{
+				p_neighbour[0] += T(vertices[v_idx][0]);
+				p_neighbour[1] += T(vertices[v_idx][1]);
+				p_neighbour[2] += T(vertices[v_idx][2]);
+			}
+
+			adjP.push_back(p_neighbour);
+		}
+
+		T laplacian_x = T(0.0);
+		T laplacian_y = T(0.0);
+		T laplacian_z = T(0.0);
+		T weight_norm = T(0.0);
+
+		for (int i = 1; i <= num_neighbours; i++)
+		{
+			T weight = T(0.0);
+			T area = T(0.0);
+
+			int prev_i = (i - 1) % num_neighbours;
+			int curr_i = i % num_neighbours;
+			int next_i = (i + 1) % num_neighbours;
+
+			weight += computeCotangent(p, adjP[curr_i], adjP[prev_i]);
+			weight += computeCotangent(p, adjP[curr_i], adjP[next_i]);
+
+			laplacian_x += weight * (adjP[curr_i][0] - p[0]);
+			laplacian_y += weight * (adjP[curr_i][1] - p[1]);
+			laplacian_z += weight * (adjP[curr_i][2] - p[2]);
+
+			weight_norm += weight;
+		}
+
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			delete[] adjP[i];
+		}
+
+		laplacian_x /= weight_norm;
+		laplacian_y /= weight_norm;
+		laplacian_z /= weight_norm;
+
+		residuals[0] = ceres::sqrt(laplacian_x * laplacian_x
+			+ laplacian_y * laplacian_y
+			+ laplacian_z * laplacian_z);
+
+		return true;
+	}
+
+	template <typename T>
+	T computeCotangent(const T* const _p0, const T* const _p1,
+		const T* const _p2) const {
+
+		// Vector from the thrid vertex to the center of the ring
+		T v1_x = _p0[0] - _p2[0];
+		T v1_y = _p0[1] - _p2[1];
+		T v1_z = _p0[2] - _p2[2];
+
+		// Normalize first vector
+		T v1_norm = ceres::sqrt(v1_x * v1_x + v1_y * v1_y + v1_z * v1_z);
+		v1_x /= v1_norm;
+		v1_y /= v1_norm;
+		v1_z /= v1_norm;
+
+		// Vector from the third vertex to the current neighbour
+		T v2_x = _p1[0] - _p2[0];
+		T v2_y = _p1[1] - _p2[1];
+		T v2_z = _p1[2] - _p2[2];
+
+		// Normalize second vector
+		T v2_norm = ceres::sqrt(v2_x * v2_x + v2_y * v2_y + v2_z * v2_z);
+		v2_x /= v2_norm;
+		v2_y /= v2_norm;
+		v2_z /= v2_norm;
+
+		// Cosine of alpha as the dot product of both vectors
+		T cos_a = v1_x * v2_x + v1_y * v2_y + v1_z * v2_z;
+
+		// Projection of the first vector onto the orthogonal component of the 
+		// second vector on the plane v1-v2
+		T v1p_x = v1_x - cos_a * v2_x;
+		T v1p_y = v1_y - cos_a * v2_y;
+		T v1p_z = v1_z - cos_a * v2_z;
+
+		// Sine of alpha as the norm of the projcted vector
+		T sin_a = ceres::sqrt(v1p_x * v1p_x + v1p_y * v1p_y + v1p_z * v1p_z);
+
+		//if (sin_a < T(1e-20) && sin_a > T(-1e-20))
+		//{
+		//	std::cout << "ERROR!!!!! sin(a) == 0" << endl;
+		//}
+
+		// cot(a) = cos(a) / sin(a)
+		T cot_a = cos_a / sin_a;
+
+		return cot_a;
+	}
+
+private:
+	// Whether optimize deformation directly
+	bool optimizeDeformation;
+	// Current vertex of interest
+	double* pVertex;
+	// Vertices coordinates
+	const vector< vector<double> > &vertices;
+	// Adjacent vertex indexes
+	const vector< unsigned int > &adjVerticesInd;
+
+	// Identifies if faces are defined clockwise
+	const bool clockwise;
+
+};
+

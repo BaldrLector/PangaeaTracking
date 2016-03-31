@@ -32,6 +32,8 @@ void OptimizationStrategy::setWeightScale(IntegerContainerType& meshVertexNum)
 
     weightScale.featureTermScale.resize(numOptimizationLevels, 1);
 
+	weightScale.smoothingTermScale.resize(numOptimizationLevels, 1);
+
     // // all the 0th level have scale 1
     // weightScale.dataTermScale[0] = 1;
     // weightScale.tvTermScale[0] = 1;
@@ -65,6 +67,8 @@ void OptimizationStrategy::setWeightScale(IntegerContainerType& meshVertexNum)
         weightScale.transScale[i] = decreaseFactor * weightScale.transScale[0];
 
         weightScale.featureTermScale[i] = 1;
+
+		weightScale.smoothingTermScale[i] = decreaseFactor * weightScale.smoothingTermScale[0];
     }
 
 }
@@ -92,11 +96,14 @@ void OptimizationStrategy::setWeightParametersVec()
             weightScale.inextentTermScale[currLevel];
         weightParaLevel.deformWeight = weightPara.deformWeight *
             weightScale.deformTermScale[currLevel];
+		weightParaLevel.smoothingTermWeight = weightPara.smoothingTermWeight *
+			weightScale.smoothingTermScale[currLevel];
 
         // always the same dataHuberWidth and tvHuberWidth
         weightParaLevel.dataHuberWidth = weightPara.dataHuberWidth;
         weightParaLevel.tvHuberWidth = weightPara.tvHuberWidth;
-        weightParaLevel.tvRotHuberWidth = weightPara.tvRotHuberWidth;
+		weightParaLevel.tvRotHuberWidth = weightPara.tvRotHuberWidth;
+		weightParaLevel.smoothingHuberWidth = weightPara.smoothingHuberWidth;
 
         // rotWeight and transWeight
         weightParaLevel.rotWeight = weightPara.rotWeight *
