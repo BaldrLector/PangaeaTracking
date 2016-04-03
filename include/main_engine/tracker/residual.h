@@ -1637,9 +1637,12 @@ public:
 			delete[] adjP[i];
 		}
 
-		laplacian_x /= weight_norm;
-		laplacian_y /= weight_norm;
-		laplacian_z /= weight_norm;
+		if (weight_norm >= T(std::numeric_limits<double>::epsilon()))
+		{
+			laplacian_x /= weight_norm;
+			laplacian_y /= weight_norm;
+			laplacian_z /= weight_norm;
+		}
 
 		residuals[0] = ceres::sqrt(laplacian_x * laplacian_x
 			+ laplacian_y * laplacian_y
@@ -1690,6 +1693,12 @@ public:
 		//{
 		//	std::cout << "ERROR!!!!! sin(a) == 0" << endl;
 		//}
+
+		if (sin_a < T(std::numeric_limits<double>::epsilon()) 
+			&& sin_a > -T(std::numeric_limits<double>::epsilon()))
+		{
+			sin_a = T(std::numeric_limits<double>::epsilon());
+		}
 
 		// cot(a) = cos(a) / sin(a)
 		T cot_a = cos_a / sin_a;
