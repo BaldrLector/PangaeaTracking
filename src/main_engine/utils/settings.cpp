@@ -311,11 +311,13 @@ TrackerSettings::TrackerSettings()
   weightARAP = 0;
   weightINEXTENT = 0;
   weightTransPrior = 0;
+  weightSmoothing = 0;
   photometricHuberWidth = 0.1;
   tvHuberWidth = 0.2;
   tvRotHuberWidth = 0.2;
   meshScaleUpFactor = 1.0;
   arapHuberWidth = 0.2;
+  smoothingHuberWidth = 0;
 
   // ceres parameter
   linearSolver = "CG";
@@ -456,6 +458,9 @@ void TrackerSettings::read(const cv::FileNode& node)
   if(!node["trans_weight"].empty())
     node["trans_weight"] >> weightTransPrior;
 
+  if (!node["smoothing_weight"].empty())
+	  node["smoothing_weight"] >> weightSmoothing;
+
   if(!node["photometric_huber_width"].empty())
     node["photometric_huber_width"] >> photometricHuberWidth;
 
@@ -470,6 +475,9 @@ void TrackerSettings::read(const cv::FileNode& node)
 
   if (!node["arap_huber_width"].empty())
 	  node["arap_huber_width"] >> arapHuberWidth;
+
+  if (!node["smoothing_huber_width"].empty())
+	  node["smoothing_huber_width"] >> smoothingHuberWidth;
 
   // ceres
   if(!node["linear_solver"].empty())

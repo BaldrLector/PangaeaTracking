@@ -49,6 +49,7 @@ void ProblemWrapper::Initialize(int num)
   inextentTermResidualBlocks.resize(num);
   deformTermResidualBlocks.resize(num);
   temporalTermResidualBlocks.resize(num);
+  smoothingTermResidualBlocks.resize(num);
 
   dataTermCostFunctions.resize(num);
   featureTermCostFunctions.resize(num);
@@ -119,6 +120,11 @@ void ProblemWrapper::addDeformTerm(int nLevel, ceres::ResidualBlockId& residualB
 void ProblemWrapper::addTemporalTerm(int nLevel, ceres::ResidualBlockId& residualBlockId)
 {
   temporalTermResidualBlocks[nLevel].push_back(residualBlockId);
+}
+
+void ProblemWrapper::addSmoothingTerm(int nLevel, ceres::ResidualBlockId& residualBlockId)
+{
+	smoothingTermResidualBlocks[nLevel].push_back(residualBlockId);
 }
 
 void ProblemWrapper::addDataTermCost(int nLevel, ceres::CostFunction* pCostFunction)
@@ -364,7 +370,25 @@ void ProblemWrapper::getTemporalTermCost(int nLevel, double* cost)
 
 }
 
-void ProblemWrapper::getAllCost(int nLevel, double cost[7], double* total_cost, double* sum_cost)
+void ProblemWrapper::getSmoothingTermCost(int nLevel, double* cost)
+{
+
+	if (smoothingTermResidualBlocks[nLevel].empty())
+		cost[0] = 0;
+	else
+	{
+		ceres::Problem::EvaluateOptions evaluateOptions;
+
+		evaluateOptions.residual_blocks = std::move(smoothingTermResidualBlocks[nLevel]);
+
+		problems[nLevel]->Evaluate(evaluateOptions, cost, NULL, NULL, NULL);
+
+		smoothingTermResidualBlocks[nLevel] = std::move(evaluateOptions.residual_blocks);
+	}
+
+}
+
+void ProblemWrapper::getAllCost(int nLevel, double* cost, double* total_cost, double* sum_cost)
 {
   sum_cost[0] = 0;
   total_cost[0] = 0;
@@ -378,8 +402,9 @@ void ProblemWrapper::getAllCost(int nLevel, double cost[7], double* total_cost, 
   getINEXTENTTermCost(nLevel, &cost[5]);
   getDeformTermCost(nLevel, &cost[6]);
   getTemporalTermCost(nLevel, &cost[7]);
+  getSmoothingTermCost(nLevel, &cost[8]);
 
-  for(int i = 0; i < 8; ++i)
+  for(int i = 0; i < NUM_PRINT_COSTS - 2; ++i)
     sum_cost[0] += cost[i];
 
   getTotalEnergy(nLevel, total_cost);

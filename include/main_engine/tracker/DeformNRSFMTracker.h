@@ -69,6 +69,8 @@ public:
                           ceres::LossFunction* loss_function);
   void AddTemporalMotionCost(ceres::Problem& problem,
                              double rotWeight, double transWeight);
+  void AddSmoothingCost(ceres::Problem& problem,
+	  ceres::LossFunction* loss_function);
 
   void AddVariableMask(ceres::Problem& problem, baType BA);
   void AddConstantMask(ceres::Problem& problem, baType BA);
