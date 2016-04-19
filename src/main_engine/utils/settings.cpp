@@ -768,6 +768,7 @@ ImageSourceType imageSourceType = IMAGESEQUENCE;
 TrackingType trackingType = DEFORMNRSFM;
 
 ImageSourceSettings imageSourceSettings;
+ImageSourceSettings specularImageSourceSettings;
 ShapeLoadingSettings shapeLoadingSettings;
 MeshLoadingSettings meshLoadingSettings;
 TrackerSettings trackerSettings;

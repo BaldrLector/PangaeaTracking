@@ -298,6 +298,7 @@ extern ImageSourceType imageSourceType;
 extern TrackingType trackingType;
 
 extern ImageSourceSettings imageSourceSettings;
+extern ImageSourceSettings specularImageSourceSettings;
 extern ShapeLoadingSettings shapeLoadingSettings;
 extern MeshLoadingSettings meshLoadingSettings;
 extern TrackerSettings trackerSettings;

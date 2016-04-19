@@ -42,6 +42,11 @@ public:
 
   bool trackFrame(int nFrame, unsigned char* pColorImageRGB,
                   TrackerOutputInfo** pOutputInfo);
+
+  bool trackFrame(int nFrame, unsigned char* pColorImageRGB,
+	  unsigned char* pSpecularColorImageRGB,
+	  TrackerOutputInfo** pOutputInfo);
+
   void updateRenderingLevel(TrackerOutputInfo** pOutputInfo,
                             int nRenderLevel, bool renderType = false);
 
@@ -168,6 +173,8 @@ public:
                                          CameraInfo* pCamera,
                                          Level* pFrame);
 
+  dataTermErrorType getPEType();
+
 private:
 
   // Siggraph14 or DynamicFusion
@@ -224,6 +231,9 @@ private:
   vector< MeshDeformation > prevMeshTransPyramid;
   vector< MeshDeformation > prevMeshRotPyramid;
 
+  vector< MeshDeformation > meshAlbedoPyramid;
+  vector< MeshDeformation > meshLocalLightingPyramid;
+
   // what about if we use dual quarternion representation?
   // In that case, we will need a dual quarternion
   // field transformation
@@ -274,6 +284,47 @@ private:
 
   // Read Spherical Harmonic Coefficients from file
   void readSHCoeff(const std::string _sh_coeff_filename);
+
+  // Estimates sh coeff, albedo, and local lighting maps
+  void updateIntrinsics(unsigned char* pColorImageRGB, 
+	  unsigned char* pSpecularColorImageRGB);
+
+  void initProjectedValues(const vector<vector<CoordinateType> > &meshProj, 
+	  const vector<bool> &visibility, const InternalColorImageType &colorImage,
+	  const InternalIntensityImageType &brightnessImage,
+	  const InternalIntensityImageType &specularImage, 
+	  vector< vector<double> > &intensities, 
+	  vector<double> &brightness,
+	  vector< vector<double> > &local_lightings);
+
+  void estimateSHCoeff(const PangaeaMeshData &mesh, 
+	  const vector<bool> &visibility,
+	  const vector<double> &brightness,
+	  const double &uniform_albedo,
+	  const vector<double> &specular_weights, vector<double> &sh_coeff);
+
+  void updateShading(const PangaeaMeshData &mesh,
+	  const vector<double> &sh_coeff, const int sh_order,
+	  vector<double> &shadings);
+
+  void estimateAlbedo(const PangaeaMeshData &mesh,
+	  const vector<bool> &visibility,
+	  const MeshDeformation &intensities,
+	  const vector<double> &shadings,
+	  const MeshDeformation &local_lightings,
+	  const vector<double> &specular_weights,
+	  MeshDeformation &albedos);
+
+  double computeDiffWeight(
+	  const MeshDeformation &local_lightings, const MeshDeformation &colors,
+	  const unsigned int v_idx1, const unsigned int v_idx2);
+
+  void estimateLocalLighting(const PangaeaMeshData &mesh,
+	  const vector<bool> &visibility,
+	  const MeshDeformation &intensities,
+	  const MeshDeformation &albedos,
+	  const vector<double> &shadings,
+	  MeshDeformation &local_lightings);
 
 };
 
