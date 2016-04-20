@@ -430,6 +430,8 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
   // load ground truth if there is any
   if(trackerSettings.hasGT)
     initializeGT();
+  
+  initNeighboursWeightsFineToCoarse();
 
   trackerInitialized = true;
 
@@ -3841,7 +3843,8 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB,
 	estimateLocalLighting(mesh, visibility, intensities, albedos, shadings, 
 		local_lightings);
 
-	// TODO: Propagate albedo and local lighting from finest level to coarser levels
+	// Propagate albedo and local lighting from finest level to coarser levels
+	propagateAlbedoLocalLightingFineToCoarse();
 }
 
 void DeformNRSFMTracker::initProjectedValues(
@@ -4336,4 +4339,86 @@ void DeformNRSFMTracker::estimateLocalLighting(const PangaeaMeshData &mesh,
 	ceres::Solve(options, &problem, &summary);
 
 	cout << summary.FullReport() << endl;
+}
+
+void DeformNRSFMTracker::initNeighboursWeightsFineToCoarse()
+{
+	typedef vector<CoordinateType> MeshSigmas;
+	typedef vector<vector<CoordinateType> > MeshDistances;
+
+	if (templateMeshPyramid.numLevels > 1)
+	{
+		fineToCoarseNeighbours.reserve(templateMeshPyramid.numLevels - 1);
+		fineToCoarseWeights.reserve(templateMeshPyramid.numLevels - 1);
+	}
+
+	for (size_t i = 0; i < templateMeshPyramid.numLevels - 1; i++)
+	{
+		MeshWeights weights;
+		MeshNeighbors neighbors;
+
+		MeshSigmas sigmas;
+		MeshDistances distances;
+		MeshNeighborsNano neighborsNano;
+
+		PangaeaMeshData& fineMesh = templateMeshPyramid.levels[i];
+		PangaeaMeshData& coarseMesh = templateMeshPyramid.levels[i + 1];
+
+		calcNeighborsAndWeights(coarseMesh.vertices, fineMesh.vertices,
+			neighborsNano, distances, 3);
+
+		int numVertices = coarseMesh.vertices.size();
+		sigmas.reserve(numVertices);
+		for (int j = 0; j < numVertices; ++j)
+		{
+			sigmas.push_back(distances[j].back());
+		}
+
+		distToWeights(distances, weights, sigmas);
+
+		fineToCoarseNeighbours.push_back(std::move(neighborsNano));
+		fineToCoarseWeights.push_back(std::move(weights));
+	}
+}
+
+void DeformNRSFMTracker::propagateAlbedoLocalLightingFineToCoarse()
+{
+	for (size_t i = 0; i < templateMeshPyramid.numLevels - 1; i++)
+	{
+		PangaeaMeshData &fineMesh = templateMeshPyramid.levels[i];
+		PangaeaMeshData &coarseMesh = templateMeshPyramid.levels[i + 1];
+		MeshNeighborsNano &neighbours = fineToCoarseNeighbours[i];
+		MeshWeights &weights = fineToCoarseWeights[i];
+
+		vector<vector<double>> &fine_local_lightings = meshLocalLightingPyramid[i];
+		vector<vector<double>> &coarse_local_lightings = meshLocalLightingPyramid[i + 1];
+
+		for (size_t j = 0; j < coarseMesh.numVertices; j++)
+		{
+			vector<size_t> &curr_neigh = neighbours[j];
+			vector<double> &curr_weight = weights[j];
+
+			vector<double> &albedo = coarseMesh.colors[j];
+			albedo[0] = 0;
+			albedo[1] = 0;
+			albedo[2] = 0;
+
+			vector<double> &local_light = coarse_local_lightings[j];
+			local_light[0] = 0;
+			local_light[1] = 0;
+			local_light[2] = 0;
+			for (int k = 0; k < neighbours[i].size(); ++j)
+			{
+				size_t v_idx = curr_neigh[k];
+
+				albedo[0] += curr_weight[k] * fineMesh.colors[v_idx][0];
+				albedo[1] += curr_weight[k] * fineMesh.colors[v_idx][1];
+				albedo[2] += curr_weight[k] * fineMesh.colors[v_idx][2];
+
+				local_light[0] += curr_weight[k] * fine_local_lightings[v_idx][0];
+				local_light[1] += curr_weight[k] * fine_local_lightings[v_idx][1];
+				local_light[2] += curr_weight[k] * fine_local_lightings[v_idx][2];
+			}
+		}
+	}
 }

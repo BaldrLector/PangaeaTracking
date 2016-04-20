@@ -233,6 +233,9 @@ private:
 
   vector< MeshDeformation > meshLocalLightingPyramid;
 
+  vector<MeshNeighborsNano> fineToCoarseNeighbours;
+  vector<MeshWeights> fineToCoarseWeights;
+
   // what about if we use dual quarternion representation?
   // In that case, we will need a dual quarternion
   // field transformation
@@ -324,6 +327,10 @@ private:
 	  const MeshDeformation &albedos,
 	  const vector<double> &shadings,
 	  MeshDeformation &local_lightings);
+
+  void initNeighboursWeightsFineToCoarse();
+
+  void propagateAlbedoLocalLightingFineToCoarse();
 
 };
 
