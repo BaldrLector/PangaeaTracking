@@ -1875,6 +1875,7 @@ public:
 		const double _shading,
 		const unsigned int _n_channels) :
 		intensity(_intensity),
+		albedo(_albedo),
 		shading(_shading),
 		n_channels(_n_channels)
 	{

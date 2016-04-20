@@ -185,7 +185,7 @@ void MainEngine::SetupInputAndTracker()
   // read input image
   GetInput(m_nCurrentFrame);
 
-  memcpy(m_pColorImageRGB, m_pColorImageRGBBuffer, m_nWidth * m_nHeight * numLevels);
+  memcpy(m_pColorImageRGB, m_pColorImageRGBBuffer, m_nWidth * m_nHeight * 3 * numLevels);
   memcpy(m_pSpecularGrayImage, m_pSpecularGrayImageBuffer, m_nWidth * m_nHeight * numLevels);
 
   // load initial mesh
@@ -232,6 +232,9 @@ void MainEngine::SetupInputAndTracker()
 	  || ( (DeformNRSFMTracker*) m_pTrackingEngine)->getPEType() == PE_INTRINSIC_COLOR)
 	  )
   {
+	  ((DeformNRSFMTracker*)m_pTrackingEngine)->initIntrinsics(
+		  m_pColorImageRGB, m_pSpecularGrayImage);
+
 	  ((DeformNRSFMTracker*) m_pTrackingEngine)->trackFrame(m_nCurrentFrame, m_pColorImageRGB,
 		  m_pSpecularGrayImage, &pOutputInfo);
   }

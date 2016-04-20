@@ -40,11 +40,14 @@ public:
   void initializeGT();
   void updateGT();
 
+  void initIntrinsics(unsigned char* pColorImageRGB,
+	  unsigned char* pSpecularGrayImage);
+
   bool trackFrame(int nFrame, unsigned char* pColorImageRGB,
                   TrackerOutputInfo** pOutputInfo);
 
   bool trackFrame(int nFrame, unsigned char* pColorImageRGB,
-	  unsigned char* pSpecularColorImageRGB,
+	  unsigned char* pSpecularGrayImage,
 	  TrackerOutputInfo** pOutputInfo);
 
   void updateRenderingLevel(TrackerOutputInfo** pOutputInfo,
