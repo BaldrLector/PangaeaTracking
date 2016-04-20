@@ -336,7 +336,6 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
   prevMeshTransPyramid.resize(m_nMeshLevels);
   prevMeshRotPyramid.resize(m_nMeshLevels);
 
-  meshAlbedoPyramid.resize(m_nMeshLevels);
   meshLocalLightingPyramid.resize(m_nMeshLevels);
 
   outputInfoPyramid.resize(m_nMeshLevels);
@@ -361,7 +360,6 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
       prevMeshTransPyramid[i].resize(numVertices, zeros3D);
       prevMeshRotPyramid[i].resize(numVertices, zeros3D);
 
-	  meshAlbedoPyramid[i].resize(numVertices, zeros3D);
 	  meshLocalLightingPyramid[i].resize(numVertices, zeros3D);
 
       outputInfoPyramid[i].meshData = templateMeshPyramid.levels[i];
@@ -3803,7 +3801,7 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB,
 	PangaeaMeshData &mesh = outputInfo.meshData;
 	const vector<vector<CoordinateType> >	&meshProj = outputInfo.meshProj;
 	const vector<bool> &visibility = visibilityMaskPyramid[0];
-	MeshDeformation &albedos = meshAlbedoPyramid[0];
+	MeshDeformation &albedos = mesh.colors;
 	MeshDeformation &local_lightings = meshLocalLightingPyramid[0];
 
 	// Intensities and brightness
@@ -3843,7 +3841,7 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB,
 	estimateLocalLighting(mesh, visibility, intensities, albedos, shadings, 
 		local_lightings);
 
-	// Propagate albedo and local lighting from finest level to coarser levels
+	// TODO: Propagate albedo and local lighting from finest level to coarser levels
 }
 
 void DeformNRSFMTracker::initProjectedValues(

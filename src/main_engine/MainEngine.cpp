@@ -179,8 +179,8 @@ void MainEngine::SetupInputAndTracker()
   SafeAllocArrayType(m_pColorImageRGB, 3*nPoints*numLevels, unsigned char);
   SafeAllocArrayType(m_pColorImageRGBBuffer, 3*nPoints*numLevels, unsigned char);
 
-  SafeAllocArrayType(m_pSpecularGrayImage, 3 * nPoints*numLevels, unsigned char);
-  SafeAllocArrayType(m_pSpecularGrayImageBuffer, 3 * nPoints*numLevels, unsigned char);
+  SafeAllocArrayType(m_pSpecularGrayImage, nPoints*numLevels, unsigned char);
+  SafeAllocArrayType(m_pSpecularGrayImageBuffer, nPoints*numLevels, unsigned char);
 
   // read input image
   GetInput(m_nCurrentFrame);

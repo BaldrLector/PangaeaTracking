@@ -231,7 +231,6 @@ private:
   vector< MeshDeformation > prevMeshTransPyramid;
   vector< MeshDeformation > prevMeshRotPyramid;
 
-  vector< MeshDeformation > meshAlbedoPyramid;
   vector< MeshDeformation > meshLocalLightingPyramid;
 
   // what about if we use dual quarternion representation?
