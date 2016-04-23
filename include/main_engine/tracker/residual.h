@@ -1367,7 +1367,8 @@ T computeShading(const T* _normal, const T* _sh_coeff, int _sh_order)
 
 template<typename T>
 void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level* pFrame,
-	double* pValue, T* shading, T* p, T* residuals, const dataTermErrorType& PE_TYPE)
+	double* pValue, T* shading, T* p, T* residuals, const dataTermErrorType& PE_TYPE,
+	const double* local_lighting = NULL)
 {
 	T transformed_r, transformed_c;
 
@@ -1383,6 +1384,12 @@ void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level*
 		{
 		case PE_INTRINSIC:
 			templateValue = T(pValue[0]) * shading[0];
+
+			if (local_lighting != NULL)
+			{
+				templateValue += T(local_lighting[0]);
+			}
+
 			currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->grayImage,
 				pImageLevel->gradXImage,
 				pImageLevel->gradYImage,
@@ -1395,6 +1402,12 @@ void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level*
 			for (int i = 0; i < 3; ++i)
 			{
 				templateValue = T(pValue[i]) * shading[0];
+
+				if (local_lighting != NULL)
+				{
+					templateValue += T(local_lighting[i]);
+				}
+
 				currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->colorImageSplit[i],
 					pImageLevel->colorImageGradXSplit[i],
 					pImageLevel->colorImageGradYSplit[i],
@@ -1420,14 +1433,15 @@ public:
 		const vector< vector<double> > &_vertices, 
 		const vector<unsigned int> &_adjVerticesInd, const int &_n_adj_faces,
 		dataTermErrorType PE_TYPE = PE_INTRINSIC, const bool _clockwise = true,
-		const int _sh_order = 0) :
+		const int _sh_order = 0, const double* _local_lighting = NULL) :
 		ResidualImageProjection(weight, pValue, pVertex,
 		pCamera, pFrame, PE_TYPE),
 		vertices(_vertices),
 		adjVerticesInd(_adjVerticesInd),
 		n_adj_faces(_n_adj_faces),
 		clockwise(_clockwise),
-		sh_order(_sh_order)
+		sh_order(_sh_order),
+		local_lighting(_local_lighting)
 	{
 
 	}
@@ -1473,7 +1487,7 @@ public:
 		T shading = computeShading(normal, sh_coeff, sh_order);
 
 		getResidualIntrinsic(weight, pCamera, pFrame, pValue, &shading, p, residuals,
-			PE_TYPE);
+			PE_TYPE, local_lighting);
 
 		return true;
 
@@ -1491,8 +1505,9 @@ private:
 	const bool clockwise;
 	// SH order
 	const int sh_order;
-	//SH coefficients
-	//const double* sh_coeff;
+
+	// Local lighting
+	const double* local_lighting;
 };
 
 // Residual of the difference between the previous SH coefficients and the current ones

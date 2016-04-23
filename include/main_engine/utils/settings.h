@@ -135,6 +135,30 @@ public:
 	// Path to Spherical Harmonic Coefficients for Illumination
 	std::string sh_coeff_file;
 
+	double specular_weight_var;
+	double brightness_percentile;
+
+	double sh_coeff_data_weight;
+	double sh_coeff_data_huber_width;
+
+	double albedo_data_weight;
+	double albedo_data_huber_width;
+	double albedo_smoothness_weight;
+	double albedo_smoothness_huber_width;
+
+	double smoothness_specular_weight;
+	double smoothness_color_diff_var;
+	double smoothness_color_diff_threshold;
+
+	double local_lighting_data_weight;
+	double local_lighting_data_huber_width;
+	double local_lighting_smoothness_weight;
+	double local_lighting_smoothness_huber_width;
+	double local_lighting_magnitude_weight;
+	double local_lighting_magnitude_huber_width;
+
+	bool use_local_lighting;
+
   // ceres parameter
   std::string linearSolver;
   int numOptimizationLevels;

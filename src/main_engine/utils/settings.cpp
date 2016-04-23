@@ -319,6 +319,30 @@ TrackerSettings::TrackerSettings()
   arapHuberWidth = 0.2;
   smoothingHuberWidth = 0;
 
+  specular_weight_var = 0.1;
+  brightness_percentile = 0.98;
+
+  sh_coeff_data_weight = 1;
+  sh_coeff_data_huber_width = 0;
+
+  albedo_data_weight = 1;
+  albedo_data_huber_width = 0;
+  albedo_smoothness_weight = 0.1;
+  albedo_smoothness_huber_width = 0;
+
+  smoothness_specular_weight = 10;
+  smoothness_color_diff_var = 0.05;
+  smoothness_color_diff_threshold = 0.5;
+
+  local_lighting_data_weight = 1;
+  local_lighting_data_huber_width = 1e-1;
+  local_lighting_smoothness_weight = 1;
+  local_lighting_smoothness_huber_width = 1e-1;
+  local_lighting_magnitude_weight = 1;
+  local_lighting_magnitude_huber_width = 1e-1;
+
+  use_local_lighting = false;
+
   // ceres parameter
   linearSolver = "CG";
   numOptimizationLevels = 3;
@@ -478,6 +502,48 @@ void TrackerSettings::read(const cv::FileNode& node)
 
   if (!node["smoothing_huber_width"].empty())
 	  node["smoothing_huber_width"] >> smoothingHuberWidth;
+
+  if (!node["specular_weight_var"].empty())
+	  node["specular_weight_var"] >> specular_weight_var;
+  if (!node["brightness_percentile"].empty())
+	  node["brightness_percentile"] >> brightness_percentile;
+
+  if (!node["sh_coeff_data_weight"].empty())
+	  node["sh_coeff_data_weight"] >> sh_coeff_data_weight;
+  if (!node["sh_coeff_data_huber_width"].empty())
+	  node["sh_coeff_data_huber_width"] >> sh_coeff_data_huber_width;
+
+  if (!node["albedo_data_weight"].empty())
+	  node["albedo_data_weight"] >> albedo_data_weight;
+  if (!node["albedo_data_huber_width"].empty())
+	  node["albedo_data_huber_width"] >> albedo_data_huber_width;
+  if (!node["albedo_smoothness_weight"].empty())
+	  node["albedo_smoothness_weight"] >> albedo_smoothness_weight;
+  if (!node["albedo_smoothness_huber_width"].empty())
+	  node["albedo_smoothness_huber_width"] >> albedo_smoothness_huber_width;
+
+  if (!node["smoothness_specular_weight"].empty())
+	  node["smoothness_specular_weight"] >> smoothness_specular_weight;
+  if (!node["smoothness_color_diff_var"].empty())
+	  node["smoothness_color_diff_var"] >> smoothness_color_diff_var;
+  if (!node["smoothness_color_diff_threshold"].empty())
+	  node["smoothness_color_diff_threshold"] >> smoothness_color_diff_threshold;
+
+  if (!node["local_lighting_data_weight"].empty())
+	  node["local_lighting_data_weight"] >> local_lighting_data_weight;
+  if (!node["local_lighting_data_huber_width"].empty())
+	  node["local_lighting_data_huber_width"] >> local_lighting_data_huber_width;
+  if (!node["local_lighting_smoothness_weight"].empty())
+	  node["local_lighting_smoothness_weight"] >> local_lighting_smoothness_weight;
+  if (!node["local_lighting_smoothness_huber_width"].empty())
+	  node["local_lighting_smoothness_huber_width"] >> local_lighting_smoothness_huber_width;
+  if (!node["local_lighting_magnitude_weight"].empty())
+	  node["local_lighting_magnitude_weight"] >> local_lighting_magnitude_weight;
+  if (!node["local_lighting_magnitude_huber_width"].empty())
+	  node["local_lighting_magnitude_huber_width"] >> local_lighting_magnitude_huber_width;
+
+  if (!node["use_local_lighting"].empty())
+	  node["use_local_lighting"] >> use_local_lighting;
 
   // ceres
   if(!node["linear_solver"].empty())

@@ -135,6 +135,16 @@ public:
                               CameraInfo* pCamera,
                               Level* pFrame);
 
+  void AddCostImageProjection(ceres::Problem& problem,
+	  ceres::LossFunction* loss_function,
+	  dataTermErrorType errorType,
+	  PangaeaMeshData& templateMesh,
+	  MeshDeformation& meshTrans,
+	  vector<bool>& visibilityMask,
+	  CameraInfo* pCamera,
+	  Level* pFrame,
+	  MeshDeformation& local_ligthing);
+
   void AddCostImageProjectionPatch(ceres::Problem& problem,
                                    ceres::LossFunction* loss_function,
                                    dataTermErrorType errorType,
@@ -234,6 +244,7 @@ private:
   vector< MeshDeformation > prevMeshTransPyramid;
   vector< MeshDeformation > prevMeshRotPyramid;
 
+  vector< MeshDeformation > templateAlbedoPyramid;
   vector< MeshDeformation > meshLocalLightingPyramid;
 
   vector<MeshNeighborsNano> fineToCoarseNeighbours;
@@ -305,7 +316,7 @@ private:
   void estimateSHCoeff(const PangaeaMeshData &mesh, 
 	  const vector<bool> &visibility,
 	  const vector<double> &brightness,
-	  const double &uniform_albedo,
+	  vector<double> &albedos,
 	  const vector<double> &specular_weights, vector<double> &sh_coeff);
 
   void updateShading(const PangaeaMeshData &mesh,

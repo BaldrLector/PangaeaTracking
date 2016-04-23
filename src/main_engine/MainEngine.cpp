@@ -295,6 +295,7 @@ bool MainEngine::ProcessOneFrame(int nFrame)
   if(imageSourceSettings.useMultiImages)
     numLevels = imageSourceSettings.dataPathLevelList.size();
   memcpy(m_pColorImageRGB, m_pColorImageRGBBuffer, m_nWidth * m_nHeight * 3 *  numLevels);
+  memcpy(m_pSpecularGrayImage, m_pSpecularGrayImageBuffer, m_nWidth * m_nHeight * numLevels);
   TOCK("getInput");
 
   if(!inputFlag)
@@ -305,7 +306,22 @@ bool MainEngine::ProcessOneFrame(int nFrame)
 
   // do tracking
   TICK("tracking");
-  if(!m_pTrackingEngine->trackFrame(nFrame, m_pColorImageRGB, &pOutputInfo))
+  
+  bool track_ok = false;
+  if (trackingType == DEFORMNRSFM
+	  && (((DeformNRSFMTracker*)m_pTrackingEngine)->getPEType() == PE_INTRINSIC
+	  || ((DeformNRSFMTracker*)m_pTrackingEngine)->getPEType() == PE_INTRINSIC_COLOR)
+	  )
+  {
+	  track_ok = ((DeformNRSFMTracker*)m_pTrackingEngine)->trackFrame(m_nCurrentFrame, m_pColorImageRGB,
+		  m_pSpecularGrayImage, &pOutputInfo);
+  }
+  else
+  {
+	  track_ok = m_pTrackingEngine->trackFrame(nFrame, m_pColorImageRGB, &pOutputInfo);
+  }
+  
+  if (!track_ok)
     {
       cout << "tracking failed: " << endl;
       return false;
