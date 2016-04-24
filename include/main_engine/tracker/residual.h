@@ -1511,51 +1511,97 @@ private:
 };
 
 // Residual of the difference between the previous SH coefficients and the current ones
-class ResidualSHCoeff
+class ResidualTemporalSHCoeff
 {
 public:
-	ResidualSHCoeff(const int _n_sh_coeff) : n_sh_coeff(_n_sh_coeff)
+	ResidualTemporalSHCoeff(const vector<double> &_prev_sh_coeff) : 
+		prev_sh_coeff(_prev_sh_coeff),
+		n_sh_coeff(_prev_sh_coeff.size())
 	{
 
 	}
 
 	template<typename T>
-	bool operator()(const T* const diff_sh_coeff, T* residuals) const
+	bool operator()(const T* const* const parameters, T* residuals) const
 	{
+		const T* sh_coeff = parameters[0];
+
 		for (int i = 0; i < n_sh_coeff; i++)
 		{
-			residuals[i] = diff_sh_coeff[i];
+			residuals[i] = sh_coeff[i] - T(prev_sh_coeff[i]);
 		}
 
 		return true;
 	}
 
 private:
-	// Number of SH coeff
+	// Previous SH coeff
+	const vector<double> prev_sh_coeff;
+
+	// Number of SH Coeff
 	const int n_sh_coeff;
 };
 
-// Residual of the difference between the previous albedo values and the current ones
-class ResidualAlbedo
+// Residual of the difference between the previous Local lighting and the current ones
+class ResidualTemporalLocalLighting
 {
 public:
-	ResidualAlbedo(const bool _is_grayscale) : n_channels(_is_grayscale ? 1 : 3)
+	ResidualTemporalLocalLighting(const vector<double> &_prev_local_lighting) :
+		prev_local_lighting(_prev_local_lighting),
+		n_channels(_prev_local_lighting.size())
 	{
 
 	}
 
 	template<typename T>
-	bool operator()(const T* const diff_albedo, T* residuals) const
+	bool operator()(const T* const* const parameters, T* residuals) const
 	{
+		const T* local_lighting = parameters[0];
+
 		for (int i = 0; i < n_channels; i++)
 		{
-			residuals[i] = diff_albedo[i];
+			residuals[i] = local_lighting[i] - T(prev_local_lighting[i]);
 		}
 
 		return true;
 	}
 
 private:
+	// Previous Local lighting values
+	const vector<double> prev_local_lighting;
+
+	// Number of channels
+	const int n_channels;
+};
+
+// Residual of the difference between the previous albedo values and the current ones
+class ResidualTemplateAlbedo
+{
+public:
+	ResidualTemplateAlbedo(const double* _template_albedo, const bool _is_grayscale) :
+		template_albedo(_template_albedo),
+		n_channels(_is_grayscale ? 1 : 3)
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const* const parameters, T* residuals) const
+	{
+		const T* albedo = parameters[0];
+
+		for (int i = 0; i < n_channels; i++)
+		{
+			residuals[i] = albedo[i] - T(template_albedo[i]);
+		}
+
+		return true;
+	}
+
+private:
+	// Template albedo color
+	const double* template_albedo;
+
 	// Number of albedo channels
 	const int n_channels;
 

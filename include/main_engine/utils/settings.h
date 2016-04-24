@@ -140,11 +140,15 @@ public:
 
 	double sh_coeff_data_weight;
 	double sh_coeff_data_huber_width;
+	double sh_coeff_temporal_weight;
+	double sh_coeff_temporal_huber_width;
 
 	double albedo_data_weight;
 	double albedo_data_huber_width;
 	double albedo_smoothness_weight;
 	double albedo_smoothness_huber_width;
+	double albedo_difference_weight;
+	double albedo_difference_huber_width;
 
 	double smoothness_specular_weight;
 	double smoothness_color_diff_var;
@@ -156,6 +160,8 @@ public:
 	double local_lighting_smoothness_huber_width;
 	double local_lighting_magnitude_weight;
 	double local_lighting_magnitude_huber_width;
+	double local_lighting_temporal_weight;
+	double local_lighting_temporal_huber_width;
 
 	bool use_local_lighting;
 

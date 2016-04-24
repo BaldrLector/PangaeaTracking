@@ -323,7 +323,8 @@ private:
 	  const MeshDeformation &intensities,
 	  const vector<double> &shadings,
 	  const MeshDeformation &local_lightings,
-	  const vector<double> &specular_weights,
+	  const vector<double> &specular_weights, 
+	  const MeshDeformation &template_albedos,
 	  MeshDeformation &albedos);
 
   double computeDiffWeight(

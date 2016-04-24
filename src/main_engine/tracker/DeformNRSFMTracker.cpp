@@ -3817,6 +3817,7 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB,
 	MeshDeformation &local_lightings = templateMeshPyramid.levels[0].specular_colors;
 	vector<double> &sh_coeff = templateMeshPyramid.levels[0].sh_coefficients;
 	int sh_order = templateMeshPyramid.levels[0].sh_order;
+	const MeshDeformation &template_albedos = templateAlbedoPyramid[0];
 
 	mesh.computeNormalsNeil();
 
@@ -3867,7 +3868,7 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB,
 	// Estimate albedo map assuming zero local lighting
 	cout << "Estimating albedo map..." << endl;
 	estimateAlbedo(mesh, visibility, intensities, shadings, local_lightings,
-		specular_weights, albedos);
+		specular_weights, template_albedos, albedos);
 
 	// Estimate local lighting variations
 	cout << "Estimating local lighting variations..." << endl;
@@ -3952,6 +3953,9 @@ void DeformNRSFMTracker::estimateSHCoeff(
 			new ceres::HuberLoss(trackerSettings.sh_coeff_data_huber_width);
 	}
 
+	bool use_lower_bound_shading = false;
+	bool use_upper_bound_shading = false;
+
 	for (size_t i = 0; i < mesh.numVertices; i++)
 	{
 		if (visibility[i])
@@ -3964,7 +3968,7 @@ void DeformNRSFMTracker::estimateSHCoeff(
 			ResidualPhotometricErrorWithNormal *residual =
 				new ResidualPhotometricErrorWithNormal(
 				&brightness[i], (double *)&mesh.normals[i][0], 1, sh_order,
-				false, false);
+				use_lower_bound_shading, use_upper_bound_shading);
 
 			ceres::DynamicAutoDiffCostFunction<ResidualPhotometricErrorWithNormal, 5>* dyn_cost_function
 				= new ceres::DynamicAutoDiffCostFunction< ResidualPhotometricErrorWithNormal, 5 >(residual);
@@ -3989,6 +3993,42 @@ void DeformNRSFMTracker::estimateSHCoeff(
 				scaled_data_loss,
 				v_parameter_blocks);
 		}
+	}
+
+	if (trackerSettings.sh_coeff_temporal_weight > 0)
+	{
+		ceres::HuberLoss* huber_temporal_loss;
+
+		if (trackerSettings.sh_coeff_temporal_huber_width > 0.0)
+		{
+			huber_temporal_loss =
+				new ceres::HuberLoss(trackerSettings.sh_coeff_temporal_huber_width);
+		}
+
+		ceres::ScaledLoss* scaled_temporal_loss =
+			new ceres::ScaledLoss(huber_temporal_loss,
+			trackerSettings.sh_coeff_temporal_weight, 
+			ceres::TAKE_OWNERSHIP);
+
+		ResidualTemporalSHCoeff *residual =
+			new ResidualTemporalSHCoeff(sh_coeff);
+
+		ceres::DynamicAutoDiffCostFunction<ResidualTemporalSHCoeff, 5>* dyn_cost_function
+			= new ceres::DynamicAutoDiffCostFunction< ResidualTemporalSHCoeff, 5 >(residual);
+
+		// List of pointers to sh coefficients
+		vector<double*> v_parameter_blocks;
+
+		// SH Coeff
+		dyn_cost_function->AddParameterBlock(sh_coeff.size());
+		v_parameter_blocks.push_back(&sh_coeff[0]);
+
+		dyn_cost_function->SetNumResiduals(sh_coeff.size());
+
+		ceres::ResidualBlockId residualBlockId = problem.AddResidualBlock(
+			dyn_cost_function,
+			scaled_temporal_loss,
+			v_parameter_blocks);
 	}
 
 	for (size_t i = 0; i < albedos.size(); i++)
@@ -4050,6 +4090,7 @@ void DeformNRSFMTracker::estimateAlbedo(const PangaeaMeshData &mesh,
 	const vector<double> &shadings,
 	const MeshDeformation &local_lightings,
 	const vector<double> &specular_weights,
+	const MeshDeformation &template_albedos,
 	MeshDeformation &albedos)
 {
 	vector<double> black = { 0, 0, 0 };
@@ -4129,14 +4170,14 @@ void DeformNRSFMTracker::estimateAlbedo(const PangaeaMeshData &mesh,
 
 		for (size_t i = 0; i < mesh.numVertices; i++)
 		{
-			if (visibility[i])
-			{
+			//if (visibility[i])
+			//{
 				for (size_t j = 0; j < mesh.adjVerticesInd[i].size(); j++)
 				{
 					unsigned int adj_v_idx = mesh.adjVerticesInd[i][j];
 
-					if (visibility[adj_v_idx])
-					{
+					//if (visibility[adj_v_idx])
+					//{
 						double weight = computeDiffWeight(local_lightings, intensities, i, j);
 
 						if (weight > 0.0)
@@ -4154,21 +4195,63 @@ void DeformNRSFMTracker::estimateAlbedo(const PangaeaMeshData &mesh,
 								&albedos[i][0],
 								&albedos[adj_v_idx][0]);
 						}
-					}
+					//}
 				}
-			}
+			//}
+		}
+	}
+
+	if (trackerSettings.albedo_difference_weight > 0)
+	{
+		ceres::HuberLoss* huber_temporal_loss;
+
+		if (trackerSettings.albedo_difference_huber_width > 0.0)
+		{
+			huber_temporal_loss =
+				new ceres::HuberLoss(trackerSettings.albedo_difference_huber_width);
+		}
+
+		ceres::ScaledLoss* scaled_temporal_loss =
+			new ceres::ScaledLoss(huber_temporal_loss,
+			trackerSettings.albedo_difference_weight,
+			ceres::TAKE_OWNERSHIP);
+		
+		for (size_t i = 0; i < mesh.numVertices; i++)
+		{
+			//if (visibility[i])
+			//{
+				ResidualTemplateAlbedo *residual =
+					new ResidualTemplateAlbedo(&template_albedos[i][0], false);
+
+				ceres::DynamicAutoDiffCostFunction<ResidualTemplateAlbedo, 5>* dyn_cost_function
+					= new ceres::DynamicAutoDiffCostFunction< ResidualTemplateAlbedo, 5 >(residual);
+
+				// List of pointers to translations per vertex
+				vector<double*> v_parameter_blocks;
+
+				// SH Coeff
+				dyn_cost_function->AddParameterBlock(3);
+				v_parameter_blocks.push_back(&albedos[i][0]);
+
+				dyn_cost_function->SetNumResiduals(3);
+
+				ceres::ResidualBlockId residualBlockId = problem.AddResidualBlock(
+					dyn_cost_function,
+					scaled_temporal_loss,
+					v_parameter_blocks);
+			//}
 		}
 	}
 
 	problem.SetParameterBlockConstant(&black[0]);
 
-	bool use_lower_bound_albedo = false;
-	bool use_upper_bound_albedo = false;
+	bool use_lower_bound_albedo = true;
+	bool use_upper_bound_albedo = true;
 
 	for (size_t i = 0; i < mesh.numVertices; ++i)
 	{
-		if (visibility[i])
-		{
+		//if (visibility[i])
+		//{
 			if (use_lower_bound_albedo)
 			{
 				problem.SetParameterLowerBound(&albedos[i][0], 0, 0.0);
@@ -4182,7 +4265,7 @@ void DeformNRSFMTracker::estimateAlbedo(const PangaeaMeshData &mesh,
 				problem.SetParameterUpperBound(&albedos[i][0], 1, 1.0);
 				problem.SetParameterUpperBound(&albedos[i][0], 2, 1.0);
 			}
-		}
+		//}
 	}
 
 	ceres::Solver::Options options;
@@ -4319,14 +4402,14 @@ void DeformNRSFMTracker::estimateLocalLighting(const PangaeaMeshData &mesh,
 
 		for (size_t i = 0; i < mesh.numVertices; i++)
 		{
-			if (visibility[i])
-			{
+			//if (visibility[i])
+			//{
 				for (size_t j = 0; j < mesh.adjVerticesInd[i].size(); j++)
 				{
 					unsigned int adj_v_idx = mesh.adjVerticesInd[i][j];
 
-					if (visibility[adj_v_idx])
-					{
+					//if (visibility[adj_v_idx])
+					//{
 						double weight = 1;// diff_weights[i][j];
 
 						if (weight > 0.0)
@@ -4343,9 +4426,9 @@ void DeformNRSFMTracker::estimateLocalLighting(const PangaeaMeshData &mesh,
 								&local_lightings[i][0],
 								&local_lightings[adj_v_idx][0]);
 						}
-					}
+					//}
 				}
-			}
+			//}
 		}
 	}
 
@@ -4366,8 +4449,8 @@ void DeformNRSFMTracker::estimateLocalLighting(const PangaeaMeshData &mesh,
 
 		for (size_t i = 0; i < mesh.numVertices; i++)
 		{
-			if (visibility[i])
-			{
+			//if (visibility[i])
+			//{
 				ResidualValueMagnitude *residual = new ResidualValueMagnitude(3);
 
 				ceres::AutoDiffCostFunction<ResidualValueMagnitude, 3, 3>* cost_function =
@@ -4377,8 +4460,73 @@ void DeformNRSFMTracker::estimateLocalLighting(const PangaeaMeshData &mesh,
 					cost_function,
 					loss_function,
 					&local_lightings[i][0]);
-			}
+			//}
 		}
+	}
+
+	if (trackerSettings.local_lighting_temporal_weight > 0.0)
+	{
+		ceres::LossFunction* huber_loss = NULL;
+
+		if (trackerSettings.local_lighting_temporal_huber_width > 0)
+		{
+			huber_loss =
+				new ceres::HuberLoss(trackerSettings.local_lighting_temporal_huber_width);
+		}
+
+		ceres::ScaledLoss* loss_function = new ceres::ScaledLoss(
+			huber_loss,
+			trackerSettings.local_lighting_temporal_weight,
+			ceres::TAKE_OWNERSHIP);
+
+		for (size_t i = 0; i < mesh.numVertices; i++)
+		{
+			//if (visibility[i])
+			//{
+				ResidualTemporalLocalLighting *residual = 
+					new ResidualTemporalLocalLighting(local_lightings[i]);
+
+				ceres::DynamicAutoDiffCostFunction<ResidualTemporalLocalLighting, 5>* dyn_cost_function
+					= new ceres::DynamicAutoDiffCostFunction< ResidualTemporalLocalLighting, 5 >(residual);
+
+				// List of pointers to translations per vertex
+				vector<double*> v_parameter_blocks;
+
+				// SH Coeff
+				dyn_cost_function->AddParameterBlock(3);
+				v_parameter_blocks.push_back(&local_lightings[i][0]);
+
+				dyn_cost_function->SetNumResiduals(3);
+
+				ceres::ResidualBlockId residualBlockId = problem.AddResidualBlock(
+					dyn_cost_function,
+					loss_function,
+					v_parameter_blocks);
+			//}
+		}
+	}
+
+	bool use_lower_bound = true;
+	bool use_upper_bound = true;
+
+	for (size_t i = 0; i < mesh.numVertices; ++i)
+	{
+		//if (visibility[i])
+		//{
+		if (use_lower_bound)
+		{
+			problem.SetParameterLowerBound(&local_lightings[i][0], 0, 0.0);
+			problem.SetParameterLowerBound(&local_lightings[i][0], 1, 0.0);
+			problem.SetParameterLowerBound(&local_lightings[i][0], 2, 0.0);
+		}
+
+		if (use_upper_bound)
+		{
+			problem.SetParameterUpperBound(&local_lightings[i][0], 0, 1.0);
+			problem.SetParameterUpperBound(&local_lightings[i][0], 1, 1.0);
+			problem.SetParameterUpperBound(&local_lightings[i][0], 2, 1.0);
+		}
+		//}
 	}
 
 	ceres::Solver::Options options;
