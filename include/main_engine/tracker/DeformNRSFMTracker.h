@@ -209,9 +209,9 @@ private:
   double KK[3][3];
 
   // Spherical Harmonic Coefficients for representing illumination
-  vector<double> sh_coeff;
+  //vector<double> sh_coeff;
   // Spherical Harmonic order
-  int sh_order;
+  //int sh_order;
 
   //
   CameraInfo camInfo;
@@ -245,7 +245,6 @@ private:
   vector< MeshDeformation > prevMeshRotPyramid;
 
   vector< MeshDeformation > templateAlbedoPyramid;
-  vector< MeshDeformation > meshLocalLightingPyramid;
 
   vector<MeshNeighborsNano> fineToCoarseNeighbours;
   vector<MeshWeights> fineToCoarseWeights;
@@ -298,9 +297,6 @@ private:
   double meanError;
   std::ofstream scoresOutput;
 
-  // Read Spherical Harmonic Coefficients from file
-  void readSHCoeff(const std::string _sh_coeff_filename);
-
   // Estimates sh coeff, albedo, and local lighting maps
   void updateIntrinsics(unsigned char* pColorImageRGB, 
 	  unsigned char* pSpecularColorImageRGB);
@@ -314,10 +310,9 @@ private:
 	  vector< vector<double> > &local_lightings);
 
   void estimateSHCoeff(const PangaeaMeshData &mesh, 
-	  const vector<bool> &visibility,
-	  const vector<double> &brightness,
-	  vector<double> &albedos,
-	  const vector<double> &specular_weights, vector<double> &sh_coeff);
+	  const vector<bool> &visibility, const vector<double> &brightness,
+	  vector<double> &albedos, const vector<double> &specular_weights, 
+	  const int sh_order, vector<double> &sh_coeff);
 
   void updateShading(const PangaeaMeshData &mesh,
 	  const vector<double> &sh_coeff, const int sh_order,

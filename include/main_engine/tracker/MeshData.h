@@ -45,6 +45,9 @@ public:
 		clockwise = d.clockwise;
     features = d.features;
 
+	specular_colors = d.specular_colors;
+	sh_coefficients = d.sh_coefficients;
+	sh_order = d.sh_order;
   }
 
   MeshData& operator=(const MeshData& d)
@@ -68,6 +71,10 @@ public:
 		clockwise = d.clockwise;
 
     features = d.features;
+
+	specular_colors = d.specular_colors;
+	sh_coefficients = d.sh_coefficients;
+	sh_order = d.sh_order;
 
     return *this;
   }
@@ -94,6 +101,8 @@ public:
 
     features = std::move(d.features);
 
+	specular_colors = std::move(d.specular_colors);
+	sh_coefficients = std::move(d.sh_coefficients);
 	};
 	MeshData& operator=(MeshData&& d) {
     vertices = std::move(d.vertices);
@@ -114,6 +123,10 @@ public:
 		clockwise = d.clockwise;
 
     features = std::move(d.features);
+
+	specular_colors = std::move(d.specular_colors);
+	sh_coefficients = std::move(d.sh_coefficients);
+	sh_order = d.sh_order;
 
     return *this;
 	};
@@ -145,6 +158,13 @@ public:
 
   // error with ground truth
   vector<vector<FloatType> > diffWithGT;
+
+  // specular colors
+  vector<vector<FloatType> > specular_colors;
+
+  // spherical harmonic coefficients
+  vector<FloatType> sh_coefficients;
+  int sh_order;
 };
 
 template<typename FloatType>
@@ -161,6 +181,9 @@ void MeshData<FloatType>::clear()
   modelLabels.clear();
 
   features.clear();
+
+  specular_colors.clear();
+  sh_coefficients.clear();
 }
 
 template<typename FloatType>

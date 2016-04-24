@@ -87,6 +87,10 @@ static int ply_type_size[] = {
 #define PLY_VERTEX_NORMAL_RGB	1
 #define PLY_VERTEX_RGBA			2
 #define PLY_VERTEX_NORMAL_RGBA	3
+#define PLY_VERTEX_RGB_SPECULAR			4
+#define PLY_VERTEX_NORMAL_RGB_SPECULAR	5
+#define PLY_VERTEX_RGBA_SPECULAR		6
+#define PLY_VERTEX_NORMAL_RGBA_SPECULAR	7
 
 typedef struct PlyProperty {    /* description of a property */
 
@@ -2749,6 +2753,22 @@ namespace ply{
 		unsigned char a;
 	};
 
+	struct VertexColorSpecular : public VertexColor {
+		unsigned char specular_r, specular_g, specular_b;
+	};
+
+	struct VertexNormalColorSpecular : public VertexNormalColor {
+		unsigned char specular_r, specular_g, specular_b;
+	};
+
+	struct VertexColorAlphaSpecular : public VertexColorAlpha {
+		unsigned char specular_r, specular_g, specular_b;
+	};
+
+	struct VertexNormalColorAlphaSpecular : public VertexNormalColorAlpha {
+		unsigned char specular_r, specular_g, specular_b;
+	};
+
 	struct Face {
 		unsigned char nverts;    /* number of vertex indices in list */
 		int* verts;              /* vertex index list */
@@ -2762,8 +2782,12 @@ namespace ply{
 		}
 	};
 
+	struct SH_Coefficient {
+		float value; /* sh coefficient value */
+	};
+
 	static const char *elem_names[] = { /* list of the kinds of elements in the user's object */
-		"vertex", "face"
+		"vertex", "face", "sh_coefficient"
 	};
 
 	static PlyProperty vc_props[] = { /* list of property information for a vertex with uchar rgb */
@@ -2810,11 +2834,71 @@ namespace ply{
 		{ "alpha", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorAlpha, a), 0, 0, 0, 0 },
 	};
 
+	static PlyProperty vcs_props[] = { /* list of property information for a vertex with uchar rgb */
+		{ "x", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexColorSpecular, x), 0, 0, 0, 0 },
+		{ "y", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexColorSpecular, y), 0, 0, 0, 0 },
+		{ "z", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexColorSpecular, z), 0, 0, 0, 0 },
+		{ "red", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorSpecular, r), 0, 0, 0, 0 },
+		{ "green", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorSpecular, g), 0, 0, 0, 0 },
+		{ "blue", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorSpecular, b), 0, 0, 0, 0 },
+		{ "specular_red", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorSpecular, specular_r), 0, 0, 0, 0 },
+		{ "specular_green", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorSpecular, specular_g), 0, 0, 0, 0 },
+		{ "specular_blue", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorSpecular, specular_b), 0, 0, 0, 0 }
+	};
+
+	static PlyProperty vncs_props[] = { /* list of property information for a vertex with normals and uchar specular rgb */
+		{ "x", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorSpecular, x), 0, 0, 0, 0 },
+		{ "y", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorSpecular, y), 0, 0, 0, 0 },
+		{ "z", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorSpecular, z), 0, 0, 0, 0 },
+		{ "nx", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorSpecular, nx), 0, 0, 0, 0 },
+		{ "ny", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorSpecular, ny), 0, 0, 0, 0 },
+		{ "nz", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorSpecular, nz), 0, 0, 0, 0 },
+		{ "red", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorSpecular, r), 0, 0, 0, 0 },
+		{ "green", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorSpecular, g), 0, 0, 0, 0 },
+		{ "blue", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorSpecular, b), 0, 0, 0, 0 },
+		{ "specular_red", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorSpecular, specular_r), 0, 0, 0, 0 },
+		{ "specular_green", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorSpecular, specular_g), 0, 0, 0, 0 },
+		{ "specular_blue", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorSpecular, specular_b), 0, 0, 0, 0 }
+	};
+
+	static PlyProperty vcas_props[] = { /* list of property information for a vertex with uchar rgba and specular rgb */
+		{ "x", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexColorAlphaSpecular, x), 0, 0, 0, 0 },
+		{ "y", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexColorAlphaSpecular, y), 0, 0, 0, 0 },
+		{ "z", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexColorAlphaSpecular, z), 0, 0, 0, 0 },
+		{ "red", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorAlphaSpecular, r), 0, 0, 0, 0 },
+		{ "green", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorAlphaSpecular, g), 0, 0, 0, 0 },
+		{ "blue", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorAlphaSpecular, b), 0, 0, 0, 0 },
+		{ "alpha", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorAlphaSpecular, a), 0, 0, 0, 0 },
+		{ "specular_red", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorAlphaSpecular, specular_r), 0, 0, 0, 0 },
+		{ "specular_green", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorAlphaSpecular, specular_g), 0, 0, 0, 0 },
+		{ "specular_blue", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorAlphaSpecular, specular_b), 0, 0, 0, 0 }
+	};
+
+	static PlyProperty vncas_props[] = { /* list of property information for a vertex with normals, uchar rgba ad specular rgb */
+		{ "x", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorAlphaSpecular, x), 0, 0, 0, 0 },
+		{ "y", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorAlphaSpecular, y), 0, 0, 0, 0 },
+		{ "z", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorAlphaSpecular, z), 0, 0, 0, 0 },
+		{ "nx", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorAlphaSpecular, nx), 0, 0, 0, 0 },
+		{ "ny", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorAlphaSpecular, ny), 0, 0, 0, 0 },
+		{ "nz", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorAlphaSpecular, nz), 0, 0, 0, 0 },
+		{ "red", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorAlphaSpecular, r), 0, 0, 0, 0 },
+		{ "green", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorAlphaSpecular, g), 0, 0, 0, 0 },
+		{ "blue", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorAlphaSpecular, b), 0, 0, 0, 0 },
+		{ "alpha", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorAlphaSpecular, a), 0, 0, 0, 0 },
+		{ "specular_red", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorAlphaSpecular, specular_r), 0, 0, 0, 0 },
+		{ "specular_green", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorAlphaSpecular, specular_g), 0, 0, 0, 0 },
+		{ "specular_blue", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorAlphaSpecular, specular_b), 0, 0, 0, 0 }
+	};
+
 	static int n_vprops[] = { // number of vertex properties for each case
 		6,	// xyz and uchar rgb
 		9,	// xyz, normals and uchar rgb
 		7,	// xyz and uchar rgba
-		10	// xyz, normals and uchar rgba
+		10,	// xyz, normals and uchar rgba
+		9,	// xyz, uchar rgb and uchar specular rgb
+		12,	// xyz, normals, uchar rgb and uchar specular rgb
+		10,	// xyz, uchar rgba and uchar specular rgb
+		13	// xyz, normals, uchar rgba and uchar specular rgb
 	};
 
 	static PlyProperty face_props[] = { /* list of property information for a vertex */
@@ -2823,6 +2907,13 @@ namespace ply{
 	};
 
 	static int n_fprops = 1;
+
+	static PlyProperty sh_coeff_props[] = { /* list of spherical harmonic coefficients */
+		{ "value", PLY_FLOAT, PLY_FLOAT, offsetof(ply::SH_Coefficient, value),
+		0, 0, 0, 0 },
+	};
+
+	static int n_sh_coeff_props = 1;
 
 	inline int get_vertex_type(PlyProperty** _plist, int _nprops)
 	{
@@ -2879,10 +2970,24 @@ namespace ply{
 						}
 						else
 						{
-							std::cout << "ERROR: property'"
-								<< prop->name.c_str() << "' is not supported." 
-								<< std::endl;
-							exit(0);
+							if (equal_strings(prop->name.c_str(), "specular_red")
+								|| equal_strings(prop->name.c_str(), "specular_green")
+								|| equal_strings(prop->name.c_str(), "specular_blue"))
+							{
+								if (prop->external_type != PLY_UCHAR)
+								{
+									std::cout << "ERROR: uchar type expected for property'"
+										<< prop->name.c_str() << "'." << std::endl;
+									exit(0);
+								}
+							}
+							else
+							{
+								std::cout << "ERROR: property'"
+									<< prop->name.c_str() << "' is not supported."
+									<< std::endl;
+								exit(0);
+							}
 						}
 					}
 				}
@@ -2909,6 +3014,18 @@ namespace ply{
 			break;
 		case PLY_VERTEX_NORMAL_RGBA:
 			prop = &ply::vnca_props[_prop_idx];
+			break;
+		case PLY_VERTEX_RGB_SPECULAR:
+			prop = &ply::vcs_props[_prop_idx];
+			break;
+		case PLY_VERTEX_NORMAL_RGB_SPECULAR:
+			prop = &ply::vncs_props[_prop_idx];
+			break;
+		case PLY_VERTEX_RGBA_SPECULAR:
+			prop = &ply::vcas_props[_prop_idx];
+			break;
+		case PLY_VERTEX_NORMAL_RGBA_SPECULAR:
+			prop = &ply::vncas_props[_prop_idx];
 			break;
 		default:
 			break;

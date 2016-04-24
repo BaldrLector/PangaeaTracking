@@ -250,6 +250,22 @@ void MeshIO<FloatType>::loadFromPLY(const std::string& filename,
 				ply_read_vertices<ply::VertexNormalColorAlpha>(ply, vertex_type, num_vertices,
 					meshData);
 				break;
+			case PLY_VERTEX_RGB_SPECULAR:
+				ply_read_vertices<ply::VertexColorSpecular>(ply, vertex_type, num_vertices,
+					meshData);
+				break;
+			case PLY_VERTEX_NORMAL_RGB_SPECULAR:
+				ply_read_vertices<ply::VertexNormalColorSpecular>(ply, vertex_type, num_vertices,
+					meshData);
+				break;
+			case PLY_VERTEX_RGBA_SPECULAR:
+				ply_read_vertices<ply::VertexColorAlphaSpecular>(ply, vertex_type, num_vertices,
+					meshData);
+				break;
+			case PLY_VERTEX_NORMAL_RGBA_SPECULAR:
+				ply_read_vertices<ply::VertexNormalColorAlphaSpecular>(ply, vertex_type, num_vertices,
+					meshData);
+				break;
 			default:
 				break;
 			}
@@ -281,6 +297,30 @@ void MeshIO<FloatType>::loadFromPLY(const std::string& filename,
 				meshData.facesVerticesInd[j] = f;
 			}
 		}
+
+		/* if we're on sh coefficient elements, read them in */
+		if (equal_strings(ply::elem_names[2], elem_name)) {
+			int num_sh_coefficients = num_elems;
+
+			/* set up for getting face elements */
+			for (int i = 0; i < nprops; i++)
+			{
+				ply_get_property(ply, elem_name, &ply::sh_coeff_props[i]);
+			}
+
+			meshData.sh_coefficients.resize(num_sh_coefficients);
+
+			/* grab all the sh coefficient elements */
+			for (int j = 0; j < num_sh_coefficients; j++) {
+				ply::SH_Coefficient sh_coeff;
+				/* grab and element from the file */
+				ply_get_element(ply, (void *)&sh_coeff);
+
+				meshData.sh_coefficients[j] = sh_coeff.value;
+			}
+
+			meshData.sh_order = sqrt(num_sh_coefficients - 1);
+		}
 	}
 
 	/* grab and print out the comments in the file */
@@ -301,7 +341,9 @@ void MeshIO<FloatType>::loadFromPLY(const std::string& filename,
   meshData.numVertices = meshData.vertices.size();
   meshData.numFaces = meshData.facesVerticesInd.size();
 
-  if(vertex_type == PLY_VERTEX_RGBA || vertex_type == PLY_VERTEX_RGB)
+  if(vertex_type == PLY_VERTEX_RGBA || vertex_type == PLY_VERTEX_RGB
+	  || vertex_type == PLY_VERTEX_RGB_SPECULAR 
+	  || vertex_type == PLY_VERTEX_RGBA_SPECULAR)
     meshData.computeNormalsNeil();
 
 }
@@ -625,6 +667,22 @@ void MeshIO<FloatType>::updateFromPLY(const std::string& filename,
 				ply_read_vertices<ply::VertexNormalColorAlpha>(ply, vertex_type, num_vertices,
 					meshData);
 				break;
+			case PLY_VERTEX_RGB_SPECULAR:
+				ply_read_vertices<ply::VertexColorSpecular>(ply, vertex_type, num_vertices,
+					meshData);
+				break;
+			case PLY_VERTEX_NORMAL_RGB_SPECULAR:
+				ply_read_vertices<ply::VertexNormalColorSpecular>(ply, vertex_type, num_vertices,
+					meshData);
+				break;
+			case PLY_VERTEX_RGBA_SPECULAR:
+				ply_read_vertices<ply::VertexColorAlphaSpecular>(ply, vertex_type, num_vertices,
+					meshData);
+				break;
+			case PLY_VERTEX_NORMAL_RGBA_SPECULAR:
+				ply_read_vertices<ply::VertexNormalColorAlphaSpecular>(ply, vertex_type, num_vertices,
+					meshData);
+				break;
 			default:
 				break;
 			}
@@ -647,7 +705,9 @@ void MeshIO<FloatType>::updateFromPLY(const std::string& filename,
 	}
 	delete[] elist;
 
-  if(vertex_type == PLY_VERTEX_RGBA || vertex_type == PLY_VERTEX_RGB)
+  if(vertex_type == PLY_VERTEX_RGBA || vertex_type == PLY_VERTEX_RGB
+	  || vertex_type == PLY_VERTEX_RGBA_SPECULAR
+	  || vertex_type == PLY_VERTEX_RGB_SPECULAR)
     meshData.computeNormalsNeil();
 
 }
@@ -803,17 +863,36 @@ void MeshIO<FloatType>::writeToPLY(const std::string& filename, const MeshData<F
 	/* (the file will be called "test.ply" because the routines */
 	/*  enforce the .ply filename extension) */
 
+	bool save_normal = false;
+	bool save_alpha = false;
+	bool save_specular = !meshData.sh_coefficients.empty();
+
+	int n_elems = save_specular ? 3 : 2;
+
 #ifdef PLY_SAVE_ASCII
-	ply = ply_open_for_writing(filename.c_str(), 2, ply::elem_names, PLY_ASCII, &version);
+	ply = ply_open_for_writing(filename.c_str(), n_elems, ply::elem_names, PLY_ASCII, &version);
 #else
-	ply = ply_open_for_writing(filename.c_str(), 2, ply::elem_names, PLY_BINARY_LE, &version);
+	ply = ply_open_for_writing(filename.c_str(), n_elems, ply::elem_names, PLY_BINARY_LE, &version);
 #endif
 
 	/* describe what properties go into the vertex and face elements */
 
 	int num_vertices = meshData.numVertices;
 	ply_element_count(ply, ply::elem_names[0], num_vertices);
-	int vertex_type = 1;
+	int vertex_type = 0;
+	if (save_normal)
+	{
+		vertex_type |= 0x01;
+	}
+	if (save_alpha)
+	{
+		vertex_type |= 0x02;
+	}
+	if (save_specular)
+	{
+		vertex_type |= 0x04;
+	}
+
 	for (int i = 0; i < ply::n_vprops[vertex_type]; i++)
 	{
 		PlyProperty* prop = ply::get_vertex_property(vertex_type, i);
@@ -827,6 +906,16 @@ void MeshIO<FloatType>::writeToPLY(const std::string& filename, const MeshData<F
 		ply_describe_property(ply, ply::elem_names[1], &ply::face_props[i]);
 	}
 
+	if (save_specular)
+	{
+		int num_sh_coefficients = meshData.sh_coefficients.size();
+		ply_element_count(ply, ply::elem_names[2], num_sh_coefficients);
+		for (int i = 0; i < ply::n_sh_coeff_props; i++)
+		{
+			ply_describe_property(ply, ply::elem_names[2], &ply::sh_coeff_props[i]);
+		}
+	}
+
 	/* we have described exactly what we will put in the file, so */
 	/* we are now done with the header info */
 	ply_header_complete(ply);
@@ -835,17 +924,135 @@ void MeshIO<FloatType>::writeToPLY(const std::string& filename, const MeshData<F
 	ply_put_element_setup(ply, ply::elem_names[0]);
 	//for (i = 0; i < nverts; i++)
 	for (int i = 0; i < num_vertices; i++){
-		ply::VertexNormalColor v;
-		v.x = meshData.vertices[i][0];
-		v.y = meshData.vertices[i][1];
-		v.z = meshData.vertices[i][2];
-		v.nx = meshData.normals[i][0];
-		v.ny = meshData.normals[i][1];
-		v.nz = meshData.normals[i][2];
-		v.r = (unsigned char)(meshData.colors[i][0] * 255.f);
-		v.g = (unsigned char)(meshData.colors[i][1] * 255.f);
-		v.b = (unsigned char)(meshData.colors[i][2] * 255.f);
-		ply_put_element(ply, (void *)&v);
+		switch (vertex_type)
+		{
+		case PLY_VERTEX_RGB:
+		{
+			ply::VertexColor v;
+			v.x = meshData.vertices[i][0];
+			v.y = meshData.vertices[i][1];
+			v.z = meshData.vertices[i][2];
+			v.r = (unsigned char)(meshData.colors[i][0] * 255.f);
+			v.g = (unsigned char)(meshData.colors[i][1] * 255.f);
+			v.b = (unsigned char)(meshData.colors[i][2] * 255.f);
+			ply_put_element(ply, (void *)&v);
+		}
+			break;
+		case PLY_VERTEX_NORMAL_RGB:
+		{
+			ply::VertexNormalColor v;
+			v.x = meshData.vertices[i][0];
+			v.y = meshData.vertices[i][1];
+			v.z = meshData.vertices[i][2];
+			v.nx = meshData.normals[i][0];
+			v.ny = meshData.normals[i][1];
+			v.nz = meshData.normals[i][2];
+			v.r = (unsigned char)(meshData.colors[i][0] * 255.f);
+			v.g = (unsigned char)(meshData.colors[i][1] * 255.f);
+			v.b = (unsigned char)(meshData.colors[i][2] * 255.f);
+			ply_put_element(ply, (void *)&v);
+		}
+			break;
+		case PLY_VERTEX_RGBA:
+		{
+			ply::VertexColorAlpha v;
+			v.x = meshData.vertices[i][0];
+			v.y = meshData.vertices[i][1];
+			v.z = meshData.vertices[i][2];
+			v.r = (unsigned char)(meshData.colors[i][0] * 255.f);
+			v.g = (unsigned char)(meshData.colors[i][1] * 255.f);
+			v.b = (unsigned char)(meshData.colors[i][2] * 255.f);
+			v.a = 255;
+			ply_put_element(ply, (void *)&v);
+		}
+			break;
+		case PLY_VERTEX_NORMAL_RGBA:
+		{
+			ply::VertexNormalColorAlpha v;
+			v.x = meshData.vertices[i][0];
+			v.y = meshData.vertices[i][1];
+			v.z = meshData.vertices[i][2];
+			v.nx = meshData.normals[i][0];
+			v.ny = meshData.normals[i][1];
+			v.nz = meshData.normals[i][2];
+			v.r = (unsigned char)(meshData.colors[i][0] * 255.f);
+			v.g = (unsigned char)(meshData.colors[i][1] * 255.f);
+			v.b = (unsigned char)(meshData.colors[i][2] * 255.f);
+			v.a = 255;
+			ply_put_element(ply, (void *)&v);
+		}
+			break;
+		case PLY_VERTEX_RGB_SPECULAR:
+		{
+			ply::VertexColorSpecular v;
+			v.x = meshData.vertices[i][0];
+			v.y = meshData.vertices[i][1];
+			v.z = meshData.vertices[i][2];
+			v.r = (unsigned char)(meshData.colors[i][0] * 255.f);
+			v.g = (unsigned char)(meshData.colors[i][1] * 255.f);
+			v.b = (unsigned char)(meshData.colors[i][2] * 255.f);
+			v.specular_r = (unsigned char)(meshData.specular_colors[i][0] * 255.f);
+			v.specular_g = (unsigned char)(meshData.specular_colors[i][1] * 255.f);
+			v.specular_b = (unsigned char)(meshData.specular_colors[i][2] * 255.f);
+			ply_put_element(ply, (void *)&v);
+		}
+			break;
+		case PLY_VERTEX_NORMAL_RGB_SPECULAR:
+		{
+			ply::VertexNormalColorAlphaSpecular v;
+			v.x = meshData.vertices[i][0];
+			v.y = meshData.vertices[i][1];
+			v.z = meshData.vertices[i][2];
+			v.nx = meshData.normals[i][0];
+			v.ny = meshData.normals[i][1];
+			v.nz = meshData.normals[i][2];
+			v.r = (unsigned char)(meshData.colors[i][0] * 255.f);
+			v.g = (unsigned char)(meshData.colors[i][1] * 255.f);
+			v.b = (unsigned char)(meshData.colors[i][2] * 255.f);
+			v.specular_r = (unsigned char)(meshData.specular_colors[i][0] * 255.f);
+			v.specular_g = (unsigned char)(meshData.specular_colors[i][1] * 255.f);
+			v.specular_b = (unsigned char)(meshData.specular_colors[i][2] * 255.f);
+			ply_put_element(ply, (void *)&v);
+		}
+			break;
+		case PLY_VERTEX_RGBA_SPECULAR:
+		{
+			ply::VertexColorAlphaSpecular v;
+			v.x = meshData.vertices[i][0];
+			v.y = meshData.vertices[i][1];
+			v.z = meshData.vertices[i][2];
+			v.r = (unsigned char)(meshData.colors[i][0] * 255.f);
+			v.g = (unsigned char)(meshData.colors[i][1] * 255.f);
+			v.b = (unsigned char)(meshData.colors[i][2] * 255.f);
+			v.a = 255;
+			v.specular_r = (unsigned char)(meshData.specular_colors[i][0] * 255.f);
+			v.specular_g = (unsigned char)(meshData.specular_colors[i][1] * 255.f);
+			v.specular_b = (unsigned char)(meshData.specular_colors[i][2] * 255.f);
+			ply_put_element(ply, (void *)&v);
+		}
+			break;
+		case PLY_VERTEX_NORMAL_RGBA_SPECULAR:
+		{
+			ply::VertexNormalColorAlphaSpecular v;
+			v.x = meshData.vertices[i][0];
+			v.y = meshData.vertices[i][1];
+			v.z = meshData.vertices[i][2];
+			v.nx = meshData.normals[i][0];
+			v.ny = meshData.normals[i][1];
+			v.nz = meshData.normals[i][2];
+			v.r = (unsigned char)(meshData.colors[i][0] * 255.f);
+			v.g = (unsigned char)(meshData.colors[i][1] * 255.f);
+			v.b = (unsigned char)(meshData.colors[i][2] * 255.f);
+			v.a = 255;
+			v.specular_r = (unsigned char)(meshData.specular_colors[i][0] * 255.f);
+			v.specular_g = (unsigned char)(meshData.specular_colors[i][1] * 255.f);
+			v.specular_b = (unsigned char)(meshData.specular_colors[i][2] * 255.f);
+			ply_put_element(ply, (void *)&v);
+		}
+			break;
+		default:
+			break;
+		}
 	}
 
 	/* set up and write the face elements */
@@ -860,6 +1067,16 @@ void MeshIO<FloatType>::writeToPLY(const std::string& filename, const MeshData<F
 			f.verts[j] = meshData.facesVerticesInd[i][j];
 		}
 		ply_put_element(ply, (void *)&f);
+	}
+
+	/* set up and write the face elements */
+	int num_sh_coeff = meshData.sh_coefficients.size();
+	ply_put_element_setup(ply, ply::elem_names[2]);
+	for (int i = 0; i < num_sh_coeff; i++)
+	{
+		ply::SH_Coefficient sh_c;
+		sh_c.value = meshData.sh_coefficients[i];
+		ply_put_element(ply, (void *)&sh_c);
 	}
 
 	/* close the PLY file */

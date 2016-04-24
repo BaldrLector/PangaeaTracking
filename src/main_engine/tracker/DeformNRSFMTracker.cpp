@@ -133,12 +133,6 @@ DeformNRSFMTracker::DeformNRSFMTracker(TrackerSettings& settings, int width, int
 	  "INEXTENTTerm", "DeformTerm", "TermporalTerm", "SmoothingTerm", "SumCost", "TotalCost" });
   costNames = std::move(temp);
 
-
-	if (PEType == PE_INTRINSIC || PEType == PE_INTRINSIC_COLOR)
-	{
-		readSHCoeff(trackerSettings.sh_coeff_file);
-	}
-
   meanError = 0;
   if(trackerSettings.hasGT && !settings.scoresPath.empty())
     {
@@ -336,7 +330,6 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
   prevMeshTransPyramid.resize(m_nMeshLevels);
   prevMeshRotPyramid.resize(m_nMeshLevels);
 
-  meshLocalLightingPyramid.resize(m_nMeshLevels);
   templateAlbedoPyramid.resize(m_nMeshLevels);
 
   outputInfoPyramid.resize(m_nMeshLevels);
@@ -368,7 +361,6 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
 		  prevMeshTransPyramid[i][j].resize(3, 0);
 		  prevMeshRotPyramid[i][j].resize(3, 0);
 	  }
-	  meshLocalLightingPyramid[i].resize(numVertices, zeros3D);
 
 	  templateAlbedoPyramid[i] = templateMeshPyramid.levels[i].colors;
 
@@ -1485,6 +1477,8 @@ void DeformNRSFMTracker::AddCostImageProjection(ceres::Problem& problem,
 	Level* pFrame,
 	MeshDeformation& local_ligthing)
 {
+	vector<double> &sh_coeff = templateMesh.sh_coefficients;
+	int sh_order = templateMesh.sh_order;
 
 	for (int i = 0; i < templateMesh.numVertices; ++i){
 
@@ -2033,7 +2027,7 @@ void DeformNRSFMTracker::AddPhotometricCostNew(ceres::Problem& problem,
 			case PE_INTRINSIC:
 			case PE_INTRINSIC_COLOR:
 			{
-				MeshDeformation &local_lighting = meshLocalLightingPyramid[data_pair.first];
+				MeshDeformation &local_lighting = templateMeshPyramid.levels[data_pair.first].specular_colors;
 				AddCostImageProjection(problem,
 					loss_function,
 					errorType,
@@ -3793,33 +3787,6 @@ void DeformNRSFMTracker::AttachFeatureToMesh(PangaeaMeshData* pMesh,
 
 }
 
-void DeformNRSFMTracker::readSHCoeff(const std::string _sh_coeff_filename)
-{
-	ifstream ifs(_sh_coeff_filename);
-
-	if (!ifs.is_open())
-	{
-		cerr << "could not open file " << _sh_coeff_filename << endl;
-		return;
-	}
-
-	double value;
-	while (ifs >> value) {
-		sh_coeff.push_back(value);
-	}
-
-	ifs.close();
-
-	sh_order = std::sqrt(sh_coeff.size()) - 1;
-
-	if ((sh_order + 1) * (sh_order + 1) != sh_coeff.size())
-	{
-		cerr << "The number of SH coefficients is not correct (" << _sh_coeff_filename
-			<< "). It should be equal to (n + 1)^2 where n is the SH order." << endl;
-		return;
-	}
-}
-
 dataTermErrorType DeformNRSFMTracker::getPEType()
 {
 	return PEType;
@@ -3847,7 +3814,9 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB,
 	const vector<vector<CoordinateType> >	&meshProj = outputInfo.meshProj;
 	const vector<bool> &visibility = visibilityMaskPyramid[0];
 	MeshDeformation &albedos = mesh.colors;
-	MeshDeformation &local_lightings = meshLocalLightingPyramid[0];
+	MeshDeformation &local_lightings = templateMeshPyramid.levels[0].specular_colors;
+	vector<double> &sh_coeff = templateMeshPyramid.levels[0].sh_coefficients;
+	int sh_order = templateMeshPyramid.levels[0].sh_order;
 
 	mesh.computeNormalsNeil();
 
@@ -3889,7 +3858,7 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB,
 	// Estimate spherical harmonic coefficients
 	cout << "Estimating spherical harmonic coefficients..." << endl;
 	estimateSHCoeff(mesh, visibility, brightness, max_albedos,
-		specular_weights, sh_coeff);
+		specular_weights, sh_order, sh_coeff);
 
 	// Update shading values
 	vector<double> shadings;
@@ -3962,12 +3931,10 @@ void DeformNRSFMTracker::initProjectedValues(
 }
 
 void DeformNRSFMTracker::estimateSHCoeff(
-	const PangaeaMeshData &mesh,
-	const vector<bool> &visibility,
-	const vector<double> &brightness,
-	vector<double> &albedos,
+	const PangaeaMeshData &mesh, const vector<bool> &visibility,
+	const vector<double> &brightness, vector<double> &albedos,
 	const vector<double> &specular_weights,
-	vector<double> &sh_coeff)
+	const int sh_order, vector<double> &sh_coeff)
 {
 	double black = 0.0;
 
@@ -4493,9 +4460,6 @@ void DeformNRSFMTracker::propagateAlbedoLocalLightingFineToCoarse()
 		MeshNeighborsNano &neighbours = fineToCoarseNeighbours[i];
 		MeshWeights &weights = fineToCoarseWeights[i];
 
-		vector<vector<double>> &fine_local_lightings = meshLocalLightingPyramid[i];
-		vector<vector<double>> &coarse_local_lightings = meshLocalLightingPyramid[i + 1];
-
 		for (size_t j = 0; j < coarseMesh.numVertices; j++)
 		{
 			vector<size_t> &curr_neigh = neighbours[j];
@@ -4506,7 +4470,7 @@ void DeformNRSFMTracker::propagateAlbedoLocalLightingFineToCoarse()
 			albedo[1] = 0;
 			albedo[2] = 0;
 
-			vector<double> &local_light = coarse_local_lightings[j];
+			vector<double> &local_light = coarseMesh.specular_colors[j];
 			local_light[0] = 0;
 			local_light[1] = 0;
 			local_light[2] = 0;
@@ -4518,10 +4482,12 @@ void DeformNRSFMTracker::propagateAlbedoLocalLightingFineToCoarse()
 				albedo[1] += curr_weight[k] * fineMesh.colors[v_idx][1];
 				albedo[2] += curr_weight[k] * fineMesh.colors[v_idx][2];
 
-				local_light[0] += curr_weight[k] * fine_local_lightings[v_idx][0];
-				local_light[1] += curr_weight[k] * fine_local_lightings[v_idx][1];
-				local_light[2] += curr_weight[k] * fine_local_lightings[v_idx][2];
+				local_light[0] += curr_weight[k] * fineMesh.specular_colors[v_idx][0];
+				local_light[1] += curr_weight[k] * fineMesh.specular_colors[v_idx][1];
+				local_light[2] += curr_weight[k] * fineMesh.specular_colors[v_idx][2];
 			}
 		}
+
+		coarseMesh.sh_coefficients = fineMesh.sh_coefficients;
 	}
 }
