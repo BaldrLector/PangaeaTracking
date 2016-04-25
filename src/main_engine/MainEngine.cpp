@@ -24,7 +24,7 @@ MainEngine::~MainEngine()
   SafeDeleteArray(m_pSpecularGrayImage);
   SafeDeleteArray(m_pSpecularGrayImageBuffer);
 
-  delete m_pImageSourceEngine;
+  delete m_pSpecularImageSourceEngine;
 }
 
 void MainEngine::GetInput(int nFrame)
