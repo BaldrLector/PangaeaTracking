@@ -148,8 +148,11 @@ void MeshIO<FloatType>::ply_read_vertices(PlyFile *_ply, int _vertex_type, int _
 	meshData.vertices.resize(_num_vertices);
 	meshData.colors.resize(_num_vertices);
 
-  if(_vertex_type == PLY_VERTEX_NORMAL_RGB || _vertex_type == PLY_VERTEX_NORMAL_RGBA)
-    meshData.normals.resize(_num_vertices);
+	if (_vertex_type & PLY_WITH_NORMAL)
+	  meshData.normals.resize(_num_vertices);
+
+	if (_vertex_type & PLY_WITH_SPECULAR)
+	  meshData.specular_colors.resize(_num_vertices);
 
 	/* grab all the vertex elements */
 	for (int i = 0; i < _num_vertices; i++) {
@@ -183,9 +186,67 @@ void MeshIO<FloatType>::ply_read_vertices(PlyFile *_ply, int _vertex_type, int _
         meshData.normals[i] = std::move(n);
       }
 
-    //cout << meshData.normals[0][0] <<  " " <<  meshData.normals[0][1] << " " <<  meshData.normals[0][2] << endl;
+	if (_vertex_type == PLY_VERTEX_NORMAL_RGB_SPECULAR)
+	{
+		vector<FloatType> n = { (FloatType)((ply::VertexNormalColorSpecular*)&vertex)->nx,
+			(FloatType)((ply::VertexNormalColorSpecular*)&vertex)->ny,
+			(FloatType)((ply::VertexNormalColorSpecular*)&vertex)->nz };
+		meshData.normals[i] = std::move(n);
 
-		//}
+		vector<FloatType> specular_c = {
+			(FloatType)((ply::VertexNormalColorSpecular*)&vertex)->specular_r,
+			(FloatType)((ply::VertexNormalColorSpecular*)&vertex)->specular_g,
+			(FloatType)((ply::VertexNormalColorSpecular*)&vertex)->specular_b
+		};
+		specular_c[0] /= 255.f;
+		specular_c[1] /= 255.f;
+		specular_c[2] /= 255.f;
+		meshData.specular_colors[i] = std::move(specular_c);
+	}
+
+	if (_vertex_type == PLY_VERTEX_NORMAL_RGBA_SPECULAR)
+	{
+		vector<FloatType> n = { (FloatType)((ply::VertexNormalColorAlphaSpecular*)&vertex)->nx,
+			(FloatType)((ply::VertexNormalColorAlphaSpecular*)&vertex)->ny,
+			(FloatType)((ply::VertexNormalColorAlphaSpecular*)&vertex)->nz };
+		meshData.normals[i] = std::move(n);
+
+		vector<FloatType> specular_c = {
+			(FloatType)((ply::VertexNormalColorAlphaSpecular*)&vertex)->specular_r,
+			(FloatType)((ply::VertexNormalColorAlphaSpecular*)&vertex)->specular_g,
+			(FloatType)((ply::VertexNormalColorAlphaSpecular*)&vertex)->specular_b
+		};
+		specular_c[0] /= 255.f;
+		specular_c[1] /= 255.f;
+		specular_c[2] /= 255.f;
+		meshData.specular_colors[i] = std::move(specular_c);
+	}
+
+	if (_vertex_type == PLY_VERTEX_RGB_SPECULAR)
+	{
+		vector<FloatType> specular_c = {
+			(FloatType)((ply::VertexColorSpecular*)&vertex)->specular_r,
+			(FloatType)((ply::VertexColorSpecular*)&vertex)->specular_g,
+			(FloatType)((ply::VertexColorSpecular*)&vertex)->specular_b
+		};
+		specular_c[0] /= 255.f;
+		specular_c[1] /= 255.f;
+		specular_c[2] /= 255.f;
+		meshData.specular_colors[i] = std::move(specular_c);
+	}
+
+	if (_vertex_type == PLY_VERTEX_RGBA_SPECULAR)
+	{
+		vector<FloatType> specular_c = {
+			(FloatType)((ply::VertexColorAlphaSpecular*)&vertex)->specular_r,
+			(FloatType)((ply::VertexColorAlphaSpecular*)&vertex)->specular_g,
+			(FloatType)((ply::VertexColorAlphaSpecular*)&vertex)->specular_b
+		};
+		specular_c[0] /= 255.f;
+		specular_c[1] /= 255.f;
+		specular_c[2] /= 255.f;
+		meshData.specular_colors[i] = std::move(specular_c);
+	}
 
 		vector<FloatType> c = { (FloatType)vertex.r, (FloatType)vertex.g, (FloatType)vertex.b };
 		c[0] /= 255.f;
@@ -882,15 +943,15 @@ void MeshIO<FloatType>::writeToPLY(const std::string& filename, const MeshData<F
 	int vertex_type = 0;
 	if (save_normal)
 	{
-		vertex_type |= 0x01;
+		vertex_type |= PLY_WITH_NORMAL;
 	}
 	if (save_alpha)
 	{
-		vertex_type |= 0x02;
+		vertex_type |= PLY_WITH_ALPHA;
 	}
 	if (save_specular)
 	{
-		vertex_type |= 0x04;
+		vertex_type |= PLY_WITH_SPECULAR;
 	}
 
 	for (int i = 0; i < ply::n_vprops[vertex_type]; i++)
@@ -1069,14 +1130,17 @@ void MeshIO<FloatType>::writeToPLY(const std::string& filename, const MeshData<F
 		ply_put_element(ply, (void *)&f);
 	}
 
-	/* set up and write the face elements */
-	int num_sh_coeff = meshData.sh_coefficients.size();
-	ply_put_element_setup(ply, ply::elem_names[2]);
-	for (int i = 0; i < num_sh_coeff; i++)
+	if (save_specular)
 	{
-		ply::SH_Coefficient sh_c;
-		sh_c.value = meshData.sh_coefficients[i];
-		ply_put_element(ply, (void *)&sh_c);
+		/* set up and write the face elements */
+		int num_sh_coeff = meshData.sh_coefficients.size();
+		ply_put_element_setup(ply, ply::elem_names[2]);
+		for (int i = 0; i < num_sh_coeff; i++)
+		{
+			ply::SH_Coefficient sh_c;
+			sh_c.value = meshData.sh_coefficients[i];
+			ply_put_element(ply, (void *)&sh_c);
+		}
 	}
 
 	/* close the PLY file */
@@ -1607,18 +1671,17 @@ void MeshIO<FloatType>::setupMeshFromFile(MeshData<FloatType>& meshData)
 		  ordered_neigh_vertices.push_back(next_idx);
 
 		  // Find the neighbour edge that has the current vertex index as start
-		  std::vector< pair<unsigned int, unsigned int> >::iterator it =
-			  find_if(adjFacesVerticesInd.begin(),
-			  adjFacesVerticesInd.end(),
-			  [&next_idx](const pair<unsigned int, unsigned int>& element){
-					return element.first == next_idx;
-				}
-		  );
+		  std::vector< pair<unsigned int, unsigned int> >::iterator it;
+		  for (it = adjFacesVerticesInd.begin(); it != adjFacesVerticesInd.end(); ++it)
+		  {
+			  if (it->first == next_idx)
+				  break;
+		  }
 
 		  // If it was found, add the face and update the next index to find
 		  if (it != adjFacesVerticesInd.end())
 		  {
-			  next_idx = (*it).second;
+			  next_idx = it->second;
 
 			  int neigh_face_index = it - adjFacesVerticesInd.begin();
 			  ordered_neigh_faces.push_back(meshData.adjFacesInd[i][neigh_face_index]);
@@ -1643,13 +1706,12 @@ void MeshIO<FloatType>::setupMeshFromFile(MeshData<FloatType>& meshData)
 		  vector<unsigned int> ordered_neigh_faces_left;
 		  for (int j = 0; j < n_neigh_left; ++j)
 		  {
-			  std::vector< pair<unsigned int, unsigned int> >::iterator it =
-				  find_if(adjFacesVerticesInd.begin(),
-				  adjFacesVerticesInd.end(),
-				  [&next_idx](const pair<unsigned int, unsigned int>& element){
-						return element.second == next_idx;
-					}
-			  );
+			  std::vector< pair<unsigned int, unsigned int> >::iterator it;
+			  for (it = adjFacesVerticesInd.begin(); it != adjFacesVerticesInd.end(); ++it)
+			  {
+				  if (it->second == next_idx)
+					  break;
+			  }
 
 			  // If it was found, add the face and update the next index to find
 			  if (it != adjFacesVerticesInd.end())

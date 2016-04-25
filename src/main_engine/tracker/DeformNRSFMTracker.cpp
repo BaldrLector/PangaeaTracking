@@ -3997,7 +3997,7 @@ void DeformNRSFMTracker::estimateSHCoeff(
 
 	if (trackerSettings.sh_coeff_temporal_weight > 0)
 	{
-		ceres::HuberLoss* huber_temporal_loss;
+		ceres::HuberLoss* huber_temporal_loss = NULL;
 
 		if (trackerSettings.sh_coeff_temporal_huber_width > 0.0)
 		{
@@ -4203,7 +4203,7 @@ void DeformNRSFMTracker::estimateAlbedo(const PangaeaMeshData &mesh,
 
 	if (trackerSettings.albedo_difference_weight > 0)
 	{
-		ceres::HuberLoss* huber_temporal_loss;
+		ceres::HuberLoss* huber_temporal_loss = NULL;
 
 		if (trackerSettings.albedo_difference_huber_width > 0.0)
 		{

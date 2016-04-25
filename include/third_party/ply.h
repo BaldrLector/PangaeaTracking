@@ -83,14 +83,18 @@ static int ply_type_size[] = {
 #define OTHER_PROP       0
 #define NAMED_PROP       1
 
-#define PLY_VERTEX_RGB			0
-#define PLY_VERTEX_NORMAL_RGB	1
-#define PLY_VERTEX_RGBA			2
-#define PLY_VERTEX_NORMAL_RGBA	3
+#define PLY_VERTEX_RGB					0
+#define PLY_VERTEX_NORMAL_RGB			1
+#define PLY_VERTEX_RGBA					2
+#define PLY_VERTEX_NORMAL_RGBA			3
 #define PLY_VERTEX_RGB_SPECULAR			4
 #define PLY_VERTEX_NORMAL_RGB_SPECULAR	5
 #define PLY_VERTEX_RGBA_SPECULAR		6
 #define PLY_VERTEX_NORMAL_RGBA_SPECULAR	7
+
+#define PLY_WITH_NORMAL		0x01
+#define PLY_WITH_ALPHA		0x02
+#define PLY_WITH_SPECULAR	0x04
 
 typedef struct PlyProperty {    /* description of a property */
 
@@ -2947,7 +2951,7 @@ namespace ply{
 						exit(0);
 					}
 
-					vertex_type |= 0x01;
+					vertex_type |= PLY_WITH_NORMAL;
 				}
 				else
 				{
@@ -2966,7 +2970,7 @@ namespace ply{
 					{
 						if (equal_strings(prop->name.c_str(), "alpha"))
 						{
-							vertex_type |= 0x02;
+							vertex_type |= PLY_WITH_ALPHA;
 						}
 						else
 						{
@@ -2980,6 +2984,8 @@ namespace ply{
 										<< prop->name.c_str() << "'." << std::endl;
 									exit(0);
 								}
+
+								vertex_type |= PLY_WITH_SPECULAR;
 							}
 							else
 							{

@@ -232,8 +232,8 @@ void MainEngine::SetupInputAndTracker()
 	  || ( (DeformNRSFMTracker*) m_pTrackingEngine)->getPEType() == PE_INTRINSIC_COLOR)
 	  )
   {
-	  ((DeformNRSFMTracker*)m_pTrackingEngine)->initIntrinsics(
-		  m_pColorImageRGB, m_pSpecularGrayImage);
+	  //((DeformNRSFMTracker*)m_pTrackingEngine)->initIntrinsics(
+		 // m_pColorImageRGB, m_pSpecularGrayImage);
 
 	  ((DeformNRSFMTracker*) m_pTrackingEngine)->trackFrame(m_nCurrentFrame, m_pColorImageRGB,
 		  m_pSpecularGrayImage, &pOutputInfo);
