@@ -127,6 +127,8 @@ public:
   double arapHuberWidth;
   double smoothingHuberWidth;
 
+  bool use_cotangent;
+
   double meshScaleUpFactor;
 
 	// Faces of the mesh are defined clockwise or not (anti-clockwise)
@@ -328,7 +330,6 @@ extern ImageSourceType imageSourceType;
 extern TrackingType trackingType;
 
 extern ImageSourceSettings imageSourceSettings;
-extern ImageSourceSettings specularImageSourceSettings;
 extern ShapeLoadingSettings shapeLoadingSettings;
 extern MeshLoadingSettings meshLoadingSettings;
 extern TrackerSettings trackerSettings;

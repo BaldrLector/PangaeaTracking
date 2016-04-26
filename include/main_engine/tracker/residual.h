@@ -1616,11 +1616,13 @@ public:
 		const vector< vector<double> > &_vertices,
 		const vector<unsigned int> &_adjVerticesInd,
 		const int _nAdjFaces,
+		const bool _use_cotangent = false,
 		const bool _clockwise = true,
 		const bool _optimizeDeformation = true) :
 		pVertex(_pVertex),
 		vertices(_vertices),
 		adjVerticesInd(_adjVerticesInd),
+		use_cotangent(_use_cotangent),
 		clockwise(_clockwise),
 		optimizeDeformation(_optimizeDeformation)
 	{
@@ -1674,17 +1676,18 @@ public:
 		T laplacian_z = T(0.0);
 		T weight_norm = T(0.0);
 
+		T weight = T(1.0 / (double)adjVerticesInd.size());
 		for (int i = 1; i <= num_neighbours; i++)
 		{
-			T weight = T(0.0);
-			T area = T(0.0);
-
 			int prev_i = (i - 1) % num_neighbours;
 			int curr_i = i % num_neighbours;
 			int next_i = (i + 1) % num_neighbours;
 
-			weight += computeCotangent(p, adjP[curr_i], adjP[prev_i]);
-			weight += computeCotangent(p, adjP[curr_i], adjP[next_i]);
+			if (use_cotangent)
+			{
+				weight = computeCotangent(p, adjP[curr_i], adjP[prev_i]);
+				weight += computeCotangent(p, adjP[curr_i], adjP[next_i]);
+			}
 
 			laplacian_x += weight * (adjP[curr_i][0] - p[0]);
 			laplacian_y += weight * (adjP[curr_i][1] - p[1]);
@@ -1780,6 +1783,8 @@ private:
 	// Identifies if faces are defined clockwise
 	const bool clockwise;
 
+	// Use uniform weight or cotangent weight
+	const bool use_cotangent;
 };
 
 // Photometric cost for the case of known normal

@@ -319,6 +319,8 @@ TrackerSettings::TrackerSettings()
   arapHuberWidth = 0.2;
   smoothingHuberWidth = 0;
 
+  use_cotangent = false;
+
   specular_weight_var = 0.1;
   brightness_percentile = 0.98;
 
@@ -508,6 +510,9 @@ void TrackerSettings::read(const cv::FileNode& node)
 
   if (!node["smoothing_huber_width"].empty())
 	  node["smoothing_huber_width"] >> smoothingHuberWidth;
+
+  if (!node["use_cotangent"].empty())
+	  node["use_cotangent"] >> use_cotangent;
 
   if (!node["specular_weight_var"].empty())
 	  node["specular_weight_var"] >> specular_weight_var;
@@ -852,7 +857,6 @@ ImageSourceType imageSourceType = IMAGESEQUENCE;
 TrackingType trackingType = DEFORMNRSFM;
 
 ImageSourceSettings imageSourceSettings;
-ImageSourceSettings specularImageSourceSettings;
 ShapeLoadingSettings shapeLoadingSettings;
 MeshLoadingSettings meshLoadingSettings;
 TrackerSettings trackerSettings;

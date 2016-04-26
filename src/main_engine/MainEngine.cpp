@@ -20,11 +20,6 @@ MainEngine::~MainEngine()
 
   delete m_pImageSourceEngine;
   delete m_pTrackingEngine;
-
-  SafeDeleteArray(m_pSpecularGrayImage);
-  SafeDeleteArray(m_pSpecularGrayImageBuffer);
-
-  delete m_pSpecularImageSourceEngine;
 }
 
 void MainEngine::GetInput(int nFrame)
@@ -65,31 +60,6 @@ void MainEngine::GetInput(int nFrame)
             }
         }
 
-	  if (specularImageSourceSettings.useMultiImages){
-
-		  for (int k = 0; k < specularImageSourceSettings.dataPathLevelList.size(); ++k)
-		  {
-			  int shift = k * 3 * m_nWidth * m_nHeight;
-			  m_pColorImage = m_pSpecularImageSourceEngine->getLevelColorImage(k);
-
-			  for (int i = 0; i < m_nWidth * m_nHeight; ++i)
-			  {
-				  m_pSpecularGrayImageBuffer[shift + i] = m_pColorImage[3 * i];
-
-			  }
-		  }
-	  }
-	  else
-	  {
-
-		  m_pColorImage = m_pSpecularImageSourceEngine->getColorImage();
-
-		  for (int i = 0; i < m_nWidth * m_nHeight; ++i)
-		  {
-			  m_pSpecularGrayImageBuffer[i] = m_pColorImage[3 * i];
-		  }
-	  }
-
       //TOCK("BGR2RGB");
 
       inputFlag = true;
@@ -118,11 +88,9 @@ void MainEngine::SetupInputAndTracker()
       // start from the first frame
     case ALLIMAGESBUFFER:
 		m_pImageSourceEngine = new ImagesBufferReader(imageSourceSettings);
-		m_pSpecularImageSourceEngine = new ImagesBufferReader(specularImageSourceSettings);
       break;
     case IMAGESEQUENCE:
 		m_pImageSourceEngine = new ImageSequenceReader(imageSourceSettings);
-		m_pSpecularImageSourceEngine = new ImageSequenceReader(specularImageSourceSettings);
       break;
     }
 
@@ -179,14 +147,10 @@ void MainEngine::SetupInputAndTracker()
   SafeAllocArrayType(m_pColorImageRGB, 3*nPoints*numLevels, unsigned char);
   SafeAllocArrayType(m_pColorImageRGBBuffer, 3*nPoints*numLevels, unsigned char);
 
-  SafeAllocArrayType(m_pSpecularGrayImage, nPoints*numLevels, unsigned char);
-  SafeAllocArrayType(m_pSpecularGrayImageBuffer, nPoints*numLevels, unsigned char);
-
   // read input image
   GetInput(m_nCurrentFrame);
 
   memcpy(m_pColorImageRGB, m_pColorImageRGBBuffer, m_nWidth * m_nHeight * 3 * numLevels);
-  memcpy(m_pSpecularGrayImage, m_pSpecularGrayImageBuffer, m_nWidth * m_nHeight * numLevels);
 
   // load initial mesh
   switch(trackingType)
@@ -227,21 +191,7 @@ void MainEngine::SetupInputAndTracker()
   // m_nCurrentFrame++;
   // GetInput(m_nCurrentFrame);
 
-  if (trackingType == DEFORMNRSFM 
-	  && ( ( (DeformNRSFMTracker*) m_pTrackingEngine)->getPEType() == PE_INTRINSIC
-	  || ( (DeformNRSFMTracker*) m_pTrackingEngine)->getPEType() == PE_INTRINSIC_COLOR)
-	  )
-  {
-	  //((DeformNRSFMTracker*)m_pTrackingEngine)->initIntrinsics(
-		 // m_pColorImageRGB, m_pSpecularGrayImage);
-
-	  ((DeformNRSFMTracker*) m_pTrackingEngine)->trackFrame(m_nCurrentFrame, m_pColorImageRGB,
-		  m_pSpecularGrayImage, &pOutputInfo);
-  }
-  else
-  {
-	  m_pTrackingEngine->trackFrame(m_nCurrentFrame, m_pColorImageRGB, &pOutputInfo);
-  }
+  m_pTrackingEngine->trackFrame(m_nCurrentFrame, m_pColorImageRGB, &pOutputInfo);
 
   // for(int i = 0; i < 3; ++i)
   // center[i] = (*pOutputInfo).meshDataGT.center[i];
@@ -295,7 +245,6 @@ bool MainEngine::ProcessOneFrame(int nFrame)
   if(imageSourceSettings.useMultiImages)
     numLevels = imageSourceSettings.dataPathLevelList.size();
   memcpy(m_pColorImageRGB, m_pColorImageRGBBuffer, m_nWidth * m_nHeight * 3 *  numLevels);
-  memcpy(m_pSpecularGrayImage, m_pSpecularGrayImageBuffer, m_nWidth * m_nHeight * numLevels);
   TOCK("getInput");
 
   if(!inputFlag)
@@ -307,19 +256,7 @@ bool MainEngine::ProcessOneFrame(int nFrame)
   // do tracking
   TICK("tracking");
   
-  bool track_ok = false;
-  if (trackingType == DEFORMNRSFM
-	  && (((DeformNRSFMTracker*)m_pTrackingEngine)->getPEType() == PE_INTRINSIC
-	  || ((DeformNRSFMTracker*)m_pTrackingEngine)->getPEType() == PE_INTRINSIC_COLOR)
-	  )
-  {
-	  track_ok = ((DeformNRSFMTracker*)m_pTrackingEngine)->trackFrame(m_nCurrentFrame, m_pColorImageRGB,
-		  m_pSpecularGrayImage, &pOutputInfo);
-  }
-  else
-  {
-	  track_ok = m_pTrackingEngine->trackFrame(nFrame, m_pColorImageRGB, &pOutputInfo);
-  }
+  bool track_ok = m_pTrackingEngine->trackFrame(nFrame, m_pColorImageRGB, &pOutputInfo);
   
   if (!track_ok)
     {
@@ -474,9 +411,6 @@ void MainEngine::ReadConfigurationFile(int argc, char* argv[])
 
   if(!fs["ImageSourceSettings"].empty())
     fs["ImageSourceSettings"] >> imageSourceSettings;
-
-  if (!fs["SpecularImageSourceSettings"].empty())
-	  fs["SpecularImageSourceSettings"] >> specularImageSourceSettings;
 
   if(!fs["ShapeLoadingSettings"].empty())
     fs["ShapeLoadingSettings"] >> shapeLoadingSettings;

@@ -166,6 +166,16 @@ DeformNRSFMTracker::DeformNRSFMTracker(TrackerSettings& settings, int width, int
 
     }
 
+  if (PEType == PE_INTRINSIC || PE_INTRINSIC_COLOR)
+  {
+	  qx_image = qx_allocu_3(m_nHeight, m_nWidth, 3);
+	  qx_diffuse_image = qx_allocu_3(m_nHeight, m_nWidth, 3);
+  }
+  else
+  {
+	  qx_image = NULL;
+	  qx_diffuse_image = NULL;
+  }
 }
 
 DeformNRSFMTracker::~DeformNRSFMTracker()
@@ -181,6 +191,17 @@ DeformNRSFMTracker::~DeformNRSFMTracker()
 
   if(pStrategy) delete pStrategy;
 
+  if (qx_image)
+  {
+	  qx_freeu_3(qx_image);
+	  qx_image = NULL;
+  }
+
+  if (qx_diffuse_image)
+  {
+	  qx_freeu_3(qx_diffuse_image);
+	  qx_diffuse_image = NULL;
+  }
 }
 
 bool DeformNRSFMTracker::setCurrentFrame(int curFrame)
@@ -532,12 +553,6 @@ void DeformNRSFMTracker::updateGT()
 
 }
 
-void DeformNRSFMTracker::initIntrinsics(unsigned char* pColorImageRGB,
-	unsigned char* pSpecularGrayImage)
-{
-	updateIntrinsics(pColorImageRGB, pSpecularGrayImage);
-}
-
 void DeformNRSFMTracker::loadGTMeshFromFile(int nFrame)
 {
   currentMeshPyramidGT = std::move(
@@ -550,12 +565,6 @@ void DeformNRSFMTracker::loadGTMeshFromFile(int nFrame)
 
 bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
 	TrackerOutputInfo** pOutputInfoRendering)
-{
-	return trackFrame(nFrame, pColorImageRGB, NULL, pOutputInfoRendering);
-}
-
-bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
-	unsigned char* pSpecularGrayImage, TrackerOutputInfo** pOutputInfoRendering)
 {
   if(!trackerInitialized)
     cout << "this tracker has not been initialized with a template mesh" << endl;
@@ -860,9 +869,9 @@ bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
   TICK("intrinsicPostprocessing");
 
   // estimate intrinsic properties
-  if (pSpecularGrayImage != NULL)
+  if (PEType == PE_INTRINSIC || PEType ==PE_INTRINSIC_COLOR)
   {
-	  updateIntrinsics(pColorImageRGB, pSpecularGrayImage);
+	  updateIntrinsics(pColorImageRGB);
   }
 
   TOCK("intrinsicPostprocessing");
@@ -3792,21 +3801,45 @@ dataTermErrorType DeformNRSFMTracker::getPEType()
 	return PEType;
 }
 
-void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB,
-	unsigned char* pSpecularGrayImage)
+void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB)
 {
-	// Create images for intensities, brightness and specularities
-	InternalColorImageType colorImage;
-	cv::Mat tempColorImageRGB(m_nHeight, m_nWidth, CV_8UC3, pColorImageRGB);
-	tempColorImageRGB.convertTo(colorImage, cv::DataType<Vec3d>::type, 1. / 255);
+	// Create color image
+	cv::Mat color_image_uchar(m_nHeight, m_nWidth, CV_8UC3, pColorImageRGB);
 
-	InternalIntensityImageType specularImage;
-	cv::Mat tempGrayImage(m_nHeight, m_nWidth, CV_8UC1, pSpecularGrayImage);
-	tempGrayImage.convertTo(specularImage, cv::DataType<double>::type, 1. / 255);
+	// Estimate diffuse image
+	cv::Mat diffuse_image_uchar;
+	estimateDiffuse(color_image_uchar, diffuse_image_uchar);
 
+	// Estimate diffuse brightness
+	std::vector<cv::Mat> diffuse_planes(3);
+	cv::split(diffuse_image_uchar, diffuse_planes);
+	cv::Mat diffuseBrightnessImage_uchar = cv::Mat(
+		cv::max(diffuse_planes[2], 
+		cv::max(diffuse_planes[1], diffuse_planes[0]))
+		);
+
+	// Convert diffuse brightness to double
+	InternalIntensityImageType diffuseBrightnessImage;
+	diffuseBrightnessImage_uchar.convertTo(diffuseBrightnessImage, 
+		cv::DataType<double>::type, 1. / 255);
+
+	// Convert diffuse brightness to double
+	InternalColorImageType color_image;
+	color_image_uchar.convertTo(color_image,
+		cv::DataType<Vec3d>::type, 1. / 255);
+
+	// Estimate brightness
 	std::vector<cv::Mat> planes(3);
-	cv::split(colorImage, planes);
-	cv::Mat brightnessImage = cv::Mat(cv::max(planes[2], cv::max(planes[1], planes[0])));
+	cv::split(color_image, planes);
+	InternalIntensityImageType brightnessImage = cv::Mat(
+		cv::max( planes[2],
+		cv::max(planes[1], planes[0]) )
+		);
+
+	// Compute specular brightness as the difference between full brightness 
+	// and diffuse brightness
+	InternalIntensityImageType specularImage;
+	cv::subtract(brightnessImage, diffuseBrightnessImage, specularImage);
 
 	// Pointers to mesh, projections, visibility, albedo and local lighting
 	TrackerOutputInfo &outputInfo = outputInfoPyramid[0];
@@ -3826,7 +3859,7 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB,
 	vector<double> brightness;
 
 	// Get projected values from images
-	initProjectedValues(meshProj, visibility, colorImage, brightnessImage, 
+	initProjectedValues(meshProj, visibility, color_image, brightnessImage, 
 		specularImage, intensities, brightness, local_lightings);
 
 	// Compute weight based on specularities
@@ -3871,7 +3904,7 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB,
 		specular_weights, template_albedos, albedos);
 
 	// Estimate local lighting variations
-	cout << "Estimating local lighting variations..." << endl;
+	cout << "Estimating specularities..." << endl;
 	estimateLocalLighting(mesh, visibility, intensities, albedos, shadings, 
 		local_lightings);
 
@@ -4637,5 +4670,50 @@ void DeformNRSFMTracker::propagateAlbedoLocalLightingFineToCoarse()
 		}
 
 		coarseMesh.sh_coefficients = fineMesh.sh_coefficients;
+	}
+}
+
+void DeformNRSFMTracker::estimateDiffuse(const cv::Mat src_image, cv::Mat &diffuse_image)
+{
+	qx_timer timer;
+
+	int h = src_image.rows;
+	int w = src_image.cols;
+	int c = src_image.channels();
+
+	const uchar* p;
+	for (size_t i = 0; i < h; i++)
+	{
+		p = src_image.ptr<uchar>(i);
+		for (size_t j = 0; j < w; j++)
+		{
+			for (size_t k = 0; k < c; k++)
+			{
+				qx_image[i][j][k] = p[j * c + k];
+			}
+		}
+	}
+
+	qx_highlight_removal_bf m_highlight;
+	m_highlight.init(h, w);/*initialization*/
+	timer.start();
+
+	int nr_iter_converge = m_highlight.diffuse(qx_diffuse_image, qx_image);/*extracting diffuse reflection*/
+
+	timer.time_display("Highlight Removal");
+	printf("# of iterations before convergence: [%02d]\n", nr_iter_converge);
+
+	diffuse_image = cv::Mat_<Vec3b>(h, w);
+	uchar* p2;
+	for (size_t i = 0; i < h; i++)
+	{
+		p2 = diffuse_image.ptr<uchar>(i);
+		for (size_t j = 0; j < w; j++)
+		{
+			for (size_t k = 0; k < c; k++)
+			{
+				p2[j * c + k] = qx_diffuse_image[i][j][k];
+			}
+		}
 	}
 }

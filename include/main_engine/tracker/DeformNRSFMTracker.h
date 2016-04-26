@@ -8,6 +8,9 @@
 #include "./residual.h"
 #include "./ProblemWrapper.h"
 
+#include "third_party/qx_highlight_removal/qx_basic.h"
+#include "third_party/qx_highlight_removal/qx_highlight_removal_bf.h"
+
 #include "ceres/ceres.h"
 
 // baType mapBA(std::string const& inString);
@@ -40,15 +43,8 @@ public:
   void initializeGT();
   void updateGT();
 
-  void initIntrinsics(unsigned char* pColorImageRGB,
-	  unsigned char* pSpecularGrayImage);
-
   bool trackFrame(int nFrame, unsigned char* pColorImageRGB,
                   TrackerOutputInfo** pOutputInfo);
-
-  bool trackFrame(int nFrame, unsigned char* pColorImageRGB,
-	  unsigned char* pSpecularGrayImage,
-	  TrackerOutputInfo** pOutputInfo);
 
   void updateRenderingLevel(TrackerOutputInfo** pOutputInfo,
                             int nRenderLevel, bool renderType = false);
@@ -249,6 +245,9 @@ private:
   vector<MeshNeighborsNano> fineToCoarseNeighbours;
   vector<MeshWeights> fineToCoarseWeights;
 
+  uchar*** qx_image;
+  uchar*** qx_diffuse_image;
+
   // what about if we use dual quarternion representation?
   // In that case, we will need a dual quarternion
   // field transformation
@@ -298,8 +297,7 @@ private:
   std::ofstream scoresOutput;
 
   // Estimates sh coeff, albedo, and local lighting maps
-  void updateIntrinsics(unsigned char* pColorImageRGB, 
-	  unsigned char* pSpecularColorImageRGB);
+  void updateIntrinsics(unsigned char* pColorImageRGB);
 
   void initProjectedValues(const vector<vector<CoordinateType> > &meshProj, 
 	  const vector<bool> &visibility, const InternalColorImageType &colorImage,
@@ -341,6 +339,8 @@ private:
   void initNeighboursWeightsFineToCoarse();
 
   void propagateAlbedoLocalLightingFineToCoarse();
+
+  void estimateDiffuse(const cv::Mat color_image, cv::Mat &diffuse_image);
 
 };
 

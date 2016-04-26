@@ -39,13 +39,8 @@ public:
     ImageSourceEngine* m_pImageSourceEngine;
     TrackingEngine* m_pTrackingEngine;
 
-	ImageSourceEngine* m_pSpecularImageSourceEngine;
-
     unsigned char* m_pColorImageRGB;
     unsigned char* m_pColorImageRGBBuffer;
-
-	unsigned char* m_pSpecularGrayImage;
-	unsigned char* m_pSpecularGrayImageBuffer;
 
     int m_nWidth;
     int m_nHeight;
