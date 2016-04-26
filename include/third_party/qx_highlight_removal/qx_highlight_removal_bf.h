@@ -224,9 +224,9 @@ inline void qx_highlight_removal_bf::compute_diffuse_reflection_from_maximum_dif
 						//*image_specular_free_x++=unsigned char(rf+0.5f);
 						//*image_specular_free_x++=unsigned char(gf+0.5f);
 						//*image_specular_free_x++=unsigned char(bf+0.5f);
-						image_approximated_max_diffuse_chromaticity[y][x][0] = unsigned char(rf + 0.5f);
-						image_approximated_max_diffuse_chromaticity[y][x][1] = unsigned char(gf + 0.5f);
-						image_approximated_max_diffuse_chromaticity[y][x][2] = unsigned char(bf + 0.5f);
+						image_approximated_max_diffuse_chromaticity[y][x][0] = (unsigned char)(rf + 0.5f);
+						image_approximated_max_diffuse_chromaticity[y][x][1] = (unsigned char)(gf + 0.5f);
+						image_approximated_max_diffuse_chromaticity[y][x][2] = (unsigned char)(bf + 0.5f);
 					}
 				}
 			}

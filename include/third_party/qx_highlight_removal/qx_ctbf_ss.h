@@ -40,7 +40,7 @@ private:
 };
 
 #include "qx_basic.h"
-#include "qx_ppm.h"
+//#include "qx_ppm.h"
 #include "qx_ctbf_ss.h"
 inline qx_ctbf_ss::qx_ctbf_ss()
 {
@@ -178,11 +178,11 @@ inline int qx_ctbf_ss::joint_bilateral_filter(unsigned char**image_filtered, uns
 						if (k == (i - 1))
 						{
 							double alpha = (k + 1) - kf;
-							image_filtered[y][x] = unsigned char(min(255.0, alpha*qx_linear_interpolate_xy(m_jk[jk_0], xs, ys, m_h, m_w) + (1.f - alpha)*qx_linear_interpolate_xy(m_jk[jk_1], xs, ys, m_h, m_w)));
+							image_filtered[y][x] = (unsigned char) (min(255.0, alpha*qx_linear_interpolate_xy(m_jk[jk_0], xs, ys, m_h, m_w) + (1.f - alpha)*qx_linear_interpolate_xy(m_jk[jk_1], xs, ys, m_h, m_w)));
 						}
 						else if (k == i&&i == (m_nr_scale - 1))
 						{
-							image_filtered[y][x] = unsigned char(min(255.0, qx_linear_interpolate_xy(m_jk[jk_1], xs, ys, m_h, m_w) + 0.5f));
+							image_filtered[y][x] = (unsigned char) (min(255.0, qx_linear_interpolate_xy(m_jk[jk_1], xs, ys, m_h, m_w) + 0.5f));
 						}
 					}
 					else

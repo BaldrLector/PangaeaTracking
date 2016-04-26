@@ -47,7 +47,10 @@ inline void image_zero(float **in,int h,int w,float zero=0){memset(in[0],zero,si
 inline void image_zero(double **in,int h,int w,double zero=0){memset(in[0],zero,sizeof(double)*h*w);}
 inline void image_zero(unsigned char**in,int h,int w,unsigned char zero=0){memset(in[0],zero,sizeof(unsigned char)*h*w);}
 inline void image_zero(double ***in,int h,int w,int d,double zero=0){memset(in[0][0],zero,sizeof(double)*h*w*d);}
-inline unsigned char rgb_2_gray(unsigned char*in){return(unsigned char(0.299*in[0]+0.587*in[1]+0.114*in[2]+0.5));}
+inline unsigned char rgb_2_gray(unsigned char*in)
+{
+	return (unsigned char)(0.299*in[0]+0.587*in[1]+0.114*in[2]+0.5);
+}
 inline int qx_square_difference_u3(unsigned char *a,unsigned char *b){int d1,d2,d3; d1=(*a++)-(*b++); d2=(*a++)-(*b++);	d3=(*a++)-(*b++); return(int(d1*d1+d2*d2+d3*d3));}
 void qx_specular_free_image(unsigned char ***image_specular_free,unsigned char ***image_normalized,float **diffuse_chromaticity_max,int h,int w);
 inline double *get_color_weighted_table(double sigma_range,int len)
@@ -506,9 +509,9 @@ inline void qx_specular_free_image(unsigned char ***image_specular_free, unsigne
 					if (rf<0.f) rf = 0.f; else if (rf>255.f) rf = 255.f;
 					if (gf<0.f) gf = 0.f; else if (gf>255.f) gf = 255.f;
 					if (bf<0.f) bf = 0.f; else if (bf>255.f) bf = 255.f;
-					*image_specular_free_x++ = unsigned char(rf + 0.5f);
-					*image_specular_free_x++ = unsigned char(gf + 0.5f);
-					*image_specular_free_x++ = unsigned char(bf + 0.5f);
+					*image_specular_free_x++ = (unsigned char) (rf + 0.5f);
+					*image_specular_free_x++ = (unsigned char) (gf + 0.5f);
+					*image_specular_free_x++ = (unsigned char) (bf + 0.5f);
 				}
 			}
 			else
