@@ -153,7 +153,7 @@ inline void qx_highlight_removal_bf::compute_approximated_maximum_diffuse_chroma
 				float cmin = qx_min_f3(chrom);
 				float cmax = qx_max_f3(chrom);
 				float cappro = (cmax - cmin) / (1 - 3 * cmin);
-				*image_approximated_x++ = unsigned char(255 * (cappro*1.5 - 0.5) + 0.5);
+				*image_approximated_x++ = (unsigned char)(255 * (cappro*1.5 - 0.5) + 0.5);
 				//m_mask[y][x]=unsigned char(rf*0.3+gf*0.6+bf*0.1+0.5);
 
 			}
