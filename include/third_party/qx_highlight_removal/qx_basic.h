@@ -10,8 +10,8 @@
 #include <numeric>
 #include <vector>
 //#include <process.h>
-#include <direct.h>
-#include <io.h>
+// #include <direct.h>
+// #include <io.h>
 #include <time.h>
 #include <string>
 #include <memory.h>
