@@ -3806,24 +3806,7 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB)
 	// Create color image
 	cv::Mat color_image_uchar(m_nHeight, m_nWidth, CV_8UC3, pColorImageRGB);
 
-	// Estimate diffuse image
-	cv::Mat diffuse_image_uchar;
-	estimateDiffuse(color_image_uchar, diffuse_image_uchar);
-
-	// Estimate diffuse brightness
-	std::vector<cv::Mat> diffuse_planes(3);
-	cv::split(diffuse_image_uchar, diffuse_planes);
-	cv::Mat diffuseBrightnessImage_uchar = cv::Mat(
-		cv::max(diffuse_planes[2], 
-		cv::max(diffuse_planes[1], diffuse_planes[0]))
-		);
-
-	// Convert diffuse brightness to double
-	InternalIntensityImageType diffuseBrightnessImage;
-	diffuseBrightnessImage_uchar.convertTo(diffuseBrightnessImage, 
-		cv::DataType<double>::type, 1. / 255);
-
-	// Convert diffuse brightness to double
+	// Convert color image to double
 	InternalColorImageType color_image;
 	color_image_uchar.convertTo(color_image,
 		cv::DataType<Vec3d>::type, 1. / 255);
@@ -3832,14 +3815,38 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB)
 	std::vector<cv::Mat> planes(3);
 	cv::split(color_image, planes);
 	InternalIntensityImageType brightnessImage = cv::Mat(
-		cv::max( planes[2],
-		cv::max(planes[1], planes[0]) )
+		cv::max(planes[2],
+		cv::max(planes[1], planes[0]))
 		);
 
-	// Compute specular brightness as the difference between full brightness 
-	// and diffuse brightness
 	InternalIntensityImageType specularImage;
-	cv::subtract(brightnessImage, diffuseBrightnessImage, specularImage);
+	if (trackerSettings.estimate_diffuse)
+	{
+		// Estimate diffuse image
+		cv::Mat diffuse_image_uchar;
+		estimateDiffuse(color_image_uchar, diffuse_image_uchar);
+
+		// Estimate diffuse brightness
+		std::vector<cv::Mat> diffuse_planes(3);
+		cv::split(diffuse_image_uchar, diffuse_planes);
+		cv::Mat diffuseBrightnessImage_uchar = cv::Mat(
+			cv::max(diffuse_planes[2],
+			cv::max(diffuse_planes[1], diffuse_planes[0]))
+			);
+
+		// Convert diffuse brightness to double
+		InternalIntensityImageType diffuseBrightnessImage;
+		diffuseBrightnessImage_uchar.convertTo(diffuseBrightnessImage,
+			cv::DataType<double>::type, 1. / 255);
+
+		// Compute specular brightness as the difference between full brightness 
+		// and diffuse brightness
+		cv::subtract(brightnessImage, diffuseBrightnessImage, specularImage);
+	}
+	else
+	{
+		specularImage = cv::Mat::zeros(m_nHeight, m_nWidth, CV_64FC1);
+	}
 
 	// Pointers to mesh, projections, visibility, albedo and local lighting
 	TrackerOutputInfo &outputInfo = outputInfoPyramid[0];

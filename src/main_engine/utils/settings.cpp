@@ -351,6 +351,8 @@ TrackerSettings::TrackerSettings()
 
   use_local_lighting = false;
 
+  estimate_diffuse = true;
+
   // ceres parameter
   linearSolver = "CG";
   numOptimizationLevels = 3;
@@ -567,6 +569,9 @@ void TrackerSettings::read(const cv::FileNode& node)
 
   if (!node["use_local_lighting"].empty())
 	  node["use_local_lighting"] >> use_local_lighting;
+
+  if (!node["estimate_diffuse"].empty())
+	  node["estimate_diffuse"] >> estimate_diffuse;
 
   // ceres
   if(!node["linear_solver"].empty())

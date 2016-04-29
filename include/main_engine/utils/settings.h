@@ -167,6 +167,8 @@ public:
 
 	bool use_local_lighting;
 
+	bool estimate_diffuse;
+
   // ceres parameter
   std::string linearSolver;
   int numOptimizationLevels;
