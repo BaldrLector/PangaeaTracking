@@ -62,6 +62,8 @@ inline void qx_ctbf_ss::clean()
 	qx_freed_3(m_jk); m_jk = NULL;
 	qx_freed(m_wk); m_wk = NULL;
 	if (m_grayscale != NULL) delete[] m_grayscale; m_grayscale = NULL;
+	
+	if (m_table != NULL) delete[] m_table; m_table = NULL;
 
 	qx_freeu(m_image_y_downsampled); m_image_y_downsampled = NULL;
 	qx_freef(m_image_y_downsampled_f); m_image_y_downsampled_f = NULL;
