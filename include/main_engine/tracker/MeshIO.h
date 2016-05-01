@@ -18,7 +18,8 @@ public:
 
   static void updateFromFile(const std::string& filename, MeshData<FloatType>& meshData);
 
-  static void writeToFile(const std::string& filename, const MeshData<FloatType>& meshData);
+  static void writeToFile(const std::string& filename, 
+	  const MeshData<FloatType>& meshData, const bool save_binary);
 
   // create mesh from grid aligned 3d points
   static void createMeshFromDepth(MeshData<FloatType>& meshData,
@@ -65,7 +66,8 @@ private:
 	/* Write Functions													    */
 	/************************************************************************/
 
-	static void writeToPLY(const std::string& filename, const MeshData<FloatType>& meshData);
+	static void writeToPLY(const std::string& filename, 
+		const MeshData<FloatType>& meshData, const bool save_binary);
 
 	static void writeToOFF(const std::string& filename, const MeshData<FloatType>& meshData) {};
 
@@ -849,13 +851,14 @@ void MeshIO<FloatType>::updateFromOBJ(const std::string& filename,
 }
 
 template<class FloatType>
-void MeshIO<FloatType>::writeToFile(const std::string& filename, const MeshData<FloatType>& meshData)
+void MeshIO<FloatType>::writeToFile(const std::string& filename, 
+	const MeshData<FloatType>& meshData, const bool save_binary)
 {
   bfs::path filePath(filename.c_str());
   if(filePath.extension().compare(std::string(".off")) == 0) {
     writeToOFF(filename,meshData);
   } else if(filePath.extension().compare(std::string(".ply")) == 0){
-    writeToPLY(filename,meshData);
+    writeToPLY(filename,meshData, save_binary);
   } else if(filePath.extension().compare(std::string(".obj")) == 0){
     writeToOBJ(filename,meshData);
   } else {
@@ -915,7 +918,8 @@ void MeshIO<FloatType>::writeToOBJ(const std::string& filename,
 }
 
 template<class FloatType>
-void MeshIO<FloatType>::writeToPLY(const std::string& filename, const MeshData<FloatType>& meshData)
+void MeshIO<FloatType>::writeToPLY(const std::string& filename, 
+	const MeshData<FloatType>& meshData, const bool save_binary)
 {
 	PlyFile *ply;
 	float version;
@@ -930,11 +934,16 @@ void MeshIO<FloatType>::writeToPLY(const std::string& filename, const MeshData<F
 
 	int n_elems = save_specular ? 3 : 2;
 
-#ifdef PLY_SAVE_ASCII
-	ply = ply_open_for_writing(filename.c_str(), n_elems, ply::elem_names, PLY_ASCII, &version);
-#else
-	ply = ply_open_for_writing(filename.c_str(), n_elems, ply::elem_names, PLY_BINARY_LE, &version);
-#endif
+	if (save_binary)
+	{
+		ply = ply_open_for_writing(filename.c_str(), n_elems, ply::elem_names, 
+			PLY_BINARY_LE, &version);
+	}
+	else
+	{
+		ply = ply_open_for_writing(filename.c_str(), n_elems, ply::elem_names, 
+			PLY_ASCII, &version);
+	}
 
 	/* describe what properties go into the vertex and face elements */
 

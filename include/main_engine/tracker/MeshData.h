@@ -134,6 +134,16 @@ public:
 
   ~MeshData(){};
 
+  bool has_specular_colors()
+  {
+	  return specular_colors.size() == numVertices;
+  }
+
+  bool has_sh_coefficients()
+  {
+	  return sh_order >= 0 && sh_coefficients.size() == pow(sh_order + 1, 2);
+  }
+
   vector<vector<FloatType> > vertices;
   vector<vector<FloatType> > normals;
   vector<vector<FloatType> > colors;

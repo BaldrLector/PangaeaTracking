@@ -142,6 +142,18 @@ void UpdateRenderingData(TrackerOutputInfo& outputInfo, double KK[3][3],
         UpdateHelper(outputInfo.meshData, outputInfo.meshProj, vertex, trans_uvd, trans_normals, KK);
 
     }
+
+  outputInfo.meshData.colors = templateMesh.colors;
+
+  if (templateMesh.has_specular_colors())
+  {
+	  outputInfo.meshData.specular_colors = templateMesh.specular_colors;
+  }
+
+  if (templateMesh.has_sh_coefficients())
+  {
+	  outputInfo.meshData.sh_coefficients = templateMesh.sh_coefficients;
+  }
 }
 
 void UpdateRenderingDataFast(TrackerOutputInfo& outputInfo, double KK[3][3],

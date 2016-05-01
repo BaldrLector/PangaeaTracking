@@ -3631,7 +3631,8 @@ bool DeformNRSFMTracker::SaveMeshToFile(TrackerOutputInfo& outputInfo)
   sprintf(buffer, trackerSettings.meshFormat.c_str(), currentFrameNo);
   meshFile << trackerSettings.savePath << buffer;
 
-  PangaeaMeshIO::writeToFile(meshFile.str(), outputInfo.meshData);
+  PangaeaMeshIO::writeToFile(meshFile.str(), outputInfo.meshData,
+	  trackerSettings.save_binary_mesh);
 
   return true;
 }
@@ -3667,7 +3668,9 @@ bool DeformNRSFMTracker::SaveMeshPyramid()
       sprintf(buffer, trackerSettings.meshPyramidFormat.c_str(), currentFrameNo, mesh_level);
       mesh_file << mesh_pyramid_path.str() << buffer;
 
-      PangaeaMeshIO::writeToFile(mesh_file.str(), outputInfoPyramid[mesh_level].meshData);
+      PangaeaMeshIO::writeToFile(mesh_file.str(), 
+		  outputInfoPyramid[mesh_level].meshData, 
+		  trackerSettings.save_binary_mesh);
 
       mesh_file.str("");
       //memset(&buffer[0], 0, sizeof(buffer));
@@ -3681,7 +3684,9 @@ bool DeformNRSFMTracker::SaveMeshPyramid()
           sprintf(buffer, trackerSettings.propPyramidFormat.c_str(), currentFrameNo, i);
           mesh_file << mesh_pyramid_path.str() << buffer;
 
-          PangaeaMeshIO::writeToFile(mesh_file.str(), outputPropPyramid[i].meshData);
+          PangaeaMeshIO::writeToFile(mesh_file.str(), 
+			  outputPropPyramid[i].meshData, 
+			  trackerSettings.save_binary_mesh);
 
           mesh_file.str("");
           //memset(&buffer[0], 0, sizeof(buffer));

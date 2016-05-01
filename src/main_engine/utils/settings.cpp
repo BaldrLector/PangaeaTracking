@@ -362,6 +362,8 @@ TrackerSettings::TrackerSettings()
   isMinimizerProgressToStdout = true;
 
   // debugging
+  save_binary_mesh = true;
+
   saveResults = false;
   ceresOutputFile = "ceres_output.txt";
   diffFileFormat = "diff%04d.png";
@@ -638,6 +640,9 @@ void TrackerSettings::read(const cv::FileNode& node)
     node["num_threads"] >> numThreads;
 
   // debugging
+  if (!node["save_binary_mesh"].empty())
+	  node["save_binary_mesh"] >> save_binary_mesh;
+
   if(!node["save_results"].empty())
     node["save_results"] >> saveResults;
   if(!node["ceres_output"].empty())

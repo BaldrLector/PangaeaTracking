@@ -192,6 +192,8 @@ public:
   bool isMinimizerProgressToStdout;
 
   // debugging
+  bool save_binary_mesh;
+
   bool saveResults;
   std::string ceresOutputFile;
   std::string diffFileFormat;
