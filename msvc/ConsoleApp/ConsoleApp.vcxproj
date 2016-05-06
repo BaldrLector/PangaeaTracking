@@ -100,6 +100,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;GLOG_NO_ABBREVIATED_SEVERITIES;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)\..\include;$(SolutionDir)\..\include\third_party;$(OPENCV_PATH)\include;$(EIGEN_PATH);$(EIGEN_PATH)\unsupported;$(BOOST_ROOT);$(SUITESPARSE_PATH)\include;$(CERES_PATH)\include;$(GLOG_PATH)\src\windows;$(GLUT_ROOT)\include;$(GLEW_ROOT)\include;$(LMDB_PATH)\liblmdb;$(HDF5_PATH)\include;$(VLD_PATH)\include</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

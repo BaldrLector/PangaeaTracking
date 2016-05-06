@@ -308,8 +308,8 @@ private:
 	  vector< vector<double> > &local_lightings);
 
   void estimateSHCoeff(const PangaeaMeshData &mesh, 
-	  const vector<bool> &visibility, const vector<double> &brightness,
-	  vector<double> &albedos, const vector<double> &specular_weights, 
+	  const vector<bool> &visibility, const vector<vector<double>> &intensities,
+	  vector<vector<double>> &albedos, const vector<double> &specular_weights,
 	  const int sh_order, vector<double> &sh_coeff);
 
   void updateShading(const PangaeaMeshData &mesh,

@@ -239,8 +239,8 @@ void SampleLinear( const TImage & intensityImage,
   /* x -= 0.5; */
   /* y -= 0.5; */
 
-  x -= 1.0;
-  y -= 1.0;
+  //x -= 1.0;
+  //y -= 1.0;
 
   LinearInitAxis(y, intensityImage.rows, &y1, &y2, &dy);
   LinearInitAxis(x, intensityImage.cols,  &x1, &x2, &dx);
@@ -274,8 +274,8 @@ void SampleLinear( const TImage & intensityImage,
   /* x -= 0.5; */
   /* y -= 0.5; */
 
-  x -= 1.0;
-  y -= 1.0;
+  //x -= 1.0;
+  //y -= 1.0;
 
   LinearInitAxis(y, intensityImage.rows, &y1, &y2, &dy);
   LinearInitAxis(x, intensityImage.cols,  &x1, &x2, &dx);

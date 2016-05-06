@@ -3903,25 +3903,16 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB)
 		specular_weights.push_back(weight);
 	}
 
-	// Get uniform albedo value
-	//vector<double> brightness_aux = brightness;
-	//unsigned int nth = (unsigned int)(
-	//	trackerSettings.brightness_percentile * (double)brightness_aux.size()
-	//	);
-	//nth_element(brightness_aux.begin(), brightness_aux.begin() + nth, 
-	//	brightness_aux.end());
-	//double uniform_albedo = brightness_aux[nth - 1];
-	//brightness_aux.clear();
-	vector<double> max_albedos;
-	max_albedos.reserve(albedos.size());
-	for (size_t i = 0; i < albedos.size(); i++)
-	{
-		max_albedos.push_back(*max_element(albedos[i].begin(), albedos[i].end()));
-	}
+	//vector<double> max_albedos;
+	//max_albedos.reserve(albedos.size());
+	//for (size_t i = 0; i < albedos.size(); i++)
+	//{
+	//	max_albedos.push_back(*max_element(albedos[i].begin(), albedos[i].end()));
+	//}
 
 	// Estimate spherical harmonic coefficients
 	cout << "Estimating spherical harmonic coefficients..." << endl;
-	estimateSHCoeff(mesh, visibility, brightness, max_albedos,
+	estimateSHCoeff(mesh, visibility, intensities, albedos,
 		specular_weights, sh_order, sh_coeff);
 
 	// Update shading values
@@ -3929,9 +3920,9 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB)
 	updateShading(mesh, sh_coeff, sh_order, shadings);
 
 	// Estimate albedo map assuming zero local lighting
-	cout << "Estimating albedo map..." << endl;
-	estimateAlbedo(mesh, visibility, intensities, shadings, local_lightings,
-		specular_weights, template_albedos, albedos);
+	//cout << "Estimating albedo map..." << endl;
+	//estimateAlbedo(mesh, visibility, intensities, shadings, local_lightings,
+	//	specular_weights, template_albedos, albedos);
 
 	// Estimate local lighting variations
 	cout << "Estimating specularities..." << endl;
@@ -3996,11 +3987,11 @@ void DeformNRSFMTracker::initProjectedValues(
 
 void DeformNRSFMTracker::estimateSHCoeff(
 	const PangaeaMeshData &mesh, const vector<bool> &visibility,
-	const vector<double> &brightness, vector<double> &albedos,
+	const vector<vector<double>> &intensities, vector<vector<double>> &albedos,
 	const vector<double> &specular_weights,
 	const int sh_order, vector<double> &sh_coeff)
 {
-	double black = 0.0;
+	vector<double> black = { 0.0, 0.0, 0.0 };
 
 	// Initialize with zeros
 
@@ -4019,6 +4010,10 @@ void DeformNRSFMTracker::estimateSHCoeff(
 	bool use_lower_bound_shading = false;
 	bool use_upper_bound_shading = false;
 
+	const unsigned int N_CHANNELS = 3;
+
+	const int n_sh_coeff = pow(sh_order + 1, 2);
+
 	for (size_t i = 0; i < mesh.numVertices; i++)
 	{
 		if (visibility[i])
@@ -4030,8 +4025,8 @@ void DeformNRSFMTracker::estimateSHCoeff(
 
 			ResidualPhotometricErrorWithNormal *residual =
 				new ResidualPhotometricErrorWithNormal(
-				&brightness[i], (double *)&mesh.normals[i][0], 1, sh_order,
-				use_lower_bound_shading, use_upper_bound_shading);
+				&intensities[i][0], (double *)&mesh.normals[i][0], N_CHANNELS, 
+				sh_order, use_lower_bound_shading, use_upper_bound_shading);
 
 			ceres::DynamicAutoDiffCostFunction<ResidualPhotometricErrorWithNormal, 5>* dyn_cost_function
 				= new ceres::DynamicAutoDiffCostFunction< ResidualPhotometricErrorWithNormal, 5 >(residual);
@@ -4039,17 +4034,17 @@ void DeformNRSFMTracker::estimateSHCoeff(
 			// List of pointers to translations per vertex
 			vector<double*> v_parameter_blocks;
 
-			// White albedo
-			dyn_cost_function->AddParameterBlock(1);
-			v_parameter_blocks.push_back(&albedos[i]);
+			// Albedo
+			dyn_cost_function->AddParameterBlock(N_CHANNELS);
+			v_parameter_blocks.push_back(&albedos[i][0]);
 			// SH Coeff
-			dyn_cost_function->AddParameterBlock(pow(sh_order + 1, 2));
+			dyn_cost_function->AddParameterBlock(n_sh_coeff);
 			v_parameter_blocks.push_back(&sh_coeff[0]);
 			// Local lighting variations
-			dyn_cost_function->AddParameterBlock(1);
-			v_parameter_blocks.push_back(&black);
+			dyn_cost_function->AddParameterBlock(N_CHANNELS);
+			v_parameter_blocks.push_back(&black[0]);
 
-			dyn_cost_function->SetNumResiduals(1);
+			dyn_cost_function->SetNumResiduals(N_CHANNELS);
 
 			ceres::ResidualBlockId residualBlockId = problem.AddResidualBlock(
 				dyn_cost_function,
@@ -4098,10 +4093,10 @@ void DeformNRSFMTracker::estimateSHCoeff(
 	{
 		if (visibility[i])
 		{
-			problem.SetParameterBlockConstant(&albedos[i]);
+			problem.SetParameterBlockConstant(&albedos[i][0]);
 		}
 	}
-	problem.SetParameterBlockConstant(&black);
+	problem.SetParameterBlockConstant(&black[0]);
 
 	ceres::Solver::Options options;
 	options.minimizer_type = ceres::MinimizerType::TRUST_REGION;
@@ -4425,6 +4420,12 @@ void DeformNRSFMTracker::estimateLocalLighting(const PangaeaMeshData &mesh,
 	{
 		if (visibility[i])
 		{
+			for (size_t j = 0; j < 3; j++)
+			{
+				local_lightings[i][j] = 
+					intensities[i][j] - albedos[i][j] * shadings[i];
+			}
+
 			ResidualPhotometricErrorWithAlbedoShading *residual = 
 				new ResidualPhotometricErrorWithAlbedoShading(
 				&intensities[i][0], &albedos[i][0], shadings[i], 3);
