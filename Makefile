@@ -2,7 +2,7 @@
 Q ?= @
 
 # Set DEBUG to 1 for debugging
-DEBUG := 0
+DEBUG := 1
 
 # if only want to visualize saving results and don't do tracking,
 # you could set VIS_ONLY to 1 and compile without ceres solver,
@@ -40,7 +40,9 @@ EIGEN_INCLUDE := -I/usr/include/eigen3/unsupported -I/usr/include/eigen3
 
 WX_INCLUDE := `wx-config --cxxflags`
 
-FLAGS_INCLUDE := $(EIGEN_INCLUDE) $(WX_INCLUDE) -I./include -I./include/third_party
+HDF5_INCLUDE := -I/usr/include/hdf5/serial
+
+FLAGS_INCLUDE := $(EIGEN_INCLUDE) $(WX_INCLUDE) $(HDF5_INCLUDE) -I./include -I./include/third_party
 
 # Library dependencies
 GL_LIB := -lGL -lGLU -lX11 -lGLEW

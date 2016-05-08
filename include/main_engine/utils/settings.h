@@ -145,6 +145,7 @@ public:
 	double sh_coeff_temporal_weight;
 	double sh_coeff_temporal_huber_width;
 
+  bool update_albedo;
 	double albedo_data_weight;
 	double albedo_data_huber_width;
 	double albedo_smoothness_weight;
@@ -165,7 +166,7 @@ public:
 	double local_lighting_temporal_weight;
 	double local_lighting_temporal_huber_width;
 
-	bool use_local_lighting;
+	bool estimate_all_together;
 
 	bool estimate_diffuse;
 

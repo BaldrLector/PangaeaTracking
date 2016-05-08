@@ -128,8 +128,8 @@ typedef struct PlyElement {     /* description of an element */
 		  {
 			  delete props[i];
 		  }
-		  delete[] props;
-		  delete[] store_prop;
+		  free(props);
+		  free(store_prop);
 	  }
   }
 
@@ -215,7 +215,7 @@ typedef struct PlyFile {        /* description of PLY file */
 		  {
 			  delete elems[i];
 		  }
-		  delete[] elems;
+		  free(elems);
 	  }
 
 	  if (num_comments > 0)
@@ -431,7 +431,7 @@ inline PlyFile *ply_open_for_writing(
 		fp = fopen(name, "wb");
 	}
 
-  delete name;
+  	free(name);
 
 	if (fp == NULL) {
 		return (NULL);
@@ -1591,7 +1591,7 @@ inline void ply_close(PlyFile *plyfile)
 	fclose(plyfile->fp);
 
 	/* free up memory associated with the PLY file */
-	delete plyfile;
+	free(plyfile);
 }
 
 
@@ -2781,7 +2781,7 @@ namespace ply{
 		{
 			if (nverts)
 			{
-				delete[] verts;
+				free(verts);
 			}
 		}
 	};

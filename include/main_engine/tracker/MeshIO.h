@@ -397,9 +397,9 @@ void MeshIO<FloatType>::loadFromPLY(const std::string& filename,
 
 	for (int i = 0; i < nelems; i++)
 	{
-		delete elist[i];
+		free(elist[i]);
 	}
-	delete[] elist;
+	free(elist);
 
   meshData.numVertices = meshData.vertices.size();
   meshData.numFaces = meshData.facesVerticesInd.size();

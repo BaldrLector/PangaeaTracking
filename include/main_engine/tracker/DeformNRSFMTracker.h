@@ -75,6 +75,14 @@ public:
                              double rotWeight, double transWeight);
   void AddSmoothingCost(ceres::Problem& problem,
 	  ceres::LossFunction* loss_function);
+  void AddTemporalSHCoeffCost(ceres::Problem& problem,
+    ceres::LossFunction* loss_function);
+  void AddSpecularSmoothnessCost(ceres::Problem& problem,
+    ceres::LossFunction* loss_function);
+  void AddSpecularMagnitudeCost(ceres::Problem& problem,
+    ceres::LossFunction* loss_function);
+  void AddTemporalSpecularCost(ceres::Problem& problem,
+    ceres::LossFunction* loss_function);
 
   void AddVariableMask(ceres::Problem& problem, baType BA);
   void AddConstantMask(ceres::Problem& problem, baType BA);

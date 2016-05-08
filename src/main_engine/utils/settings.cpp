@@ -329,6 +329,7 @@ TrackerSettings::TrackerSettings()
   sh_coeff_temporal_weight = 1;
   sh_coeff_temporal_huber_width = 0;
 
+  update_albedo = false;
   albedo_data_weight = 1;
   albedo_data_huber_width = 0;
   albedo_smoothness_weight = 0.1;
@@ -349,7 +350,7 @@ TrackerSettings::TrackerSettings()
   local_lighting_temporal_weight = 1;
   local_lighting_temporal_huber_width = 1e-1;
 
-  use_local_lighting = false;
+  estimate_all_together = false;
 
   estimate_diffuse = true;
 
@@ -532,6 +533,8 @@ void TrackerSettings::read(const cv::FileNode& node)
   if (!node["sh_coeff_temporal_huber_width"].empty())
 	  node["sh_coeff_temporal_huber_width"] >> sh_coeff_temporal_huber_width;
 
+  if (!node["update_albedo"].empty())
+    node["update_albedo"] >> update_albedo;
   if (!node["albedo_data_weight"].empty())
 	  node["albedo_data_weight"] >> albedo_data_weight;
   if (!node["albedo_data_huber_width"].empty())
@@ -569,8 +572,8 @@ void TrackerSettings::read(const cv::FileNode& node)
   if (!node["local_lighting_temporal_huber_width"].empty())
 	  node["local_lighting_temporal_huber_width"] >> local_lighting_temporal_huber_width;
 
-  if (!node["use_local_lighting"].empty())
-	  node["use_local_lighting"] >> use_local_lighting;
+  if (!node["estimate_all_together"].empty())
+	  node["estimate_all_together"] >> estimate_all_together;
 
   if (!node["estimate_diffuse"].empty())
 	  node["estimate_diffuse"] >> estimate_diffuse;

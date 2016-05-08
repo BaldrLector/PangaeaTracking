@@ -50,6 +50,8 @@ void ProblemWrapper::Initialize(int num)
   deformTermResidualBlocks.resize(num);
   temporalTermResidualBlocks.resize(num);
   smoothingTermResidualBlocks.resize(num);
+  temporalSHCoeffTermResidualBlocks.resize(num);
+  temporalSpecularTermResidualBlocks.resize(num);
 
   dataTermCostFunctions.resize(num);
   featureTermCostFunctions.resize(num);
@@ -125,6 +127,26 @@ void ProblemWrapper::addTemporalTerm(int nLevel, ceres::ResidualBlockId& residua
 void ProblemWrapper::addSmoothingTerm(int nLevel, ceres::ResidualBlockId& residualBlockId)
 {
 	smoothingTermResidualBlocks[nLevel].push_back(residualBlockId);
+}
+
+void ProblemWrapper::addTemporalSHCoeffTerm(int nLevel, ceres::ResidualBlockId& residualBlockId)
+{
+  temporalSHCoeffTermResidualBlocks[nLevel].push_back(residualBlockId);
+}
+
+void ProblemWrapper::addSpecularSmoothnessTerm(int nLevel, ceres::ResidualBlockId& residualBlockId)
+{
+  specularSmoothnessTermResidualBlocks[nLevel].push_back(residualBlockId);
+}
+
+void ProblemWrapper::addSpecularMagnitudeTerm(int nLevel, ceres::ResidualBlockId& residualBlockId)
+{
+  specularMagnitudeTermResidualBlocks[nLevel].push_back(residualBlockId);
+}
+
+void ProblemWrapper::addTemporalSpecularTerm(int nLevel, ceres::ResidualBlockId& residualBlockId)
+{
+  temporalSpecularTermResidualBlocks[nLevel].push_back(residualBlockId);
 }
 
 void ProblemWrapper::addDataTermCost(int nLevel, ceres::CostFunction* pCostFunction)
@@ -388,6 +410,78 @@ void ProblemWrapper::getSmoothingTermCost(int nLevel, double* cost)
 
 }
 
+void ProblemWrapper::getTemporalSHCoeffTermCost(int nLevel, double* cost)
+{
+
+  if (temporalSHCoeffTermResidualBlocks[nLevel].empty())
+    cost[0] = 0;
+  else
+  {
+    ceres::Problem::EvaluateOptions evaluateOptions;
+
+    evaluateOptions.residual_blocks = std::move(temporalSHCoeffTermResidualBlocks[nLevel]);
+
+    problems[nLevel]->Evaluate(evaluateOptions, cost, NULL, NULL, NULL);
+
+    temporalSHCoeffTermResidualBlocks[nLevel] = std::move(evaluateOptions.residual_blocks);
+  }
+
+}
+
+void ProblemWrapper::getSpecularSmoothnessTermCost(int nLevel, double* cost)
+{
+
+  if (specularSmoothnessTermResidualBlocks[nLevel].empty())
+    cost[0] = 0;
+  else
+  {
+    ceres::Problem::EvaluateOptions evaluateOptions;
+
+    evaluateOptions.residual_blocks = std::move(specularSmoothnessTermResidualBlocks[nLevel]);
+
+    problems[nLevel]->Evaluate(evaluateOptions, cost, NULL, NULL, NULL);
+
+    specularSmoothnessTermResidualBlocks[nLevel] = std::move(evaluateOptions.residual_blocks);
+  }
+
+}
+
+void ProblemWrapper::getSpecularMagnitudeTermCost(int nLevel, double* cost)
+{
+
+  if (specularMagnitudeTermResidualBlocks[nLevel].empty())
+    cost[0] = 0;
+  else
+  {
+    ceres::Problem::EvaluateOptions evaluateOptions;
+
+    evaluateOptions.residual_blocks = std::move(specularMagnitudeTermResidualBlocks[nLevel]);
+
+    problems[nLevel]->Evaluate(evaluateOptions, cost, NULL, NULL, NULL);
+
+    specularMagnitudeTermResidualBlocks[nLevel] = std::move(evaluateOptions.residual_blocks);
+  }
+
+}
+
+void ProblemWrapper::getTemporalSpecularTermCost(int nLevel, double* cost)
+{
+
+  if (temporalSpecularTermResidualBlocks[nLevel].empty())
+    cost[0] = 0;
+  else
+  {
+    ceres::Problem::EvaluateOptions evaluateOptions;
+
+    evaluateOptions.residual_blocks = std::move(temporalSpecularTermResidualBlocks[nLevel]);
+
+    problems[nLevel]->Evaluate(evaluateOptions, cost, NULL, NULL, NULL);
+
+    temporalSpecularTermResidualBlocks[nLevel] = std::move(evaluateOptions.residual_blocks);
+  }
+
+}
+
 void ProblemWrapper::getAllCost(int nLevel, double* cost, double* total_cost, double* sum_cost)
 {
   sum_cost[0] = 0;
@@ -403,6 +497,10 @@ void ProblemWrapper::getAllCost(int nLevel, double* cost, double* total_cost, do
   getDeformTermCost(nLevel, &cost[6]);
   getTemporalTermCost(nLevel, &cost[7]);
   getSmoothingTermCost(nLevel, &cost[8]);
+  getTemporalSHCoeffTermCost(nLevel, &cost[9]);
+  getSpecularSmoothnessTermCost(nLevel, &cost[10]);
+  getSpecularMagnitudeTermCost(nLevel, &cost[11]);
+  getTemporalSpecularTermCost(nLevel, &cost[12]);
 
   for(int i = 0; i < NUM_PRINT_COSTS - 2; ++i)
     sum_cost[0] += cost[i];

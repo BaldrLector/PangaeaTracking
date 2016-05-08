@@ -1368,7 +1368,7 @@ T computeShading(const T* _normal, const T* _sh_coeff, int _sh_order)
 template<typename T>
 void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level* pFrame,
 	double* pValue, T* shading, T* p, T* residuals, const dataTermErrorType& PE_TYPE,
-	const double* local_lighting = NULL)
+	const T* local_lighting)
 {
 	T transformed_r, transformed_c;
 
@@ -1385,10 +1385,8 @@ void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level*
 		case PE_INTRINSIC:
 			templateValue = T(pValue[0]) * shading[0];
 
-			if (local_lighting != NULL)
-			{
-				templateValue += T(local_lighting[0]);
-			}
+      // Add specular highlight
+			templateValue += local_lighting[0];
 
 			currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->grayImage,
 				pImageLevel->gradXImage,
@@ -1403,10 +1401,8 @@ void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level*
 			{
 				templateValue = T(pValue[i]) * shading[0];
 
-				if (local_lighting != NULL)
-				{
-					templateValue += T(local_lighting[i]);
-				}
+        // Add specular highlight
+        templateValue += local_lighting[i];
 
 				currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->colorImageSplit[i],
 					pImageLevel->colorImageGradXSplit[i],
@@ -1433,15 +1429,14 @@ public:
 		const vector< vector<double> > &_vertices, 
 		const vector<unsigned int> &_adjVerticesInd, const int &_n_adj_faces,
 		dataTermErrorType PE_TYPE = PE_INTRINSIC, const bool _clockwise = true,
-		const int _sh_order = 0, const double* _local_lighting = NULL) :
+		const int _sh_order = 0) :
 		ResidualImageProjection(weight, pValue, pVertex,
 		pCamera, pFrame, PE_TYPE),
 		vertices(_vertices),
 		adjVerticesInd(_adjVerticesInd),
 		n_adj_faces(_n_adj_faces),
 		clockwise(_clockwise),
-		sh_order(_sh_order),
-		local_lighting(_local_lighting)
+		sh_order(_sh_order)
 	{
 
 	}
@@ -1457,10 +1452,11 @@ public:
 
 		const T* sh_coeff = parameters[0];
 		const T* rotation = parameters[1];
-		const T* translation = parameters[2];
+    const T* translation = parameters[2];
+		const T* local_lighting = parameters[3];
 
 		T p[3];
-		getRotTransP(rotation, translation, parameters[3], pVertex,
+		getRotTransP(rotation, translation, parameters[4], pVertex,
 			optimizeDeformation, p);
 
 		vector<T*> adjP;
@@ -1471,7 +1467,7 @@ public:
 			int v_idx = adjVerticesInd[i];
 
 			p_neighbour = new T[3];
-			getRotTransP(rotation, translation, parameters[4 + i], &vertices[v_idx][0],
+			getRotTransP(rotation, translation, parameters[5 + i], &vertices[v_idx][0],
 				optimizeDeformation, p_neighbour);
 			adjP.push_back(p_neighbour);
 		}
@@ -1505,9 +1501,6 @@ private:
 	const bool clockwise;
 	// SH order
 	const int sh_order;
-
-	// Local lighting
-	const double* local_lighting;
 };
 
 // Residual of the difference between the previous SH coefficients and the current ones
