@@ -1323,6 +1323,65 @@ T computeShading(const T* _normal, const T* _sh_coeff, int _sh_order)
 	T n_yz = n_y * n_z;
 	T n_x2_y2 = n_x2 - n_y2;
 
+	T shading = _sh_coeff[0];
+
+	if (_sh_order > 0)
+		shading = shading
+		+ _sh_coeff[1] * n_x					// x
+		+ _sh_coeff[2] * n_y					// y
+		+ _sh_coeff[3] * n_z;				// z
+
+	if (_sh_order > 1)
+		shading = shading
+		+ _sh_coeff[4] * n_xy						// x * y
+		+ _sh_coeff[5] * n_xz						// x * z
+		+ _sh_coeff[6] * n_yz						// y * z
+		+ _sh_coeff[7] * n_x2_y2						// x^2 - y^2
+		+ _sh_coeff[8] * (T(3.0) * n_z2 - T(1.0));	// 3 * z^2 - 1
+
+	if (_sh_order > 2)
+		shading = shading
+		+ _sh_coeff[9] * (T(3.0) * n_x2 - n_y2) * n_y		// (3 * x^2 - y^2) * y 
+		+ _sh_coeff[10] * n_x * n_y * n_z					// x * y * z
+		+ _sh_coeff[11] * (T(5.0) * n_z2 - T(1.0)) * n_y		// (5 * z^2 - 1) * y
+		+ _sh_coeff[12] * (T(5.0) * n_z2 - T(3.0)) * n_z		// (5 * z^2 - 3) * z
+		+ _sh_coeff[13] * (T(5.0) * n_z2 - T(1.0)) * n_x		// (5 * z^2 - 1) * x
+		+ _sh_coeff[14] * n_x2_y2 * n_z						// (x^2 - y^2) * z
+		+ _sh_coeff[15] * (n_x2 - T(3.0) * n_y2) * n_x;		// (x^2 - 3 * y^2) * x
+
+	if (_sh_order > 3)
+		shading = shading
+		+ _sh_coeff[16] * n_x2_y2 * n_x * n_y								// (x^2 - y^2) * x * y
+		+ _sh_coeff[17] * (T(3.0) * n_x2 - n_y2) * n_yz						// (3 * x^2 - y^2) * yz
+		+ _sh_coeff[18] * (T(7.0) * n_z2 - T(1.0)) * n_xy					// (7 * z^2 - 1) * x * y
+		+ _sh_coeff[19] * (T(7.0) * n_z2 - T(3.0)) * n_yz					// (7 * z^2 - 3) * y * z
+		+ _sh_coeff[20] * (T(3.0) - T(30.0) * n_z2 + T(35.0) * n_z2 * n_z2)	// 3 - 30 * z^2 + 35 * z^4
+		+ _sh_coeff[21] * (T(7.0) * n_z - T(3.0)) * n_xz						// (7 * z^2 - 3) * x * z
+		+ _sh_coeff[22] * (T(7.0) * n_z - T(1.0)) * n_x2_y2					// (7 * z^2 - 1) * (x^2 - y^2)
+		+ _sh_coeff[23] * (n_x2 - T(3.0) * n_y2) * n_xz						// (x^2 - 3 * y^2) * x * z
+		+ _sh_coeff[24] * ((n_x2 - T(3.0) * n_y2) * n_x2					// (x^2 - 3 * y^2) * x^2 - (3 * x^2 - y^2) * y^2 
+		- (T(3.0) * n_x2 - n_y2) * n_y2);
+
+	return shading;
+}
+
+// Computes shading value given normal direction, spherical harmonic coefficients 
+// and the SH order
+template <typename T>
+T computeShading(const T* _normal, const vector<double> &_sh_coeff, int _sh_order)
+{
+	T n_x = _normal[0];
+	T n_y = _normal[1];
+	T n_z = _normal[2];
+
+	T n_x2 = n_x * n_x;
+	T n_y2 = n_y * n_y;
+	T n_z2 = n_z * n_z;
+	T n_xy = n_x * n_y;
+	T n_xz = n_x * n_z;
+	T n_yz = n_y * n_z;
+	T n_x2_y2 = n_x2 - n_y2;
+
 	T shading = T(_sh_coeff[0]);
 
 	if (_sh_order > 0)
@@ -1403,6 +1462,61 @@ void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level*
 
         // Add specular highlight
         templateValue += local_lighting[i];
+
+				currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->colorImageSplit[i],
+					pImageLevel->colorImageGradXSplit[i],
+					pImageLevel->colorImageGradYSplit[i],
+					transformed_c,
+					transformed_r);
+				residuals[i] = T(weight) * (currentValue - templateValue);
+			}
+			break;
+
+		default:
+			break;
+		}
+	}
+
+}
+
+template<typename T>
+void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level* pFrame,
+	double* pValue, T* shading, T* p, T* residuals, const dataTermErrorType& PE_TYPE,
+	const vector<double> &local_lighting)
+{
+	T transformed_r, transformed_c;
+
+	IntrinsicProjection(pCamera, p, &transformed_c, &transformed_r);
+
+	T templateValue, currentValue;
+
+	if (transformed_r >= T(0.0) && transformed_r < T(pCamera->height) &&
+		transformed_c >= T(0.0) && transformed_c < T(pCamera->width))
+	{
+		ImageLevel* pImageLevel = (ImageLevel*)pFrame;
+		switch (PE_TYPE)
+		{
+		case PE_INTRINSIC:
+			templateValue = T(pValue[0]) * shading[0];
+
+			// Add specular highlight
+			templateValue += T(local_lighting[0]);
+
+			currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->grayImage,
+				pImageLevel->gradXImage,
+				pImageLevel->gradYImage,
+				transformed_c,
+				transformed_r);
+			residuals[0] = T(weight) * (currentValue - templateValue);
+			break;
+
+		case PE_INTRINSIC_COLOR:
+			for (int i = 0; i < 3; ++i)
+			{
+				templateValue = T(pValue[i]) * shading[0];
+
+				// Add specular highlight
+				templateValue += T(local_lighting[i]);
 
 				currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->colorImageSplit[i],
 					pImageLevel->colorImageGradXSplit[i],
@@ -1501,6 +1615,96 @@ private:
 	const bool clockwise;
 	// SH order
 	const int sh_order;
+};
+
+// Photometric cost for the case of known albedo and illumination (sh representation)
+class ResidualImageProjectionIntrinsicSHSpec : public ResidualImageProjection
+{
+public:
+	ResidualImageProjectionIntrinsicSHSpec(double weight, double* pValue, double* pVertex,
+		const CameraInfo* pCamera, const Level* pFrame,
+		const vector< vector<double> > &_vertices,
+		const vector<unsigned int> &_adjVerticesInd, const int &_n_adj_faces,
+		dataTermErrorType PE_TYPE, const vector<double> &_sh_coeff,
+		const vector<double> &_local_lighting, const bool _clockwise = true,
+		const int _sh_order = 0) :
+		ResidualImageProjection(weight, pValue, pVertex,
+		pCamera, pFrame, PE_TYPE),
+		vertices(_vertices),
+		adjVerticesInd(_adjVerticesInd),
+		n_adj_faces(_n_adj_faces),
+		clockwise(_clockwise),
+		sh_order(_sh_order),
+		sh_coeff(_sh_coeff),
+		local_lighting(_local_lighting)
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const* const parameters, T* residuals) const
+	{
+		// Parameters:
+		// 0 - Rotation
+		// 1 - Translation
+		// 2 - Current vertex position or translation
+		// >2 - Neighbour vertices positions or translations
+
+		const T* rotation = parameters[0];
+		const T* translation = parameters[1];
+
+		T p[3];
+		getRotTransP(rotation, translation, parameters[2], pVertex,
+			optimizeDeformation, p);
+
+		vector<T*> adjP;
+		T* p_neighbour;
+		int num_neighbours = adjVerticesInd.size();
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			int v_idx = adjVerticesInd[i];
+
+			p_neighbour = new T[3];
+			getRotTransP(rotation, translation, parameters[3 + i], &vertices[v_idx][0],
+				optimizeDeformation, p_neighbour);
+			adjP.push_back(p_neighbour);
+		}
+
+		T normal[3];
+		computeNormal(p, adjP, n_adj_faces, clockwise, normal);
+
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			delete[] adjP[i];
+		}
+
+		T shading = computeShading(normal, sh_coeff, sh_order);
+
+		getResidualIntrinsic(weight, pCamera, pFrame, pValue, &shading, p, residuals,
+			PE_TYPE, local_lighting);
+
+		return true;
+
+	}
+
+private:
+	// List of vertices
+	const vector< vector<double> > &vertices;
+	// List of ordered adjacent vertices
+	const vector<unsigned int> &adjVerticesInd;
+	// Number of adjacent faces
+	const int n_adj_faces;
+
+	// Identifies if faces are defined clockwise
+	const bool clockwise;
+	// SH order
+	const int sh_order;
+
+	// Known sh coefficients
+	const vector<double> &sh_coeff;
+
+	// Known local lighting
+	const vector<double> &local_lighting;
 };
 
 // Residual of the difference between the previous SH coefficients and the current ones
