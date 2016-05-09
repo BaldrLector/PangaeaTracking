@@ -6,7 +6,7 @@
 #define QX_CVPR09_CTBF_BASIC_H
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
+#include <cmath>
 #include <numeric>
 #include <vector>
 //#include <process.h>
