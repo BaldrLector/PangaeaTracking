@@ -315,10 +315,19 @@ private:
 	  vector<double> &brightness,
 	  vector< vector<double> > &local_lightings);
 
+  void projectValues( const vector<vector<CoordinateType> > &meshProj,
+  const vector<bool> &visibility, const InternalColorImageType &colorImage,
+  vector< vector<double> > &intensities);
+
   void estimateSHCoeff(const PangaeaMeshData &mesh, 
 	  const vector<bool> &visibility, const vector<vector<double>> &intensities,
 	  vector<vector<double>> &albedos, const vector<double> &specular_weights,
 	  const int sh_order, vector<double> &sh_coeff);
+
+  void estimateSHCoeff( const PangaeaMeshData &mesh, 
+    const vector<bool> &visibility, const vector<vector<double>> &intensities,
+    vector<vector<double>> &albedos, vector<vector<double>> &local_lightings,
+    const int sh_order, vector<double> &sh_coeff);
 
   void updateShading(const PangaeaMeshData &mesh,
 	  const vector<double> &sh_coeff, const int sh_order,
@@ -343,6 +352,13 @@ private:
 	  const MeshDeformation &albedos,
 	  const vector<double> &shadings,
 	  MeshDeformation &local_lightings);
+
+  void estimateSHCoeffLocalLighting(const PangaeaMeshData &mesh,
+      const vector<bool> &visibility,
+      const MeshDeformation &intensities,
+      MeshDeformation &albedos,
+      const int sh_order, vector<double> &sh_coeff,
+      MeshDeformation &local_lightings);
 
   void initNeighboursWeightsFineToCoarse();
 

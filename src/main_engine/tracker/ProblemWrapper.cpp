@@ -51,6 +51,8 @@ void ProblemWrapper::Initialize(int num)
   temporalTermResidualBlocks.resize(num);
   smoothingTermResidualBlocks.resize(num);
   temporalSHCoeffTermResidualBlocks.resize(num);
+  specularSmoothnessTermResidualBlocks.resize(num);
+  specularMagnitudeTermResidualBlocks.resize(num);
   temporalSpecularTermResidualBlocks.resize(num);
 
   dataTermCostFunctions.resize(num);

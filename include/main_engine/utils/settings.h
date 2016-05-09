@@ -168,7 +168,8 @@ public:
 
 	bool estimate_all_together;
 
-	bool estimate_diffuse;
+  bool estimate_diffuse;
+	bool estimate_sh_coeff_specular_together;
 
   // ceres parameter
   std::string linearSolver;

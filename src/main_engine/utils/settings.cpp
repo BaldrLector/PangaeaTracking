@@ -353,6 +353,7 @@ TrackerSettings::TrackerSettings()
   estimate_all_together = false;
 
   estimate_diffuse = true;
+  estimate_sh_coeff_specular_together = true;
 
   // ceres parameter
   linearSolver = "CG";
@@ -577,6 +578,9 @@ void TrackerSettings::read(const cv::FileNode& node)
 
   if (!node["estimate_diffuse"].empty())
 	  node["estimate_diffuse"] >> estimate_diffuse;
+  
+  if (!node["estimate_sh_coeff_specular_together"].empty())
+    node["estimate_sh_coeff_specular_together"] >> estimate_sh_coeff_specular_together;
 
   // ceres
   if(!node["linear_solver"].empty())
