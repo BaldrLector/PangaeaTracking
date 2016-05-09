@@ -72,6 +72,15 @@
     <ClInclude Include="..\..\include\main_engine\tracker\FeatureReader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\include\main_engine\utils\qx_basic.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\main_engine\utils\qx_ctbf_ss.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\main_engine\utils\qx_highlight_removal_bf.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\main_engine\MainEngine.cpp">
@@ -129,6 +138,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\main_engine\tracker\FeatureReader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\main_engine\utils\qx_basic.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\main_engine\utils\qx_ctbf_ss.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\main_engine\utils\qx_highlight_removal_bf.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

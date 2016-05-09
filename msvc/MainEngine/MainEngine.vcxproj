@@ -153,6 +153,9 @@
     <ClInclude Include="..\..\include\main_engine\tracker\residual.h" />
     <ClInclude Include="..\..\include\main_engine\tracker\TrackingEngine.h" />
     <ClInclude Include="..\..\include\main_engine\utils\global.h" />
+    <ClInclude Include="..\..\include\main_engine\utils\qx_basic.h" />
+    <ClInclude Include="..\..\include\main_engine\utils\qx_ctbf_ss.h" />
+    <ClInclude Include="..\..\include\main_engine\utils\qx_highlight_removal_bf.h" />
     <ClInclude Include="..\..\include\main_engine\utils\settings.h" />
   </ItemGroup>
   <ItemGroup>
@@ -174,6 +177,9 @@
     <ClCompile Include="..\..\src\main_engine\tracker\ShapesBufferReader.cpp" />
     <ClCompile Include="..\..\src\main_engine\tracker\ShapeSequenceReader.cpp" />
     <ClCompile Include="..\..\src\main_engine\utils\global.cpp" />
+    <ClCompile Include="..\..\src\main_engine\utils\qx_basic.cpp" />
+    <ClCompile Include="..\..\src\main_engine\utils\qx_ctbf_ss.cpp" />
+    <ClCompile Include="..\..\src\main_engine\utils\qx_highlight_removal_bf.cpp" />
     <ClCompile Include="..\..\src\main_engine\utils\settings.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

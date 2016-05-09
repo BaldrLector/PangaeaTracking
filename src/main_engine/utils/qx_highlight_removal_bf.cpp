@@ -4,33 +4,9 @@
 \reference: Qingxiong Yang, Shengnan Wang and Narendra Ahuja, Real-time Specular Highlight Removal 
 			Using Bilateral Filtering, European Conference on Computer Vision (ECCV) 2010.
 ****************************************************************************************************/
-#ifndef QX_HIGHLIGHT_REMOVAL_BF_H
-#define QX_HIGHLIGHT_REMOVAL_BF_H
-#include "qx_ctbf_ss.h"
-#define QX_DEF_DARK_PIXEL								20
-#define QX_DEF_THRESHOLD_SIGMA_CHANGE					0.03f
-class qx_highlight_removal_bf
-{
-public:
-	qx_highlight_removal_bf();
-	~qx_highlight_removal_bf();
-	void clean();
-	int init(int h,int w,
-		unsigned char threshold_dark_pixel=QX_DEF_DARK_PIXEL,
-		float threshold_sigma_change=QX_DEF_THRESHOLD_SIGMA_CHANGE);
-	int diffuse(unsigned char***image_diffuse,unsigned char***image,int nr_iter=0);
-private:
-	qx_ctbf_ss m_bf;
-	int m_h,m_w; unsigned char m_threshold_dark_pixel; float m_threshold_sigma_change; int m_nr_iteration;
-	unsigned char ***m_image_diffuse,**m_image_sf,***m_image_backup,**m_mask,**m_mask_dark_pixel,**m_temp;
-	float ***m_max_chrom,**m_max_chrom_backup;
-	void compute_approximated_maximum_diffuse_chromaticity(unsigned char **image_approximated_max_diffuse_chromaticity,
-		unsigned char ***image_normalized,float**image_max_chrom,unsigned char**mask,unsigned char threshold_dark_pixel,int h,int w);
-	void compute_diffuse_reflection_from_maximum_diffuse_chromaticity(unsigned char ***image_approximated_max_diffuse_chromaticity,unsigned char ***image_normalized,
-		float **max_diffuse_chromaticity,unsigned char**mask,int h,int w);
-};
+#include "main_engine/utils/qx_highlight_removal_bf.h"
 
-inline qx_highlight_removal_bf::qx_highlight_removal_bf()
+qx_highlight_removal_bf::qx_highlight_removal_bf()
 {
 	m_image_sf = NULL;
 	m_mask = NULL;
@@ -41,11 +17,11 @@ inline qx_highlight_removal_bf::qx_highlight_removal_bf()
 	m_max_chrom_backup = NULL;
 	m_temp = NULL;
 }
-inline qx_highlight_removal_bf::~qx_highlight_removal_bf()
+qx_highlight_removal_bf::~qx_highlight_removal_bf()
 {
 	clean();
 }
-inline void qx_highlight_removal_bf::clean()
+void qx_highlight_removal_bf::clean()
 {
 	qx_freeu(m_image_sf); m_image_sf = NULL;
 	qx_freeu(m_mask); m_mask = NULL;
@@ -56,7 +32,7 @@ inline void qx_highlight_removal_bf::clean()
 	qx_freef_3(m_max_chrom); m_max_chrom = NULL;
 	qx_freef(m_max_chrom_backup); m_max_chrom_backup = NULL;
 }
-inline int qx_highlight_removal_bf::init(int h, int w, unsigned char threshold_dark_pixel, float threshold_sigma_change)
+int qx_highlight_removal_bf::init(int h, int w, unsigned char threshold_dark_pixel, float threshold_sigma_change)
 {
 	m_h = h; m_w = w; m_threshold_dark_pixel = threshold_dark_pixel; m_threshold_sigma_change = threshold_sigma_change;
 	m_image_sf = qx_allocu(m_h, m_w);
@@ -70,7 +46,7 @@ inline int qx_highlight_removal_bf::init(int h, int w, unsigned char threshold_d
 	m_bf.init(m_h, m_w);
 	return(0);
 }
-inline int qx_highlight_removal_bf::diffuse(unsigned char***image_diffuse, unsigned char***image, int nr_iter)
+int qx_highlight_removal_bf::diffuse(unsigned char***image_diffuse, unsigned char***image, int nr_iter)
 {
 	float **max_chrom_bf, **max_chrom;
 	max_chrom = m_max_chrom[0];
@@ -121,7 +97,7 @@ inline int qx_highlight_removal_bf::diffuse(unsigned char***image_diffuse, unsig
 	//image_display(image_diffuse,m_h,m_w);
 	return(m_nr_iteration);
 }
-inline void qx_highlight_removal_bf::compute_approximated_maximum_diffuse_chromaticity(unsigned char **image_approximated_max_diffuse_chromaticity,
+void qx_highlight_removal_bf::compute_approximated_maximum_diffuse_chromaticity(unsigned char **image_approximated_max_diffuse_chromaticity,
 	unsigned char ***image_normalized, float**image_max_chrom, unsigned char**mask,
 	unsigned char threshold_dark_pixel, int h, int w)
 {
@@ -165,7 +141,7 @@ inline void qx_highlight_removal_bf::compute_approximated_maximum_diffuse_chroma
 		}
 	}
 }
-inline void qx_highlight_removal_bf::compute_diffuse_reflection_from_maximum_diffuse_chromaticity(unsigned char ***image_approximated_max_diffuse_chromaticity, unsigned char ***image_normalized,
+void qx_highlight_removal_bf::compute_diffuse_reflection_from_maximum_diffuse_chromaticity(unsigned char ***image_approximated_max_diffuse_chromaticity, unsigned char ***image_normalized,
 	float **max_diffuse_chromaticity, unsigned char**mask, int h, int w)
 {
 	int y, x;
@@ -243,6 +219,3 @@ inline void qx_highlight_removal_bf::compute_diffuse_reflection_from_maximum_dif
 		}
 	}
 }
-
-
-#endif

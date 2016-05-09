@@ -8,8 +8,8 @@
 #include "./residual.h"
 #include "./ProblemWrapper.h"
 
-#include "third_party/qx_highlight_removal/qx_basic.h"
-#include "third_party/qx_highlight_removal/qx_highlight_removal_bf.h"
+#include "../utils/qx_basic.h"
+#include "../utils/qx_highlight_removal_bf.h"
 
 #include "ceres/ceres.h"
 
