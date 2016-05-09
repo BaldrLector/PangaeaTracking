@@ -4312,8 +4312,6 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB)
 
 	if (trackerSettings.estimate_diffuse)
 	{
-    InternalIntensityImageType specularImage;
-
     // Estimate brightness
     std::vector<cv::Mat> planes(3);
     cv::split(color_image, planes);
@@ -4325,41 +4323,42 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB)
     // Brightness
     vector<double> brightness;
 
-    // Get projected values from images
-    initProjectedValues(meshProj, visibility, color_image, brightnessImage, 
-      specularImage, intensities, brightness, local_lightings);
+	// Estimate diffuse image
+	cv::Mat diffuse_image_uchar;
+	estimateDiffuse(color_image_uchar, diffuse_image_uchar);
 
-    // Compute weight based on specularities
-    vector< double > specular_weights;
-    specular_weights.reserve(mesh.numVertices);
-    for (size_t i = 0; i < mesh.numVertices; i++)
-    {
-      double weight = exp(
-        -local_lightings[i][0] / (2 * trackerSettings.specular_weight_var)
-        );
-      specular_weights.push_back(weight);
-    }
+	// Estimate diffuse brightness
+	std::vector<cv::Mat> diffuse_planes(3);
+	cv::split(diffuse_image_uchar, diffuse_planes);
+	cv::Mat diffuseBrightnessImage_uchar = cv::Mat(
+		cv::max(diffuse_planes[2],
+		cv::max(diffuse_planes[1], diffuse_planes[0]))
+		);
 
-		// Estimate diffuse image
-		cv::Mat diffuse_image_uchar;
-		estimateDiffuse(color_image_uchar, diffuse_image_uchar);
+	// Convert diffuse brightness to double
+	InternalIntensityImageType diffuseBrightnessImage;
+	diffuseBrightnessImage_uchar.convertTo(diffuseBrightnessImage,
+		cv::DataType<double>::type, 1. / 255);
 
-		// Estimate diffuse brightness
-		std::vector<cv::Mat> diffuse_planes(3);
-		cv::split(diffuse_image_uchar, diffuse_planes);
-		cv::Mat diffuseBrightnessImage_uchar = cv::Mat(
-			cv::max(diffuse_planes[2],
-			cv::max(diffuse_planes[1], diffuse_planes[0]))
+	// Compute specular brightness as the difference between full brightness 
+	// and diffuse brightness
+	InternalIntensityImageType specularImage;
+	cv::subtract(brightnessImage, diffuseBrightnessImage, specularImage);
+
+	// Get projected values from images
+	initProjectedValues(meshProj, visibility, color_image, brightnessImage,
+		specularImage, intensities, brightness, local_lightings);
+
+	// Compute weight based on specularities
+	vector< double > specular_weights;
+	specular_weights.reserve(mesh.numVertices);
+	for (size_t i = 0; i < mesh.numVertices; i++)
+	{
+		double weight = exp(
+			-local_lightings[i][0] / (2 * trackerSettings.specular_weight_var)
 			);
-
-		// Convert diffuse brightness to double
-		InternalIntensityImageType diffuseBrightnessImage;
-		diffuseBrightnessImage_uchar.convertTo(diffuseBrightnessImage,
-			cv::DataType<double>::type, 1. / 255);
-
-		// Compute specular brightness as the difference between full brightness 
-		// and diffuse brightness
-		cv::subtract(brightnessImage, diffuseBrightnessImage, specularImage);
+		specular_weights.push_back(weight);
+	}
 
     //vector<double> max_albedos;
     //max_albedos.reserve(albedos.size());
