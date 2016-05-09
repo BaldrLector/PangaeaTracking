@@ -18,9 +18,9 @@
 #include <algorithm>
 #include <functional>      // For greater<int>()
 #include <iostream>
-#if _MSC_VER > 1020   // if VC++ version is > 4.2
+// #if _MSC_VER > 1020   // if VC++ version is > 4.2
    using namespace std;  // std c++ libs implemented in std
-#endif
+// #endif
 #define QX_DEF_PADDING					10
 #define QX_DEF_THRESHOLD_ZERO			1e-6
 class   qx_timer		{public: void start();	float stop(); void time_display(char *disp=""); void fps_display(char *disp=""); private: clock_t m_begin; clock_t m_end;};
