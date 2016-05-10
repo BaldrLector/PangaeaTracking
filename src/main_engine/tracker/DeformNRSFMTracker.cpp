@@ -1532,7 +1532,7 @@ void DeformNRSFMTracker::AddCostImageProjection(ceres::Problem& problem,
 				vector<double*> v_parameter_blocks;
 
 				// SH Coefficients
-				dyn_cost_function->AddParameterBlock(pow(sh_order + 1, 2));
+				dyn_cost_function->AddParameterBlock(sh_coeff.size());
 				v_parameter_blocks.push_back(&sh_coeff[0]);
 
 				// Rigid rotation
@@ -1595,7 +1595,7 @@ void DeformNRSFMTracker::AddCostImageProjection(ceres::Problem& problem,
 					vector<double*> v_parameter_blocks;
 
 					// SH Coefficients
-					dyn_cost_function->AddParameterBlock(pow(sh_order + 1, 2));
+					dyn_cost_function->AddParameterBlock(sh_coeff.size());
 					v_parameter_blocks.push_back(&sh_coeff[0]);
 
 					// Rigid rotation
@@ -1636,7 +1636,7 @@ void DeformNRSFMTracker::AddCostImageProjection(ceres::Problem& problem,
 						}
 					}
 				}
-				else
+				else // Known sh coeff and specularities
 				{
 					// Dynamic photometric cost function
 					ceres::DynamicAutoDiffCostFunction<ResidualImageProjectionIntrinsicSHSpec, 5>* dyn_cost_function
@@ -3744,6 +3744,8 @@ void DeformNRSFMTracker::EnergyMinimization(ceres::Problem& problem)
   options.line_search_type = mapLineSearchType(trackerSettings.lineSearchType);
   options.nonlinear_conjugate_gradient_type = mapNonLinearCGType(trackerSettings.nonlinearConjugateGradientType);
   options.line_search_interpolation_type = mapLineSearchInterpType(trackerSettings.lineSearchInterpolationType);
+
+  options.max_linear_solver_iterations = 100;
 
   EnergyCallback energy_callback = EnergyCallback();
 
