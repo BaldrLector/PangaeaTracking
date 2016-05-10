@@ -1633,40 +1633,6 @@ void DeformNRSFMTracker::AddCostImageProjection(ceres::Problem& problem,
 			}    
 		}
 	}
-
-  if (trackerSettings.estimate_all_together)
-  {
-    bool use_lower_bound = true;
-    bool use_upper_bound = true;
-
-    for (size_t i = 0; i < templateMesh.numVertices; ++i)
-    {
-      if (use_lower_bound)
-      {
-        problem.SetParameterLowerBound(&local_lighting[i][0], 0, 0.0);
-        problem.SetParameterLowerBound(&local_lighting[i][0], 1, 0.0);
-        problem.SetParameterLowerBound(&local_lighting[i][0], 2, 0.0);
-      }
-
-      if (use_upper_bound)
-      {
-        problem.SetParameterUpperBound(&local_lighting[i][0], 0, 1.0);
-        problem.SetParameterUpperBound(&local_lighting[i][0], 1, 1.0);
-        problem.SetParameterUpperBound(&local_lighting[i][0], 2, 1.0);
-      }
-    }
-  }
-  //else
-  //{
-  //  for (int i = 0; i < templateMesh.numVertices; ++i)
-  //  {
-  //    if (visibilityMask[i])
-  //    {
-  //      problem.SetParameterBlockConstant(&local_lighting[i][0]);
-  //    }
-  //  }
-  //  problem.SetParameterBlockConstant(&sh_coeff[0]);
-  //}
 }
 
 void DeformNRSFMTracker::AddCostImageProjectionPatch(ceres::Problem& problem,
@@ -3188,6 +3154,9 @@ void DeformNRSFMTracker::AddSpecularMagnitudeCost(ceres::Problem& problem,
 
     vector<vector<double>> &local_lightings = templateMesh.specular_colors;
 
+	bool use_lower_bound = true;
+	bool use_upper_bound = true;
+
     for (size_t i = 0; i < templateMesh.numVertices; i++)
     {
       ResidualValueMagnitude *residual = new ResidualValueMagnitude(3);
@@ -3213,6 +3182,20 @@ void DeformNRSFMTracker::AddSpecularMagnitudeCost(ceres::Problem& problem,
           problemWrapper.addRegTermCost(currLevel, cost_function);
         }
       }
+
+	  if (use_lower_bound)
+	  {
+		  problem.SetParameterLowerBound(&local_lightings[i][0], 0, 0.0);
+		  problem.SetParameterLowerBound(&local_lightings[i][0], 1, 0.0);
+		  problem.SetParameterLowerBound(&local_lightings[i][0], 2, 0.0);
+	  }
+
+	  if (use_upper_bound)
+	  {
+		  problem.SetParameterUpperBound(&local_lightings[i][0], 0, 1.0);
+		  problem.SetParameterUpperBound(&local_lightings[i][0], 1, 1.0);
+		  problem.SetParameterUpperBound(&local_lightings[i][0], 2, 1.0);
+	  }
     }
   }
 }
