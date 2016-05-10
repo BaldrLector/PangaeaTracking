@@ -351,6 +351,7 @@ TrackerSettings::TrackerSettings()
   local_lighting_temporal_huber_width = 1e-1;
 
   estimate_all_together = false;
+  estimate_with_sh_coeff = false;
 
   estimate_diffuse = true;
   estimate_sh_coeff_specular_together = true;
@@ -575,6 +576,8 @@ void TrackerSettings::read(const cv::FileNode& node)
 
   if (!node["estimate_all_together"].empty())
 	  node["estimate_all_together"] >> estimate_all_together;
+  if (!node["estimate_with_sh_coeff"].empty())
+	  node["estimate_with_sh_coeff"] >> estimate_with_sh_coeff;
 
   if (!node["estimate_diffuse"].empty())
 	  node["estimate_diffuse"] >> estimate_diffuse;

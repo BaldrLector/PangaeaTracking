@@ -1579,55 +1579,115 @@ void DeformNRSFMTracker::AddCostImageProjection(ceres::Problem& problem,
 			}
 			else
 			{
-				// Dynamic photometric cost function
-				ceres::DynamicAutoDiffCostFunction<ResidualImageProjectionIntrinsicSHSpec, 5>* dyn_cost_function
-					= new ceres::DynamicAutoDiffCostFunction< ResidualImageProjectionIntrinsicSHSpec, 5 >(
-					new ResidualImageProjectionIntrinsicSHSpec(1,
-					errorType == PE_INTRINSIC ? &templateMesh.grays[i] : &templateMesh.colors[i][0],
-					&templateMesh.vertices[i][0], pCamera, pFrame, templateMesh.vertices,
-					templateMesh.adjVerticesInd[i], templateMesh.adjFacesInd[i].size(),
-					errorType, sh_coeff, local_lighting[i], 
-					trackerSettings.clockwise, sh_order)
-					);
-
-				// List of pointers to translations per vertex
-				vector<double*> v_parameter_blocks;
-
-				// Rigid rotation
-				dyn_cost_function->AddParameterBlock(3);
-				v_parameter_blocks.push_back(&camPose[0]);
-				// Rigid translation
-				dyn_cost_function->AddParameterBlock(3);
-				v_parameter_blocks.push_back(&camPose[3]);
-
-				// Local translations
-				v_parameter_blocks.push_back(&meshTrans[i][0]);
-				dyn_cost_function->AddParameterBlock(3);
-				for (int j = 0; j < templateMesh.adjVerticesInd[i].size(); j++)
+				if (trackerSettings.estimate_with_sh_coeff)
 				{
-					int v_idx = templateMesh.adjVerticesInd[i][j];
-					v_parameter_blocks.push_back(&meshTrans[v_idx][0]);
+					// Dynamic photometric cost function
+					ceres::DynamicAutoDiffCostFunction<ResidualImageProjectionIntrinsicSpec, 5>* dyn_cost_function
+						= new ceres::DynamicAutoDiffCostFunction< ResidualImageProjectionIntrinsicSpec, 5 >(
+						new ResidualImageProjectionIntrinsicSpec(1,
+						errorType == PE_INTRINSIC ? &templateMesh.grays[i] : &templateMesh.colors[i][0],
+						&templateMesh.vertices[i][0], pCamera, pFrame, templateMesh.vertices,
+						templateMesh.adjVerticesInd[i], templateMesh.adjFacesInd[i].size(),
+						errorType, local_lighting[i], trackerSettings.clockwise, sh_order)
+						);
+
+					// List of pointers to translations per vertex
+					vector<double*> v_parameter_blocks;
+
+					// SH Coefficients
+					dyn_cost_function->AddParameterBlock(pow(sh_order + 1, 2));
+					v_parameter_blocks.push_back(&sh_coeff[0]);
+
+					// Rigid rotation
 					dyn_cost_function->AddParameterBlock(3);
-				}
+					v_parameter_blocks.push_back(&camPose[0]);
+					// Rigid translation
+					dyn_cost_function->AddParameterBlock(3);
+					v_parameter_blocks.push_back(&camPose[3]);
 
-				dyn_cost_function->SetNumResiduals(PE_RESIDUAL_NUM_ARRAY[errorType]);
-
-				ceres::ResidualBlockId residualBlockId = problem.AddResidualBlock(
-					dyn_cost_function,
-					loss_function,
-					v_parameter_blocks);
-
-				if (useProblemWrapper)
-				{
-					if (modeGT)
+					// Local translations
+					v_parameter_blocks.push_back(&meshTrans[i][0]);
+					dyn_cost_function->AddParameterBlock(3);
+					for (int j = 0; j < templateMesh.adjVerticesInd[i].size(); j++)
 					{
-						problemWrapperGT.addDataTerm(currLevel, residualBlockId);
-						problemWrapperGT.addDataTermCost(currLevel, dyn_cost_function);
+						int v_idx = templateMesh.adjVerticesInd[i][j];
+						v_parameter_blocks.push_back(&meshTrans[v_idx][0]);
+						dyn_cost_function->AddParameterBlock(3);
 					}
-					else
+
+					dyn_cost_function->SetNumResiduals(PE_RESIDUAL_NUM_ARRAY[errorType]);
+
+					ceres::ResidualBlockId residualBlockId = problem.AddResidualBlock(
+						dyn_cost_function,
+						loss_function,
+						v_parameter_blocks);
+
+					if (useProblemWrapper)
 					{
-						problemWrapper.addDataTerm(currLevel, residualBlockId);
-						problemWrapper.addDataTermCost(currLevel, dyn_cost_function);
+						if (modeGT)
+						{
+							problemWrapperGT.addDataTerm(currLevel, residualBlockId);
+							problemWrapperGT.addDataTermCost(currLevel, dyn_cost_function);
+						}
+						else
+						{
+							problemWrapper.addDataTerm(currLevel, residualBlockId);
+							problemWrapper.addDataTermCost(currLevel, dyn_cost_function);
+						}
+					}
+				}
+				else
+				{
+					// Dynamic photometric cost function
+					ceres::DynamicAutoDiffCostFunction<ResidualImageProjectionIntrinsicSHSpec, 5>* dyn_cost_function
+						= new ceres::DynamicAutoDiffCostFunction< ResidualImageProjectionIntrinsicSHSpec, 5 >(
+						new ResidualImageProjectionIntrinsicSHSpec(1,
+						errorType == PE_INTRINSIC ? &templateMesh.grays[i] : &templateMesh.colors[i][0],
+						&templateMesh.vertices[i][0], pCamera, pFrame, templateMesh.vertices,
+						templateMesh.adjVerticesInd[i], templateMesh.adjFacesInd[i].size(),
+						errorType, sh_coeff, local_lighting[i],
+						trackerSettings.clockwise, sh_order)
+						);
+
+					// List of pointers to translations per vertex
+					vector<double*> v_parameter_blocks;
+
+					// Rigid rotation
+					dyn_cost_function->AddParameterBlock(3);
+					v_parameter_blocks.push_back(&camPose[0]);
+					// Rigid translation
+					dyn_cost_function->AddParameterBlock(3);
+					v_parameter_blocks.push_back(&camPose[3]);
+
+					// Local translations
+					v_parameter_blocks.push_back(&meshTrans[i][0]);
+					dyn_cost_function->AddParameterBlock(3);
+					for (int j = 0; j < templateMesh.adjVerticesInd[i].size(); j++)
+					{
+						int v_idx = templateMesh.adjVerticesInd[i][j];
+						v_parameter_blocks.push_back(&meshTrans[v_idx][0]);
+						dyn_cost_function->AddParameterBlock(3);
+					}
+
+					dyn_cost_function->SetNumResiduals(PE_RESIDUAL_NUM_ARRAY[errorType]);
+
+					ceres::ResidualBlockId residualBlockId = problem.AddResidualBlock(
+						dyn_cost_function,
+						loss_function,
+						v_parameter_blocks);
+
+					if (useProblemWrapper)
+					{
+						if (modeGT)
+						{
+							problemWrapperGT.addDataTerm(currLevel, residualBlockId);
+							problemWrapperGT.addDataTermCost(currLevel, dyn_cost_function);
+						}
+						else
+						{
+							problemWrapper.addDataTerm(currLevel, residualBlockId);
+							problemWrapper.addDataTermCost(currLevel, dyn_cost_function);
+						}
 					}
 				}
 			}    
@@ -4293,8 +4353,8 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB)
   // Intensities
   MeshDeformation intensities;
 
-	if (trackerSettings.estimate_diffuse)
-	{
+  if (trackerSettings.estimate_diffuse)
+  {
     // Estimate brightness
     std::vector<cv::Mat> planes(3);
     cv::split(color_image, planes);
@@ -4371,9 +4431,9 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB)
     cout << "Estimating specularities..." << endl;
     estimateLocalLighting(mesh, visibility, intensities, albedos, shadings, 
       local_lightings);
-	}
-	else
-	{
+  }
+  else
+  {
 		projectValues(meshProj, visibility, color_image, intensities);
 
 		if (trackerSettings.estimate_sh_coeff_specular_together)
@@ -4399,7 +4459,7 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB)
 		  estimateLocalLighting(mesh, visibility, intensities, albedos, shadings, 
 			local_lightings);
 		}
-	}
+  }
 
 	// Propagate albedo and local lighting from finest level to coarser levels
 	cout << "Propagating albedo and local lighting variations to coarser levels..." << endl;

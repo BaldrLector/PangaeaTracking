@@ -1618,6 +1618,93 @@ private:
 };
 
 // Photometric cost for the case of known albedo and illumination (sh representation)
+class ResidualImageProjectionIntrinsicSpec : public ResidualImageProjection
+{
+public:
+	ResidualImageProjectionIntrinsicSpec(double weight, double* pValue, double* pVertex,
+		const CameraInfo* pCamera, const Level* pFrame,
+		const vector< vector<double> > &_vertices,
+		const vector<unsigned int> &_adjVerticesInd, const int &_n_adj_faces,
+		dataTermErrorType PE_TYPE, const vector<double> &_local_lighting, 
+		const bool _clockwise = true,
+		const int _sh_order = 0) :
+		ResidualImageProjection(weight, pValue, pVertex,
+		pCamera, pFrame, PE_TYPE),
+		vertices(_vertices),
+		adjVerticesInd(_adjVerticesInd),
+		n_adj_faces(_n_adj_faces),
+		clockwise(_clockwise),
+		sh_order(_sh_order),
+		local_lighting(_local_lighting)
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const* const parameters, T* residuals) const
+	{
+		// Parameters:
+		// 0 - Rotation
+		// 1 - Translation
+		// 2 - Current vertex position or translation
+		// >2 - Neighbour vertices positions or translations
+
+		const T* sh_coeff = parameters[0];
+		const T* rotation = parameters[1];
+		const T* translation = parameters[2];
+
+		T p[3];
+		getRotTransP(rotation, translation, parameters[3], pVertex,
+			optimizeDeformation, p);
+
+		vector<T*> adjP;
+		T* p_neighbour;
+		int num_neighbours = adjVerticesInd.size();
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			int v_idx = adjVerticesInd[i];
+
+			p_neighbour = new T[3];
+			getRotTransP(rotation, translation, parameters[4 + i], &vertices[v_idx][0],
+				optimizeDeformation, p_neighbour);
+			adjP.push_back(p_neighbour);
+		}
+
+		T normal[3];
+		computeNormal(p, adjP, n_adj_faces, clockwise, normal);
+
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			delete[] adjP[i];
+		}
+
+		T shading = computeShading(normal, sh_coeff, sh_order);
+
+		getResidualIntrinsic(weight, pCamera, pFrame, pValue, &shading, p, residuals,
+			PE_TYPE, local_lighting);
+
+		return true;
+
+	}
+
+private:
+	// List of vertices
+	const vector< vector<double> > &vertices;
+	// List of ordered adjacent vertices
+	const vector<unsigned int> &adjVerticesInd;
+	// Number of adjacent faces
+	const int n_adj_faces;
+
+	// Identifies if faces are defined clockwise
+	const bool clockwise;
+	// SH order
+	const int sh_order;
+
+	// Known local lighting
+	const vector<double> &local_lighting;
+};
+
+// Photometric cost for the case of known albedo and illumination (sh representation)
 class ResidualImageProjectionIntrinsicSHSpec : public ResidualImageProjection
 {
 public:

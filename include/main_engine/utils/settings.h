@@ -167,6 +167,7 @@ public:
 	double local_lighting_temporal_huber_width;
 
 	bool estimate_all_together;
+	bool estimate_with_sh_coeff;
 
   bool estimate_diffuse;
 	bool estimate_sh_coeff_specular_together;
