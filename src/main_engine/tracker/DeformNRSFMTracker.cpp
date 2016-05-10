@@ -4445,10 +4445,13 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB)
 		}
 		else
 		{
-		  // Estimate spherical harmonic coefficients
-		  cout << "Estimating spherical harmonic coefficients..." << endl;
-		  estimateSHCoeff(mesh, visibility, intensities, albedos, local_lightings, 
-			sh_order, sh_coeff);
+			if (!trackerSettings.estimate_with_sh_coeff)
+			{
+				// Estimate spherical harmonic coefficients
+				cout << "Estimating spherical harmonic coefficients..." << endl;
+				estimateSHCoeff(mesh, visibility, intensities, albedos, local_lightings,
+					sh_order, sh_coeff);
+			}
 
 		  // Update shading values
 		  vector<double> shadings;
