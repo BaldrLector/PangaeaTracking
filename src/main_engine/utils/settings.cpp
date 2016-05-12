@@ -304,6 +304,7 @@ TrackerSettings::TrackerSettings()
   depth2MeshScale = 1.0;
 
   weightPhotometric = 500;
+  weightPhotometricIntensity = 500;
   weightTV = 0.5;
   weightRotTV = 0;
   weightDeform = 0;
@@ -313,6 +314,7 @@ TrackerSettings::TrackerSettings()
   weightTransPrior = 0;
   weightSmoothing = 0;
   photometricHuberWidth = 0.1;
+  photometricIntensityHuberWidth = 0.1;
   tvHuberWidth = 0.2;
   tvRotHuberWidth = 0.2;
   meshScaleUpFactor = 1.0;
@@ -392,6 +394,9 @@ TrackerSettings::TrackerSettings()
   // meshPyramid
   meshLevelFormat = "";
   meshPyramidUseRadius = false;
+
+  use_intensity_pyramid = false;
+  meshIntensityLevelFormat = "";
 
   //
   useDepthPyramid = false;
@@ -476,6 +481,9 @@ void TrackerSettings::read(const cv::FileNode& node)
   if(!node["photometric_weight"].empty())
     node["photometric_weight"] >> weightPhotometric;
 
+  if (!node["photometric_intensity_weight"].empty())
+	  node["photometric_intensity_weight"] >> weightPhotometricIntensity;
+
   if(!node["tv_weight"].empty())
     node["tv_weight"] >> weightTV;
 
@@ -502,6 +510,9 @@ void TrackerSettings::read(const cv::FileNode& node)
 
   if(!node["photometric_huber_width"].empty())
     node["photometric_huber_width"] >> photometricHuberWidth;
+
+  if (!node["photometric_intensity_huber_width"].empty())
+	  node["photometric_intensity_huber_width"] >> photometricIntensityHuberWidth;
 
   if(!node["tv_huber_width"].empty())
     node["tv_huber_width"] >> tvHuberWidth;
@@ -697,6 +708,11 @@ void TrackerSettings::read(const cv::FileNode& node)
     node["mesh_pyramid_neighbor_radius"] >> meshNeighborRadius;
   if(!node["mesh_pyramid_use_radius"].empty())
     node["mesh_pyramid_use_radius"] >> meshPyramidUseRadius;
+
+  if (!node["use_intensity_pyramid"].empty())
+	  node["use_intensity_pyramid"] >> use_intensity_pyramid;
+  if (!node["mesh_intensity_pyramid_file"].empty())
+	  node["mesh_intensity_pyramid_file"] >> meshIntensityLevelFormat;
 
   if(!node["use_depth_pyramid"].empty())
     node["use_depth_pyramid"] >> useDepthPyramid;

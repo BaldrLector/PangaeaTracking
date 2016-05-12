@@ -26,7 +26,8 @@ struct OptimizationLevel
 struct WeightPara
 {
     // weighting parameters of each energy term
-    double dataTermWeight; // photometric term
+	double dataTermWeight; // photometric term
+	double dataIntensityTermWeight; // photometric term
     double tvTermWeight;
     double tvRotTermWeight;
 
@@ -42,7 +43,8 @@ struct WeightPara
     double transWeight;
 
     // Huber width
-    double dataHuberWidth;
+	double dataHuberWidth;
+	double dataIntensityHuberWidth;
     double tvHuberWidth;
 	double tvRotHuberWidth;
 	double smoothingHuberWidth;

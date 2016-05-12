@@ -23,7 +23,8 @@ public:
     virtual ~MainEngine();
 
     void LoadInitialMeshUVD();
-    void LoadInitialMeshFromFile();
+	void LoadInitialMeshFromFile(PangaeaMeshPyramid &templateMeshPyramid,
+		const string &meshLevelFormat);
     void SetIntrinsicMatrix(double K[3][3]);
     void SetupInputAndTracker();
 
@@ -57,6 +58,8 @@ public:
     TrackerOutputInfo* pOutputInfo;
     PangaeaMeshData templateMesh;
     PangaeaMeshPyramid templateMeshPyramid;
+
+	PangaeaMeshPyramid templateMeshIntensityPyramid;
 
     int m_nNumMeshLevels;
 

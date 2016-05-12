@@ -112,6 +112,7 @@ public:
   double depth2MeshScale;
 
   double weightPhotometric;
+  double weightPhotometricIntensity;
   double weightTV;
   double weightRotTV;
 
@@ -122,6 +123,7 @@ public:
   double weightTransPrior;
   double weightSmoothing;
   double photometricHuberWidth;
+  double photometricIntensityHuberWidth;
   double tvHuberWidth;
   double tvRotHuberWidth;
   double arapHuberWidth;
@@ -227,6 +229,9 @@ public:
   IntegerContainerType meshNeighborNum;
   CoordinateContainerType meshNeighborRadius;
   bool meshPyramidUseRadius;
+
+  bool use_intensity_pyramid;
+  std::string meshIntensityLevelFormat;
 
   // create a mesh pyramid from depth image
   bool useDepthPyramid;

@@ -192,6 +192,8 @@ public:
 
   dataTermErrorType getPEType();
 
+  void setMeshIntensityPyramid(PangaeaMeshPyramid &_templateIntensityPyramid);
+
 private:
 
   // Siggraph14 or DynamicFusion
@@ -247,6 +249,8 @@ private:
   vector< MeshDeformation > meshRotPyramid;
   vector< MeshDeformation > prevMeshTransPyramid;
   vector< MeshDeformation > prevMeshRotPyramid;
+
+  PangaeaMeshPyramid templateIntensityPyramid;
 
   vector< MeshDeformation > templateAlbedoPyramid;
 

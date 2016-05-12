@@ -85,7 +85,8 @@ void OptimizationStrategy::setWeightParametersVec()
 
     for(int currLevel = 0; currLevel < numOptimizationLevels; ++currLevel)
     {
-        weightParaLevel.dataTermWeight = weightPara.dataTermWeight * weightScale.dataTermScale[currLevel];
+		weightParaLevel.dataTermWeight = weightPara.dataTermWeight * weightScale.dataTermScale[currLevel];
+		weightIntensityParaLevel.dataTermWeight = weightPara.dataIntensityTermWeight * weightScale.dataTermScale[currLevel];
         weightParaLevel.tvTermWeight =
             weightPara.tvTermWeight * weightScale.tvTermScale[currLevel];
         weightParaLevel.tvRotTermWeight = weightPara.tvRotTermWeight *
@@ -100,7 +101,8 @@ void OptimizationStrategy::setWeightParametersVec()
 			weightScale.smoothingTermScale[currLevel];
 
         // always the same dataHuberWidth and tvHuberWidth
-        weightParaLevel.dataHuberWidth = weightPara.dataHuberWidth;
+		weightParaLevel.dataHuberWidth = weightPara.dataHuberWidth;
+		weightParaLevel.dataIntensityHuberWidth = weightPara.dataIntensityHuberWidth;
         weightParaLevel.tvHuberWidth = weightPara.tvHuberWidth;
 		weightParaLevel.tvRotHuberWidth = weightPara.tvRotHuberWidth;
 		weightParaLevel.smoothingHuberWidth = weightPara.smoothingHuberWidth;

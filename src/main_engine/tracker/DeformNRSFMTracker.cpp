@@ -257,6 +257,7 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
   // setting parameters
   WeightPara weightPara;
   weightPara.dataTermWeight     = trackerSettings.weightPhotometric;
+  weightPara.dataIntensityTermWeight     = trackerSettings.weightPhotometricIntensity;
   weightPara.tvTermWeight       = trackerSettings.weightTV;
   weightPara.tvRotTermWeight    = trackerSettings.weightRotTV;
   weightPara.deformWeight       = trackerSettings.weightDeform;
@@ -268,6 +269,7 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
 
   //    weightPara.dataHuberWidth = trackerSettings.dataHuberWidth;
   weightPara.dataHuberWidth  = trackerSettings.photometricHuberWidth;
+  weightPara.dataIntensityHuberWidth  = trackerSettings.photometricIntensityHuberWidth;
   weightPara.tvHuberWidth    = trackerSettings.tvHuberWidth;
   weightPara.tvRotHuberWidth = trackerSettings.tvRotHuberWidth;
 
@@ -2198,6 +2200,21 @@ void DeformNRSFMTracker::AddPhotometricCostNew(ceres::Problem& problem,
 					pCamera,
 					pFrame,
 					local_lighting);
+
+				if (trackerSettings.use_intensity_pyramid)
+				{
+					PangaeaMeshData& templateMeshIntensity = 
+						templateIntensityPyramid.levels[data_pair.first];
+
+					AddCostImageProjection(problem,
+						loss_function,
+						PE_INTENSITY,
+						templateMeshIntensity,
+						meshTrans,
+						visibilityMask,
+						pCamera,
+						pFrame);
+				}
 			}
 			break;
             case PE_NCC:
@@ -4327,6 +4344,11 @@ void DeformNRSFMTracker::AttachFeatureToMesh(PangaeaMeshData* pMesh,
 dataTermErrorType DeformNRSFMTracker::getPEType()
 {
 	return PEType;
+}
+
+void DeformNRSFMTracker::setMeshIntensityPyramid(PangaeaMeshPyramid &_templateIntensityPyramid)
+{
+	templateIntensityPyramid = std::move(_templateIntensityPyramid);
 }
 
 void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB)
