@@ -2178,6 +2178,12 @@ void DeformNRSFMTracker::AddPhotometricCostNew(ceres::Problem& problem,
             case PE_INTENSITY:
             case PE_COLOR:
             case PE_FEATURE:
+
+				if (trackerSettings.use_intensity_pyramid)
+				{
+					templateMesh =
+						templateIntensityPyramid.levels[data_pair.first];
+				}
               AddCostImageProjection(problem,
                                      loss_function,
                                      errorType,
@@ -2200,21 +2206,6 @@ void DeformNRSFMTracker::AddPhotometricCostNew(ceres::Problem& problem,
 					pCamera,
 					pFrame,
 					local_lighting);
-
-				if (trackerSettings.use_intensity_pyramid)
-				{
-					PangaeaMeshData& templateMeshIntensity = 
-						templateIntensityPyramid.levels[data_pair.first];
-
-					AddCostImageProjection(problem,
-						loss_function,
-						PE_INTENSITY,
-						templateMeshIntensity,
-						meshTrans,
-						visibilityMask,
-						pCamera,
-						pFrame);
-				}
 			}
 			break;
             case PE_NCC:
@@ -3378,6 +3369,31 @@ void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem)
           else
             problemWrapper.addDataTermLoss(currLevel, photometricScaledLoss);
         }
+
+	  if ((PEType == PE_INTRINSIC || PEType == PE_INTRINSIC_COLOR) 
+		  && trackerSettings.use_intensity_pyramid)
+	  {
+		  ceres::LossFunction* pPhotometricLossFunction = NULL;
+		  if (weightParaLevel.dataIntensityHuberWidth)
+		  {
+			  pPhotometricLossFunction = new ceres::HuberLoss(
+				  weightParaLevel.dataIntensityHuberWidth);
+		  }
+		  ceres::ScaledLoss* photometricScaledLoss = new ceres::ScaledLoss(
+			  pPhotometricLossFunction,
+			  weightParaLevel.dataIntensityTermWeight,
+			  ceres::TAKE_OWNERSHIP);
+
+		  AddPhotometricCostNew(problem, photometricScaledLoss, PE_INTENSITY);
+
+		  if (useProblemWrapper)
+		  {
+			  if (modeGT)
+				  problemWrapperGT.addDataTermLoss(currLevel, photometricScaledLoss);
+			  else
+				  problemWrapper.addDataTermLoss(currLevel, photometricScaledLoss);
+		  }
+	  }
 
       TOCK( "SetupDataTermCost" + std::to_string(ii) );
     }
