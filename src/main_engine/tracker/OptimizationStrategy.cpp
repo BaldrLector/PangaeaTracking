@@ -86,7 +86,7 @@ void OptimizationStrategy::setWeightParametersVec()
     for(int currLevel = 0; currLevel < numOptimizationLevels; ++currLevel)
     {
 		weightParaLevel.dataTermWeight = weightPara.dataTermWeight * weightScale.dataTermScale[currLevel];
-		weightIntensityParaLevel.dataTermWeight = weightPara.dataIntensityTermWeight * weightScale.dataTermScale[currLevel];
+		weightParaLevel.dataIntensityTermWeight = weightPara.dataIntensityTermWeight * weightScale.dataTermScale[currLevel];
         weightParaLevel.tvTermWeight =
             weightPara.tvTermWeight * weightScale.tvTermScale[currLevel];
         weightParaLevel.tvRotTermWeight = weightPara.tvRotTermWeight *
