@@ -289,6 +289,7 @@ TrackerSettings::TrackerSettings()
 
   // default value for tracking
   errorType = "gray";
+  errorIntensityType = "gray";
   baType = "motstr";
 
   isRigid = false;
@@ -441,6 +442,9 @@ void TrackerSettings::read(const cv::FileNode& node)
 
   if(!node["error_type"].empty())
     node["error_type"] >> errorType;
+
+  if (!node["error_intensity_type"].empty())
+	  node["error_intensity_type"] >> errorIntensityType;
 
   if(!node["ba_type"].empty())
     node["ba_type"] >> baType;

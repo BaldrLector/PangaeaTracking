@@ -2178,20 +2178,33 @@ void DeformNRSFMTracker::AddPhotometricCostNew(ceres::Problem& problem,
             case PE_INTENSITY:
             case PE_COLOR:
             case PE_FEATURE:
-
+			{
 				if (trackerSettings.use_intensity_pyramid)
 				{
-					templateMesh =
+					PangaeaMeshData& templateMeshIntensity =
 						templateIntensityPyramid.levels[data_pair.first];
+
+					AddCostImageProjection(problem,
+						loss_function,
+						errorType,
+						templateMeshIntensity,
+						meshTrans,
+						visibilityMask,
+						pCamera,
+						pFrame);
 				}
-              AddCostImageProjection(problem,
-                                     loss_function,
-                                     errorType,
-                                     templateMesh,
-                                     meshTrans,
-                                     visibilityMask,
-                                     pCamera,
-                                     pFrame);
+				else
+				{
+					AddCostImageProjection(problem,
+						loss_function,
+						errorType,
+						templateMesh,
+						meshTrans,
+						visibilityMask,
+						pCamera,
+						pFrame);
+				}
+			}
               break;
 			case PE_INTRINSIC:
 			case PE_INTRINSIC_COLOR:
@@ -3384,7 +3397,9 @@ void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem)
 			  weightParaLevel.dataIntensityTermWeight,
 			  ceres::TAKE_OWNERSHIP);
 
-		  AddPhotometricCostNew(problem, photometricScaledLoss, PE_INTENSITY);
+		  dataTermErrorType PEIntensityType = mapErrorType(trackerSettings.errorIntensityType);
+
+		  AddPhotometricCostNew(problem, photometricScaledLoss, PEIntensityType);
 
 		  if (useProblemWrapper)
 		  {

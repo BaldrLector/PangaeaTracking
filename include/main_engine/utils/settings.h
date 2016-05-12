@@ -95,6 +95,7 @@ public:
 
   // DeformNRSFM para
   std::string errorType;
+  std::string errorIntensityType;
   std::string baType;
   std::string meshFile;
   std::string optimizationType;
