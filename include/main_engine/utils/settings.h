@@ -175,6 +175,8 @@ public:
   bool estimate_diffuse;
 	bool estimate_sh_coeff_specular_together;
 
+	bool estimate_specularities;
+
   // ceres parameter
   std::string linearSolver;
   int numOptimizationLevels;

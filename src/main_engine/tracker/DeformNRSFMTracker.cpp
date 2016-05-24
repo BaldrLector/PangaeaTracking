@@ -4512,10 +4512,22 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB)
 		  vector<double> shadings;
 		  updateShading(mesh, sh_coeff, sh_order, shadings);
 
-		  // Estimate local lighting variations
-		  cout << "Estimating specularities..." << endl;
-		  estimateLocalLighting(mesh, visibility, intensities, albedos, shadings, 
-			local_lightings);
+		  if (trackerSettings.estimate_specularities)
+		  {
+			  // Estimate local lighting variations
+			  cout << "Estimating specularities..." << endl;
+			  estimateLocalLighting(mesh, visibility, intensities, albedos, shadings,
+				  local_lightings);
+		  }
+		  else
+		  {
+			  for (size_t i = 0; i < mesh.numVertices; i++)
+			  {
+				  local_lightings[i][0] = 0;
+				  local_lightings[i][1] = 0;
+				  local_lightings[i][2] = 0;
+			  }
+		  }
 		}
   }
 
