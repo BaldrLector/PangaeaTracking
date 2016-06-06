@@ -40,7 +40,9 @@ EIGEN_INCLUDE := -I/usr/include/eigen3/unsupported -I/usr/include/eigen3
 
 WX_INCLUDE := `wx-config --cxxflags`
 
-FLAGS_INCLUDE := $(EIGEN_INCLUDE) $(WX_INCLUDE) -I./include -I./include/third_party
+HDF5_INCLUDE := -I/usr/include/hdf5/serial
+
+FLAGS_INCLUDE := $(EIGEN_INCLUDE) $(WX_INCLUDE) $(HDF5_INCLUDE) -I./include -I./include/third_party
 
 # Library dependencies
 GL_LIB := -lGL -lGLU -lX11 -lGLEW
@@ -49,7 +51,7 @@ WX_LIB := `wx-config --libs --gl-libs`
 
 BOOST_LIB := -lboost_filesystem -lboost_system -lboost_thread
 
-OPENCV_LIB := -lopencv_core -lopencv_highgui -lopencv_imgproc
+OPENCV_LIB := -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_imgcodecs
 
 CERES_LIB := -lceres -lglog -ltbb -ltbbmalloc -lcholmod -lccolamd \
 	-lcamd -lcolamd -lamd -lsuitesparseconfig -llapack -lf77blas -latlas
