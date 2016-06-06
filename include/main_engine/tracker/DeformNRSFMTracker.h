@@ -10,6 +10,8 @@
 
 #include "ceres/ceres.h"
 
+#include <cuda_runtime.h>
+
 // baType mapBA(std::string const& inString);
 
 // dataTermErrorType mapErrorType(std::string const& inString);

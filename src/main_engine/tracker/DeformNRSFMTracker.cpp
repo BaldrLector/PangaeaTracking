@@ -586,6 +586,13 @@ bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
       TICK( "trackingTimeLevel" + std::to_string(ii) );
 
       currLevel = i;
+
+      if (trackerSettings.use_gpu)
+      {
+        /* code */
+      }
+      else
+      {
       // start tracking
       // create the optimization problem we are trying to solve
       // should make problem a member of DeformNRSFMTracker to
@@ -750,6 +757,7 @@ bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
             meanError += error;
         }
     }
+  }
 
   TICK("updateProp");
   // update the results

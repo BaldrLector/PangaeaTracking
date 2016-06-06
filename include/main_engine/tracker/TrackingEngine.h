@@ -1,7 +1,7 @@
 #ifndef _TRACKING_ENGINE_H
 #define _TRACKING_ENGINE_H
 
-#include "./Mesh.h"
+#include "./GPUMeshDeformation.h"
 #include "main_engine/utils/settings.h"
 
 class TrackingEngine
