@@ -1,87 +1,143 @@
 #include "main_engine/tracker/GPUMeshDeformation.h"
 
+GPUMeshDeformation::GPUMeshDeformation()
+{
+
+}
+
 GPUMeshDeformation::GPUMeshDeformation(PangaeaMeshData* _templateMesh, 
 	double* _camPose, MeshDeformation* _meshTrans, MeshDeformation* _meshRot, 
-	double* _prevCamPose, MeshDeformation* _prevMeshTrans) : 
+	double* _prevCamPose, MeshDeformation* _prevMeshTrans,
+	std::string _rigidEnergyFilePath, std::string _nonRigidEnergyFilePath) : 
 	templateMesh(_templateMesh), camPose(_camPose), meshTrans(_meshTrans), 
 	meshRot(_meshRot), prevCamPose(_prevCamPose), prevMeshTrans(_prevMeshTrans)
 {
-	unsigned int N = (unsigned int)templateMesh->n_vertices();
-	unsigned int E = (unsigned int)templateMesh->n_edges();
+	unsigned int N = (unsigned int)templateMesh->numVertices;
+	unsigned int E = (unsigned int)(templateMesh->numVertices + templateMesh->numFaces);
 
-	cutilSafeCall(cudaMalloc(&d_vertexPosTargetFloat3, sizeof(float3)*N));
+	cutilSafeCall(cudaMalloc(&d_templateVertexPos, sizeof(double3)*N));
+	cutilSafeCall(cudaMalloc(&d_meshTrans, sizeof(double3)*N));
+	cutilSafeCall(cudaMalloc(&d_meshRot, sizeof(double3)*N));
+	cutilSafeCall(cudaMalloc(&d_camRot, sizeof(double3)));
+	cutilSafeCall(cudaMalloc(&d_camTrans, sizeof(double3)));
 
-	cutilSafeCall(cudaMalloc(&d_vertexPosFloat3, sizeof(float3)*N));
-	cutilSafeCall(cudaMalloc(&d_vertexPosFloat3Urshape, sizeof(float3)*N));
-	cutilSafeCall(cudaMalloc(&d_anglesFloat3, sizeof(float3)*N));
+	cutilSafeCall(cudaMalloc(&d_prevMeshTrans, sizeof(double3)*N));
+	cutilSafeCall(cudaMalloc(&d_prevCamTrans, sizeof(double3)));
+
 	cutilSafeCall(cudaMalloc(&d_numNeighbours, sizeof(int)*N));
 	cutilSafeCall(cudaMalloc(&d_neighbourIdx, sizeof(int)*2*E));
 	cutilSafeCall(cudaMalloc(&d_neighbourOffset, sizeof(int)*(N+1)));
 
 	resetGPUMemory();			
-   	m_optWarpingSolver = new TerraWarpingSolver(N, 2 * E, d_neighbourIdx, 
-   		d_neighbourOffset, "MeshDeformationAD.t", "gaussNewtonGPU");
+   	m_optTrackingSolver_Rigid = new TerraTrackingSolver(N, 2 * E, d_neighbourIdx, 
+   		d_neighbourOffset, _rigidEnergyFilePath, "gaussNewtonGPU");
 
+	m_optTrackingSolver_NonRigid = new TerraTrackingSolver(N, 2 * E, d_neighbourIdx, 
+   		d_neighbourOffset, _nonRigidEnergyFilePath, "gaussNewtonGPU");
 } 
 
-void GPUMeshDeformation::setConstraints(float alpha)
+void GPUMeshDeformation::init(PangaeaMeshData* _templateMesh, 
+	double* _camPose, MeshDeformation* _meshTrans, MeshDeformation* _meshRot, 
+	double* _prevCamPose, MeshDeformation* _prevMeshTrans,
+	std::string _rigidEnergyFilePath, std::string _nonRigidEnergyFilePath)
 {
-	unsigned int N = (unsigned int)m_result.n_vertices();
-	float3* h_vertexPosTargetFloat3 = new float3[N];
-	for (unsigned int i = 0; i < N; i++)
-	{
-		h_vertexPosTargetFloat3[i] = make_float3(
-			-std::numeric_limits<float>::infinity(), 
-			-std::numeric_limits<float>::infinity(), 
-			-std::numeric_limits<float>::infinity());
-	}
+	templateMesh = _templateMesh;
+	camPose = _camPose;
+	meshTrans = _meshTrans;
+	meshRot = _meshRot;
+	prevCamPose = _prevCamPose;
+	prevMeshTrans = _prevMeshTrans;
 
-	for (unsigned int i = 0; i < m_constraintsIdx.size(); i++)
-	{
-		const Vec3f& pt = m_result.point(VertexHandle(m_constraintsIdx[i]));
-		const Vec3f target = Vec3f(m_constraintsTarget[i][0], 
-			m_constraintsTarget[i][1], m_constraintsTarget[i][2]);
+	unsigned int N = (unsigned int)templateMesh->numVertices;
+	unsigned int E = (unsigned int)(templateMesh->numVertices + templateMesh->numFaces);
 
-		Vec3f z = (1 - alpha)*pt + alpha*target;
-		h_vertexPosTargetFloat3[m_constraintsIdx[i]] = make_float3(z[0], z[1], z[2]);
-	}
-	cutilSafeCall(cudaMemcpy(d_vertexPosTargetFloat3, h_vertexPosTargetFloat3, 
-		sizeof(float3)*N, cudaMemcpyHostToDevice));
-	delete [] h_vertexPosTargetFloat3;
+	cutilSafeCall(cudaMalloc(&d_templateVertexPos, sizeof(double3)*N));
+	cutilSafeCall(cudaMalloc(&d_meshTrans, sizeof(double3)*N));
+	cutilSafeCall(cudaMalloc(&d_meshRot, sizeof(double3)*N));
+	cutilSafeCall(cudaMalloc(&d_camRot, sizeof(double3)));
+	cutilSafeCall(cudaMalloc(&d_camTrans, sizeof(double3)));
+
+	cutilSafeCall(cudaMalloc(&d_prevMeshTrans, sizeof(double3)*N));
+	cutilSafeCall(cudaMalloc(&d_prevCamTrans, sizeof(double3)));
+
+	cutilSafeCall(cudaMalloc(&d_numNeighbours, sizeof(int)*N));
+	cutilSafeCall(cudaMalloc(&d_neighbourIdx, sizeof(int)*2*E));
+	cutilSafeCall(cudaMalloc(&d_neighbourOffset, sizeof(int)*(N+1)));
+
+	h_templateVertexPos = new double3[N];
+	h_meshTrans = new double3[N];
+	h_meshRot = new double3[N];
+	h_prevMeshTrans = new double3[N];
+
+	h_numNeighbours   = new int[N];
+	h_neighbourIdx	  = new int[2*E];
+	h_neighbourOffset = new int[N+1];
+
+	resetGPUMemory();			
+
+   	m_optTrackingSolver_Rigid = new TerraTrackingSolver(N, 2 * E, d_neighbourIdx, 
+   		d_neighbourOffset, _rigidEnergyFilePath, "gaussNewtonGPU");
+
+	m_optTrackingSolver_NonRigid = new TerraTrackingSolver(N, 2 * E, d_neighbourIdx, 
+   		d_neighbourOffset, _nonRigidEnergyFilePath, "gaussNewtonGPU");
+} 
+
+void GPUMeshDeformation::setIntrinsicMatrix(const CameraInfo* pCamera)
+{
+	f_x = pCamera->KK[0][0];
+	f_y = pCamera->KK[1][1];
+	u_x = pCamera->KK[0][2];
+	u_y = pCamera->KK[1][2];
+}
+
+void GPUMeshDeformation::setEnergyWeights(double _w_photometric, double _w_tv, 
+	double _w_arap, double _w_tempdeform, double _w_temptrans)
+{
+	w_photometric = _w_photometric;
+	w_tv = _w_tv;
+	w_arap = _w_arap;
+	w_tempdeform = _w_tempdeform;
+	w_temptrans = _w_temptrans;
+}
+
+void GPUMeshDeformation::setNumIterations(unsigned int _num_iter, 
+	unsigned int _nonlinear_num_iter, unsigned int _linear_num_iter)
+{
+	num_iter = _num_iter;
+	nonlinear_num_iter = _nonlinear_num_iter;
+	linear_num_iter = _linear_num_iter;
 }
 
 void GPUMeshDeformation::resetGPUMemory()
 {
-	unsigned int N = (unsigned int)m_initial.n_vertices();
-	unsigned int E = (unsigned int)m_initial.n_edges();
-
-	float3* h_vertexPosFloat3 = new float3[N];
-	int*	h_numNeighbours   = new int[N];
-	int*	h_neighbourIdx	  = new int[2*E];
-	int*	h_neighbourOffset = new int[N+1];
-
-	for (unsigned int i = 0; i < N; i++)
-	{
-		const Vec3f& pt = m_initial.point(VertexHandle(i));
-		h_vertexPosFloat3[i] = make_float3(pt[0], pt[1], pt[2]);
-	}
+	unsigned int N = (unsigned int)templateMesh->numVertices;
+	unsigned int E = (unsigned int)(templateMesh->numVertices + templateMesh->numFaces);
 
 	unsigned int count = 0;
 	unsigned int offset = 0;
 	h_neighbourOffset[0] = 0;
-	for (SimpleMesh::VertexIter v_it = m_initial.vertices_begin(); 
-		v_it != m_initial.vertices_end(); ++v_it)
+
+	vector<vector<unsigned int> >& meshNeighbors = templateMesh->adjVerticesInd[i];
+	for (unsigned int i = 0; i < N; i++)
 	{
-	    VertexHandle c_vh(v_it.handle());
-		unsigned int valance = m_initial.valence(c_vh);
+		const vector<double> v = templateMesh->vertices[i];
+		h_templateVertexPos[i] = make_double3(v[0], v[1], v[2]);
+
+		const vector<double> v_trans = (*meshTrans)[i];
+		h_meshTrans[i] = make_double3(v_trans[0], v_trans[1], v_trans[2]);
+
+		const vector<double> v_rot = (*meshTrans)[i];
+		h_meshRot[i] = make_double3(v_rot[0], v_rot[1], v_rot[2]);
+
+		const vector<double> v_prev_trans = (*prevMeshTrans)[i];
+		h_prevMeshTrans[i] = make_double3(v_prev_trans[0], v_prev_trans[1], v_prev_trans[2]);
+
+		unsigned int valance = (unsigned int)meshNeighbors[i].size();
 		h_numNeighbours[count] = valance;
 
-		for (SimpleMesh::VertexVertexIter vv_it = m_initial.vv_iter(c_vh); 
-			vv_it; vv_it++)
+		for (unsigned int j = 0; j < valance; j++)
 		{
-			VertexHandle v_vh(vv_it.handle());
-
-			h_neighbourIdx[offset] = v_vh.idx();
+			h_neighbourIdx[offset] = meshNeighbors[i][j];
 			offset++;
 		}
 
@@ -89,93 +145,125 @@ void GPUMeshDeformation::resetGPUMemory()
 
 		count++;
 	}
-	
-	// Constraints
-	setConstraints(1.0f);
 
+	h_camRot.x = camPose[0];
+	h_camRot.y = camPose[1];
+	h_camRot.z = camPose[2];
+	h_camTrans.x = camPose[3];
+	h_camTrans.y = camPose[4];
+	h_camTrans.z = camPose[5];
+	h_prevCamTrans.x = prevCamPose[3];
+	h_prevCamTrans.y = prevCamPose[4];
+	h_prevCamTrans.z = prevCamPose[5];
 
-	// Angles
-	float3* h_angles = new float3[N];
-	for (unsigned int i = 0; i < N; i++)
-	{
-		h_angles[i] = make_float3(0.0f, 0.0f, 0.0f);
-	}
-	cutilSafeCall(cudaMemcpy(d_anglesFloat3, h_angles, sizeof(float3)*N, 
-		cudaMemcpyHostToDevice));
-	delete [] h_angles;
 	
-	cutilSafeCall(cudaMemcpy(d_vertexPosFloat3, h_vertexPosFloat3, 
-		sizeof(float3)*N, cudaMemcpyHostToDevice));
-	cutilSafeCall(cudaMemcpy(d_vertexPosFloat3Urshape, h_vertexPosFloat3, 
-		sizeof(float3)*N, cudaMemcpyHostToDevice));
+	cutilSafeCall(cudaMemcpy(d_templateVertexPos, h_templateVertexPos, 
+		sizeof(double3)*N, cudaMemcpyHostToDevice));
+	cutilSafeCall(cudaMemcpy(d_meshTrans, h_meshTrans, 
+		sizeof(double3)*N, cudaMemcpyHostToDevice));	
+	cutilSafeCall(cudaMemcpy(d_meshRot, h_meshRot, 
+		sizeof(double3)*N, cudaMemcpyHostToDevice));
+	cutilSafeCall(cudaMemcpy(d_prevMeshTrans, h_prevMeshTrans, 
+		sizeof(double3)*N, cudaMemcpyHostToDevice));
+
+	cutilSafeCall(cudaMemcpy(&d_camRot, &h_camRot, 
+		sizeof(double3), cudaMemcpyHostToDevice));
+	cutilSafeCall(cudaMemcpy(&d_camTrans, &h_camTrans, 
+		sizeof(double3), cudaMemcpyHostToDevice));
+	cutilSafeCall(cudaMemcpy(&d_prevCamTrans, &h_prevCamTrans, 
+		sizeof(double3), cudaMemcpyHostToDevice));
+
 	cutilSafeCall(cudaMemcpy(d_numNeighbours, h_numNeighbours, 
 		sizeof(int)*N, cudaMemcpyHostToDevice));
 	cutilSafeCall(cudaMemcpy(d_neighbourIdx, h_neighbourIdx, 
 		sizeof(int)* 2 * E, cudaMemcpyHostToDevice));
 	cutilSafeCall(cudaMemcpy(d_neighbourOffset, h_neighbourOffset, 
-		izeof(int)*(N + 1), cudaMemcpyHostToDevice));
+		sizeof(int)*(N + 1), cudaMemcpyHostToDevice));
+}
 
-	delete [] h_vertexPosFloat3;
+GPUMeshDeformation::~GPUMeshDeformation()
+{
+	cutilSafeCall(cudaFree(d_templateVertexPos));
+	cutilSafeCall(cudaFree(d_meshTrans));
+	cutilSafeCall(cudaFree(d_meshRot));
+	cutilSafeCall(cudaFree(d_prevMeshTrans));
+	cutilSafeCall(cudaFree(&d_camRot));
+	cutilSafeCall(cudaFree(&d_camTrans));
+	cutilSafeCall(cudaFree(&d_prevCamTrans));
+
+	cutilSafeCall(cudaFree(d_numNeighbours));
+	cutilSafeCall(cudaFree(d_neighbourIdx));
+	cutilSafeCall(cudaFree(d_neighbourOffset));
+
+	SAFE_DELETE(m_optTrackingSolver_Rigid);
+	SAFE_DELETE(m_optTrackingSolver_NonRigid);
+
+	delete[] h_templateVertexPos;
+	delete[] h_meshTrans;
+	delete[] h_meshRot;
+	delete[] h_prevMeshTrans;
+
 	delete [] h_numNeighbours;
 	delete [] h_neighbourIdx;
 	delete [] h_neighbourOffset;
 }
 
-GPUMeshDeformation::~GPUMeshDeformation()
+void GPUMeshDeformation::solve()
 {
-	cutilSafeCall(cudaFree(d_anglesFloat3));
+	// copyResultsFromDevice();
 
-	cutilSafeCall(cudaFree(d_vertexPosTargetFloat3));
-	cutilSafeCall(cudaFree(d_vertexPosFloat3));
-	cutilSafeCall(cudaFree(d_vertexPosFloat3Urshape));
-	cutilSafeCall(cudaFree(d_numNeighbours));
-	cutilSafeCall(cudaFree(d_neighbourIdx));
-	cutilSafeCall(cudaFree(d_neighbourOffset));
-
-	SAFE_DELETE(m_optWarpingSolver);
-}
-
-SimpleMesh* GPUMeshDeformation::solve()
-{
-	float weightFit = 3.0f;
-	float weightReg = 4.0f; 
-
-	unsigned int numIter = 5;
-	unsigned int nonLinearIter = 10;
-	unsigned int linearIter = 200;
-
-	copyResultToCPUFromFloat3();
-
-	m_result = m_initial;
 	resetGPUMemory();
-	for (unsigned int i = 1; i < numIter; i++)
+	for (unsigned int i = 1; i < num_iter; i++)
 	{
 		std::cout << "//////////// ITERATION" << i << "  (OPT) ///////////////" << std::endl;
-		setConstraints((float)i / (float)(numIter - 1));
-		m_optWarpingSolver->solveGN(d_vertexPosFloat3, d_anglesFloat3, 
-			d_vertexPosFloat3Urshape, d_vertexPosTargetFloat3, nonLinearIter, 
-			linearIter, weightFit, weightReg);
+		m_optTrackingSolver_Rigid->solveGN(d_vertexPosFloat3, d_anglesFloat3, 
+			d_vertexPosFloat3Urshape, d_vertexPosTargetFloat3, nonlinear_num_iter, 
+			linear_num_iter, weightFit, weightReg);
+	}
+
+	for (unsigned int i = 1; i < num_iter; i++)
+	{
+		std::cout << "//////////// ITERATION" << i << "  (OPT) ///////////////" << std::endl;
+		m_optTrackingSolver_NonRigid->solveGN(d_vertexPosFloat3, d_anglesFloat3, 
+			d_vertexPosFloat3Urshape, d_vertexPosTargetFloat3, nonlinear_num_iter, 
+			linear_num_iter, weightFit, weightReg);
 
 	}
-	copyResultToCPUFromFloat3();
-				
-	return &m_result;
+
+	copyResultsFromDevice();
 }
 
-void GPUMeshDeformation::copyResultToCPUFromFloat3()
+void GPUMeshDeformation::copyResultsFromDevice()
 {
-	unsigned int N = (unsigned int)m_result.n_vertices();
-	float3* h_vertexPosFloat3 = new float3[N];
+	unsigned int N = (unsigned int)templateMesh->numVertices;
+
 	cutilSafeCall(cudaMemcpy(h_vertexPosFloat3, d_vertexPosFloat3, 
-		sizeof(float3)*N, cudaMemcpyDeviceToHost));
+		sizeof(double3)*N, cudaMemcpyDeviceToHost));
+
+	cutilSafeCall(cudaMemcpy(h_meshTrans, d_meshTrans, 
+		sizeof(double3)*N, cudaMemcpyDeviceToHost));
+	cutilSafeCall(cudaMemcpy(h_meshRot, d_meshRot, 
+		sizeof(double3)*N, cudaMemcpyDeviceToHost));
+	cutilSafeCall(cudaMemcpy(&h_camRot, &d_camRot, 
+		sizeof(double3), cudaMemcpyDeviceToHost));
+	cutilSafeCall(cudaMemcpy(&h_camTrans, &d_camTrans,
+		sizeof(double3), cudaMemcpyDeviceToHost));
 
 	for (unsigned int i = 0; i < N; i++)
 	{
-		m_result.set_point(VertexHandle(i), 
-			Vec3f(h_vertexPosFloat3[i].x, 
-				h_vertexPosFloat3[i].y, 
-				h_vertexPosFloat3[i].z));
-	}
+		(*meshTrans)[i][0] = h_meshTrans[i].x;
+		(*meshTrans)[i][1] = h_meshTrans[i].y;
+		(*meshTrans)[i][2] = h_meshTrans[i].z;
 
-	delete [] h_vertexPosFloat3;
+		(*meshRot)[i][0] = h_meshRot[i].x;
+		(*meshRot)[i][1] = h_meshRot[i].y;
+		(*meshRot)[i][2] = h_meshRot[i].z;
+		
+		camPose[0] = h_camRot.x;
+		camPose[1] = h_camRot.y;
+		camPose[2] = h_camRot.z;
+		camPose[3] = h_camTrans.x;
+		camPose[4] = h_camTrans.y;
+		camPose[5] = h_camTrans.z;
+	}
 }

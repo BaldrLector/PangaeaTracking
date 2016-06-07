@@ -70,25 +70,72 @@ TerraTrackingSolver::~TerraTrackingSolver()
 
 }
 
-void TerraTrackingSolver::solveGN(
-	float3* d_vertexPosFloat3,
-	float3* d_anglesFloat3,
-	float3* d_vertexPosFloat3Urshape,
-	float3* d_vertexPosTargetFloat3,
+void TerraTrackingSolver_Rigid::solveGN(
+	double* d_image,
+	double3* d_templateVertexPos,
+	double3* d_templateVertexColor,
+	double3* d_meshTrans,
+	double3* d_camRot,
+	double3* d_camTrans,
+	double3* d_prevCamTrans,
+	int* d_visibility,
+	double f_x, double f_y, double u_x, double u_y,
 	unsigned int nNonLinearIterations,
 	unsigned int nLinearIterations,
-	float weightFit,
-	float weightReg)
+	double w_photometric,
+	double w_temptrans)
+{
+	unsigned int nBlockIterations = 1;	//invalid just as a dummy;
+
+	void* solverParams[] = { 
+		&nNonLinearIterations, &nLinearIterations, &nBlockIterations 
+	};
+
+	double w_photometricSqrt = sqrt(w_photometric);
+	double w_temptransSqrt = sqrt(w_temptrans);
+		
+	void* problemParams[] = { &f_x, &f_y, &u_x, &u_y, 
+		&weightFitSqrt, &weightRegSqrt,
+		d_camRot, d_camTrans, d_meshTrans, d_image,
+		d_templateVertexColor, d_templateVertexPos,
+		d_prevCamTrans, d_visibility,
+		&edgeCount, d_headX, d_headY, d_tailX, d_tailY };
+
+	Opt_ProblemSolve(m_optimizerState, m_plan, problemParams, solverParams);
+}
+
+void TerraTrackingSolver_NonRigid::solveGN(
+	double* d_image,
+	double3* d_templateVertexPos,
+	double3* d_templateVertexColor,
+	double3* d_meshTrans,
+	double3* d_meshRot,
+	double3* d_camRot,
+	double3* d_camTrans,
+	double3* d_prevMeshTrans,
+	int* d_visibility,
+	double f_x, double f_y, double u_x, double u_y,
+	unsigned int nNonLinearIterations,
+	unsigned int nLinearIterations,
+	double w_photometric,
+	double w_tv, double w_arap, double w_tempdeform)
 {
 	unsigned int nBlockIterations = 1;	//invalid just as a dummy;
 
 	void* solverParams[] = { &nNonLinearIterations, &nLinearIterations, &nBlockIterations };
 
-	float weightFitSqrt = sqrt(weightFit);
-	float weightRegSqrt = sqrt(weightReg);
-	
-	int * d_zeros = d_headY;		
-	void* problemParams[] = { &weightFitSqrt, &weightRegSqrt, d_vertexPosFloat3, d_anglesFloat3, d_vertexPosFloat3Urshape, d_vertexPosTargetFloat3, &edgeCount,  d_headX, d_headY, d_tailX, d_tailY };
+	double w_photometricSqrt = sqrt(w_photometric);
+	double w_tvSqrt = sqrt(w_tv);
+	double w_arapSqrt = sqrt(w_arap);
+	double w_tempdeformSqrt = sqrt(w_tempdeform);
 
+	void* problemParams[] = { &f_x, &f_y, &u_x, &u_y, 
+		&weightFitSqrt, &w_tvSqrt, &w_arapSqrt, &w_tempdeformSqrt,
+		d_meshTrans, d_meshRot, 
+		d_camRot, d_camTrans, d_image,
+		d_templateVertexColor, d_templateVertexPos,
+		d_prevMeshTrans, d_visibility,
+		&edgeCount, d_headX, d_headY, d_tailX, d_tailY };
+	
 	Opt_ProblemSolve(m_optimizerState, m_plan, problemParams, solverParams);
 }

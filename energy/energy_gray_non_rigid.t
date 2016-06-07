@@ -22,8 +22,8 @@ local Im = 				Array("Im", float, {W,H}, 12) 				--Image Intensity
 local TemplateColors = 	Image("TemplateColors", float, {N},13)	--template shape: vertex.xyz
 local TemplateShape = 	Image("TemplateShape", opt.float3, {N},14)	--template shape: vertex.xyz
 local PrevOffset =		Image("PrevOffset", opt.float3,{N},15)		--previous vertices offset: vertex.xyz
-local G = Graph("G", 16, "v0", {N}, 17, "v1", {N}, 18)				--Graph
-local Visibility = 		Image("Visibility", float, {N}, 19)			--Visibility
+local Visibility = 		Image("Visibility", float, {N}, 16)			--Visibility
+local G = Graph("G", 17, "v0", {N}, 18, "v1", {N}, 19)				--Graph
 
 UsePreconditioner(true)
 

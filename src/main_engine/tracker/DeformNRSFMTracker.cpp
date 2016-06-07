@@ -589,7 +589,7 @@ bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
 
       if (trackerSettings.use_gpu)
       {
-        /* code */
+        GPUEnergyMinimization();
       }
       else
       {
@@ -687,6 +687,7 @@ bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
 
           TOCK( "trackingTimeLevel" + std::to_string(ii)  + "::RemoveFeatureTermResidual");
         }
+      }
 
       // at this point we've finished the optimization on level i
       // now we need to update all the results and propagate the optimization
@@ -757,7 +758,6 @@ bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
             meanError += error;
         }
     }
-  }
 
   TICK("updateProp");
   // update the results
@@ -3578,4 +3578,56 @@ void DeformNRSFMTracker::AttachFeatureToMesh(PangaeaMeshData* pMesh,
 
     }
 
+}
+
+void DeformNRSFMTracker::GPUEnergyMinimization()
+{
+  vector<std::pair<int,int> >& data_pairs = 
+    pStrategy->optimizationSettings[currLevel].dataTermPairs;
+
+  int num_data_pairs = data_pairs.size();
+
+  CameraInfo* pCamera;
+  Level* pFrame;
+
+  for(int k = 0; k < num_data_pairs; ++k)
+  {
+      std::pair<int, int>& data_pair = data_pairs[k];
+
+      if(errorType == PE_FEATURE || errorType == PE_FEATURE_NCC){
+        pCamera = &pFeaturePyramid->getCameraInfo(data_pair.first);
+        pFrame = &pFeaturePyramid->getCurrFeatureLevel(data_pair.first);
+      }else{
+        pCamera = &pImagePyramid->getCameraInfo(data_pair.first);
+        pFrame = &pImagePyramid->getImageLevel(data_pair.first);
+      }
+
+      cout << "camera width and height " << pCamera->width << " " << pCamera->height << endl;
+
+      cout << "dataTerm pair" << endl;
+      cout << data_pair.first << "->" << data_pair.second << endl;
+
+      PangaeaMeshData& templateMesh = modeGT ?
+        templateMeshPyramidGT.levels[ data_pair.first ] :
+        templateMeshPyramid.levels[ data_pair.first ];
+      MeshDeformation& meshTrans = modeGT ?
+        meshTransPyramidGT[ data_pair.first ] :
+        meshTransPyramid[ data_pair.first ];
+      MeshDeformation& meshRot = modeGT ?
+        meshRotPyramidGT[ data_pair.first ] :
+        meshRotPyramid[ data_pair.first ];
+      MeshDeformation& prevMeshTrans = modeGT ? 
+        prevMeshTransPyramidGT[ data_pair.first ] :
+        prevMeshTransPyramid[ data_pair.first ];
+
+      vector<bool>& visibilityMask = modeGT ?
+        visibilityMaskPyramidGT[ data_pair.first ]:
+        visibilityMaskPyramid[ data_pair.first ];
+
+      gpu_deform.init(&templateMesh, &camPose[0], &meshTrans, &meshRot, &prevCamPose[0], 
+        &prevMeshTrans, &visibilityMask[0], trackerSettings.rigidEnergyFilePath,
+        trackerSettings.nonRigidEnergyFilePath);
+
+      gpu_deform.solve();
+  }
 }

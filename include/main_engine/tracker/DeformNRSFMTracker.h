@@ -10,6 +10,7 @@
 
 #include "ceres/ceres.h"
 
+#include "./GPUMeshDeformation.h"
 #include <cuda_runtime.h>
 
 // baType mapBA(std::string const& inString);
@@ -266,6 +267,10 @@ private:
   // recording the average error over the whole sequence
   double meanError;
   std::ofstream scoresOutput;
+
+  GPUMeshDeformation gpu_deform;
+
+  void GPUEnergyMinimization();
 
 };
 

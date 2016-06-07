@@ -224,6 +224,13 @@ public:
 
   // save the mesh as ply files
   // bool savePLY;
+
+  bool use_gpu;
+  std::string rigidEnergyFilePath;
+  std::string nonRigidEnergyFilePath;
+  int opt_num_iter;
+  int opt_nonlinear_num_iter;
+  int opt_linear_num_iter;
 };
 
 class FeatureSettings

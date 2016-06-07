@@ -29,16 +29,6 @@ public:
 
 	~TerraTrackingSolver();
 
-	void solveGN(
-		float3* d_vertexPosFloat3,
-		float3* d_anglesFloat3,
-		float3* d_vertexPosFloat3Urshape,
-		float3* d_vertexPosTargetFloat3,
-		unsigned int nNonLinearIterations,
-		unsigned int nLinearIterations,
-		float weightFit,
-		float weightReg);
-
 private:
 
 	int* d_headX;
@@ -55,4 +45,37 @@ private:
 	Opt_Plan*		m_plan;
 
 	unsigned int m_numUnknown;
+};
+
+
+class TerraTrackingSolver_Rigid : public TerraTrackingSolver
+{
+public:
+	void solveGN(
+		double3* d_templateVertexPos,
+		double3* d_templateVertexColor,
+		double3* d_meshTrans,
+		double3* d_camRot,
+		double3* d_camTrans,
+		double3* d_prevCamTrans,
+		int* d_visibility,
+		double f_x, double f_y, double u_x, double u_y,
+		unsigned int nNonLinearIterations,
+		unsigned int nLinearIterations,
+		double w_photometric,
+		double w_temptrans);
+};
+
+class TerraTrackingSolver_NonRigid : public TerraTrackingSolver
+{
+public:
+	void solveGN(
+		float3* d_vertexPosFloat3,
+		float3* d_anglesFloat3,
+		float3* d_vertexPosFloat3Urshape,
+		float3* d_vertexPosTargetFloat3,
+		unsigned int nNonLinearIterations,
+		unsigned int nLinearIterations,
+		float weightFit,
+		float weightReg);
 };

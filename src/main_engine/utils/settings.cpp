@@ -386,6 +386,15 @@ TrackerSettings::TrackerSettings()
   computeError = false;
 
   // savePLY = false;
+
+  use_gpu = false;
+
+  rigidEnergyFilePath = "/home/qi/Work/code/github/PangaeaTracking/energy/energy_gray_rigid.t";
+  nonRigidEnergyFilePath = "/home/qi/Work/code/github/PangaeaTracking/energy/energy_gray_non_rigid.t";
+
+  opt_num_iter = 5;
+  opt_nonlinear_num_iter = 10;
+  opt_linear_num_iter = 200;
 }
 
 void TrackerSettings::read(const cv::FileNode& node)
@@ -647,6 +656,23 @@ void TrackerSettings::read(const cv::FileNode& node)
 
   // if(!node["save_ply"].empty())
   //   node["save_ply"] >> savePLY;
+
+  if(!node["use_gpu"].empty())
+    node["use_gpu"] >> use_gpu;
+
+  if(!node["rigidEnergyFilePath"].empty())
+    node["rigidEnergyFilePath"] >> rigidEnergyFilePath;
+
+  if(!node["nonRigidEnergyFilePath"].empty())
+    node["nonRigidEnergyFilePath"] >> nonRigidEnergyFilePath;
+
+  if(!node["opt_num_iter"].empty())
+    node["opt_num_iter"] >> opt_num_iter;
+  if(!node["opt_nonlinear_num_iter"].empty())
+    node["opt_nonlinear_num_iter"] >> opt_nonlinear_num_iter;
+  if(!node["opt_linear_num_iter"].empty())
+    node["opt_linear_num_iter"] >> opt_linear_num_iter;
+
 }
 
 FeatureSettings::FeatureSettings()
