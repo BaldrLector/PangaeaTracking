@@ -64,7 +64,7 @@ LMDB_LIB := -llmdb
 
 HDF5_LIB := -lhdf5_hl -lhdf5
 
-CUDA_LIB := -L$(CUDAHOME)/lib64  -Wl,-rpath,$(CUDAHOME)/lib$(S4) -lcudart 
+CUDA_LIB := -L$(CUDAHOME)/lib64  -Wl,-rpath,$(CUDAHOME)/lib64 -lcudart 
 
 OPT_LIB := -L./lib -lOpt -lterra -ldl -pthread
 
