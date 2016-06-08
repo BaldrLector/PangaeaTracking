@@ -67,18 +67,27 @@ TerraTrackingSolver::~TerraTrackingSolver()
 	if (m_problem) {
 		Opt_ProblemDelete(m_optimizerState, m_problem);
 	}
+}
+
+TerraTrackingSolver_Rigid::TerraTrackingSolver_Rigid(
+	unsigned int vertexCount, unsigned int E, 
+	const int* d_xCoords, const int* d_offsets, 
+	const std::string& terraFile, const std::string& optName) :
+	TerraTrackingSolver(vertexCount, E, d_xCoords, d_offsets, 
+		terraFile, optName)
+{
 
 }
 
 void TerraTrackingSolver_Rigid::solveGN(
-	double* d_image,
 	double3* d_templateVertexPos,
-	double3* d_templateVertexColor,
+	double* d_templateVertexColor,
+	double* d_image, double* d_gradX_image, double* d_gradY_image,
 	double3* d_meshTrans,
 	double3* d_camRot,
 	double3* d_camTrans,
 	double3* d_prevCamTrans,
-	int* d_visibility,
+	unsigned char* d_visibility,
 	double f_x, double f_y, double u_x, double u_y,
 	unsigned int nNonLinearIterations,
 	unsigned int nLinearIterations,
@@ -95,34 +104,45 @@ void TerraTrackingSolver_Rigid::solveGN(
 	double w_temptransSqrt = sqrt(w_temptrans);
 		
 	void* problemParams[] = { &f_x, &f_y, &u_x, &u_y, 
-		&weightFitSqrt, &weightRegSqrt,
-		d_camRot, d_camTrans, d_meshTrans, d_image,
+		&w_photometricSqrt, &w_temptransSqrt,
+		d_camRot, d_camTrans, d_meshTrans, 
+		d_image, d_gradX_image, d_gradY_image,
 		d_templateVertexColor, d_templateVertexPos,
-		d_prevCamTrans, d_visibility,
-		&edgeCount, d_headX, d_headY, d_tailX, d_tailY };
+		d_prevCamTrans, d_visibility};
 
 	Opt_ProblemSolve(m_optimizerState, m_plan, problemParams, solverParams);
 }
 
+TerraTrackingSolver_NonRigid::TerraTrackingSolver_NonRigid(
+	unsigned int vertexCount, unsigned int E, 
+	const int* d_xCoords, const int* d_offsets, 
+	const std::string& terraFile, const std::string& optName) :
+	TerraTrackingSolver(vertexCount, E, d_xCoords, d_offsets, 
+		terraFile, optName)
+{
+
+}
+
 void TerraTrackingSolver_NonRigid::solveGN(
-	double* d_image,
 	double3* d_templateVertexPos,
-	double3* d_templateVertexColor,
+	double* d_templateVertexColor,
+	double* d_image, double* d_gradX_image, double* d_gradY_image,
 	double3* d_meshTrans,
 	double3* d_meshRot,
 	double3* d_camRot,
 	double3* d_camTrans,
 	double3* d_prevMeshTrans,
-	int* d_visibility,
+	unsigned char* d_visibility,
 	double f_x, double f_y, double u_x, double u_y,
 	unsigned int nNonLinearIterations,
 	unsigned int nLinearIterations,
-	double w_photometric,
-	double w_tv, double w_arap, double w_tempdeform)
+	double w_photometric, double w_tv, double w_arap, double w_tempdeform)
 {
 	unsigned int nBlockIterations = 1;	//invalid just as a dummy;
 
-	void* solverParams[] = { &nNonLinearIterations, &nLinearIterations, &nBlockIterations };
+	void* solverParams[] = { 
+		&nNonLinearIterations, &nLinearIterations, &nBlockIterations 
+	};
 
 	double w_photometricSqrt = sqrt(w_photometric);
 	double w_tvSqrt = sqrt(w_tv);
@@ -130,9 +150,10 @@ void TerraTrackingSolver_NonRigid::solveGN(
 	double w_tempdeformSqrt = sqrt(w_tempdeform);
 
 	void* problemParams[] = { &f_x, &f_y, &u_x, &u_y, 
-		&weightFitSqrt, &w_tvSqrt, &w_arapSqrt, &w_tempdeformSqrt,
+		&w_photometricSqrt, &w_tvSqrt, &w_arapSqrt, &w_tempdeformSqrt,
 		d_meshTrans, d_meshRot, 
-		d_camRot, d_camTrans, d_image,
+		d_camRot, d_camTrans, 
+		d_image, d_gradX_image, d_gradY_image,
 		d_templateVertexColor, d_templateVertexPos,
 		d_prevMeshTrans, d_visibility,
 		&edgeCount, d_headX, d_headY, d_tailX, d_tailY };

@@ -2,7 +2,6 @@
 #define _DEFORMNRSFM_TRACKER_H
 
 #include "./TrackingEngine.h"
-#include "./ImagePyramid.h"
 #include "./FeaturePyramid.h"
 #include "./OptimizationStrategy.h"
 #include "./residual.h"
@@ -11,7 +10,6 @@
 #include "ceres/ceres.h"
 
 #include "./GPUMeshDeformation.h"
-#include <cuda_runtime.h>
 
 // baType mapBA(std::string const& inString);
 
@@ -268,8 +266,9 @@ private:
   double meanError;
   std::ofstream scoresOutput;
 
-  GPUMeshDeformation gpu_deform;
+  vector<GPUMeshDeformation> gpu_deform_pyramid;
 
+  void initGPUDeformPyramid();
   void GPUEnergyMinimization();
 
 };

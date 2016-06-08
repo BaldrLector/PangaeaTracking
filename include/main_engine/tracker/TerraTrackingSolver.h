@@ -5,6 +5,8 @@
 #include <string>
 #include <math.h>
 
+#include <cuda_runtime.h>
+
 #include "../utils/cudaUtil.h"
 
 extern "C" {
@@ -29,7 +31,7 @@ public:
 
 	~TerraTrackingSolver();
 
-private:
+protected:
 
 	int* d_headX;
 	int* d_headY;
@@ -51,14 +53,19 @@ private:
 class TerraTrackingSolver_Rigid : public TerraTrackingSolver
 {
 public:
+	TerraTrackingSolver_Rigid(unsigned int vertexCount, unsigned int E, 
+		const int* d_xCoords, const int* d_offsets, 
+		const std::string& terraFile, const std::string& optName);
+
 	void solveGN(
 		double3* d_templateVertexPos,
-		double3* d_templateVertexColor,
+		double* d_templateVertexColor,
+		double* d_image, double* d_gradX_image, double* d_gradY_image,
 		double3* d_meshTrans,
 		double3* d_camRot,
 		double3* d_camTrans,
 		double3* d_prevCamTrans,
-		int* d_visibility,
+		unsigned char* d_visibility,
 		double f_x, double f_y, double u_x, double u_y,
 		unsigned int nNonLinearIterations,
 		unsigned int nLinearIterations,
@@ -69,13 +76,22 @@ public:
 class TerraTrackingSolver_NonRigid : public TerraTrackingSolver
 {
 public:
+	TerraTrackingSolver_NonRigid(unsigned int vertexCount, unsigned int E, 
+		const int* d_xCoords, const int* d_offsets, 
+		const std::string& terraFile, const std::string& optName);
+
 	void solveGN(
-		float3* d_vertexPosFloat3,
-		float3* d_anglesFloat3,
-		float3* d_vertexPosFloat3Urshape,
-		float3* d_vertexPosTargetFloat3,
+		double3* d_templateVertexPos,
+		double* d_templateVertexColor,
+		double* d_image, double* d_gradX_image, double* d_gradY_image,
+		double3* d_meshTrans,
+		double3* d_meshRot,
+		double3* d_camRot,
+		double3* d_camTrans,
+		double3* d_prevMeshTrans,
+		unsigned char* d_visibility,
+		double f_x, double f_y, double u_x, double u_y,
 		unsigned int nNonLinearIterations,
 		unsigned int nLinearIterations,
-		float weightFit,
-		float weightReg);
+		double w_photometric, double w_tv, double w_arap, double w_tempdeform);
 };

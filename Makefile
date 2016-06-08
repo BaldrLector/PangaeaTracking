@@ -42,7 +42,11 @@ WX_INCLUDE := `wx-config --cxxflags`
 
 HDF5_INCLUDE := -I/usr/include/hdf5/serial
 
-FLAGS_INCLUDE := $(EIGEN_INCLUDE) $(WX_INCLUDE) $(HDF5_INCLUDE) -I./include -I./include/third_party
+CUDAHOME = /usr/local/cuda
+
+CUDA_INCLUDE := -I$(CUDAHOME)/include
+
+FLAGS_INCLUDE := $(EIGEN_INCLUDE) $(WX_INCLUDE) $(HDF5_INCLUDE) $(CUDA_INCLUDE) -I./include -I./include/third_party  
 
 # Library dependencies
 GL_LIB := -lGL -lGLU -lX11 -lGLEW
@@ -60,8 +64,12 @@ LMDB_LIB := -llmdb
 
 HDF5_LIB := -lhdf5_hl -lhdf5
 
+CUDA_LIB := -L$(CUDAHOME)/lib64  -Wl,-rpath,$(CUDAHOME)/lib$(S4) -lcudart 
+
+OPT_LIB := -L./lib -lOpt -lterra -ldl -pthread
+
 LIBRARY_DIRS += $(LIB_BUILD_DIR)
-LDFLAGS := $(WX_LIB) $(BOOST_LIB) $(OPENCV_LIB) $(CERES_LIB) $(GL_LIB) $(LMDB_LIB) $(HDF5_LIB)
+LDFLAGS := $(WX_LIB) $(BOOST_LIB) $(OPENCV_LIB) $(CERES_LIB) $(GL_LIB) $(LMDB_LIB) $(HDF5_LIB) $(CUDA_LIB) $(OPT_LIB)
 LDFLAGS += $(foreach library_dir, $(LIBRARY_DIRS), -L$(library_dir))
 
 # Setting compiler and building flags

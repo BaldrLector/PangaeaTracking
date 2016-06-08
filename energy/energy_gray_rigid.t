@@ -15,12 +15,18 @@ local RigidRot = 		Unknown("RigidRot", opt.double3,{1},6)			--rigid rotation rot
 local RigidTrans = 		Unknown("RigidTrans", opt.double3,{1},7)			--rigid trnaslation trnaslation.xyz <- unknown
 
 local Offset = 			Image("Offset", opt.double3,{N},8)				--vertex.xyz
-local Im = 				Array("Im", double, {W,H}, 9) 					--Image Intensity
-local TemplateColors = 	Image("TemplateColors", double, {N},10)			--template shape: vertex.xyz
-local TemplateShape = 	Image("TemplateShape", opt.double3, {N},11)		--template shape: vertex.xyz
-local PrevRigidTrans =	Image("PrevRigidTrans", opt.double3,{1},12)		--previous rigid translation: translation.xyz
-local Visibility = 		Image("Visibility", int, {N}, 13)				--Visibility
-local G = Graph("G", 14, "v0", {N}, 15, "v1", {N}, 16)					--Graph
+
+local I_im = Array("I_im",double,{W,H},9) -- frame, sampled
+local I_dx = Array("I_dx",double,{W,H},10) -- partials for frame
+local I_dy = Array("I_dy",double,{W,H},11)
+
+ -- create a new math operator that samples from the image
+local I = SampledImage(I_im, Im_dx, Im_dy)
+
+local TemplateColors = 	Image("TemplateColors", double, {N},12)			--template shape: vertex.xyz
+local TemplateShape = 	Image("TemplateShape", opt.double3, {N},13)		--template shape: vertex.xyz
+local PrevRigidTrans =	Image("PrevRigidTrans", opt.double3,{1},14)		--previous rigid translation: translation.xyz
+local Visibility = 		Image("Visibility", uchar, {N}, 15)				--Visibility
 
 UsePreconditioner(true)
 
@@ -30,7 +36,7 @@ function Intensity(v)
     local z = v(2)
     local i = (f_x * x - u_x * z) / z
     local j = (f_y * y - u_y * z) / z
-    return Im(i,j)
+    return I(i,j)
 end
 
 function newVertex(v, dv, R, t)
@@ -39,7 +45,7 @@ end
 
 --Photometric Error Data term
 local photometricCost= Intensity( newVertex(TemplateShape(0,0), Offset(0,0), RigidRot, RigidTrans) ) - TemplateColors(0,0)
-Energy( Select(eq(Visibility(0), 0), 0, w_photometricSqrt*photometricCost) )
+Energy( Select(Visibility(0), w_photometricSqrt*photometricCost, 0) )
 
 --Temporal Rigid Translation regularisation
 local TempRigidTransCost = RigidTrans - PrevRigidTrans

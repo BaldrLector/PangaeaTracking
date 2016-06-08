@@ -426,6 +426,11 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
 
   trackerInitialized = true;
 
+  if (trackerSettings.use_gpu)
+  {
+    initGPUDeformPyramid();
+  }
+
 }
 
 void DeformNRSFMTracker::initializeGT()
@@ -3580,6 +3585,42 @@ void DeformNRSFMTracker::AttachFeatureToMesh(PangaeaMeshData* pMesh,
 
 }
 
+void DeformNRSFMTracker::initGPUDeformPyramid()
+{
+  int num_levels = pStrategy->numOptimizationLevels;
+  gpu_deform_pyramid.reserve(num_levels);
+
+  for (int i = 0; i < num_levels; ++i)
+  {
+    CameraInfo* pCamera = &pImagePyramid->getCameraInfo(i);
+
+    PangaeaMeshData* templateMesh = &templateMeshPyramid.levels[i];
+
+    GPUMeshDeformation gpu_deform(templateMesh, pCamera,
+      trackerSettings.rigidEnergyFilePath,
+      trackerSettings.nonRigidEnergyFilePath);
+
+    gpu_deform.setNumIterations(
+      trackerSettings.opt_num_iter, 
+      trackerSettings.opt_nonlinear_num_iter, 
+      trackerSettings.opt_linear_num_iter,
+      trackerSettings.opt_num_iter, 
+      trackerSettings.opt_nonlinear_num_iter, 
+      trackerSettings.opt_linear_num_iter);
+
+    WeightPara& weightParaLevel = pStrategy->weightParaVec[i];
+
+    gpu_deform.setEnergyWeights(
+      weightParaLevel.dataTermWeight, 
+      weightParaLevel.tvTermWeight, 
+      weightParaLevel.arapTermWeight, 
+      weightParaLevel.deformWeight, 
+      weightParaLevel.transWeight);
+
+    gpu_deform_pyramid.push_back(std::move(gpu_deform));
+  }
+}
+
 void DeformNRSFMTracker::GPUEnergyMinimization()
 {
   vector<std::pair<int,int> >& data_pairs = 
@@ -3587,22 +3628,13 @@ void DeformNRSFMTracker::GPUEnergyMinimization()
 
   int num_data_pairs = data_pairs.size();
 
-  CameraInfo* pCamera;
   Level* pFrame;
 
   for(int k = 0; k < num_data_pairs; ++k)
   {
       std::pair<int, int>& data_pair = data_pairs[k];
 
-      if(errorType == PE_FEATURE || errorType == PE_FEATURE_NCC){
-        pCamera = &pFeaturePyramid->getCameraInfo(data_pair.first);
-        pFrame = &pFeaturePyramid->getCurrFeatureLevel(data_pair.first);
-      }else{
-        pCamera = &pImagePyramid->getCameraInfo(data_pair.first);
-        pFrame = &pImagePyramid->getImageLevel(data_pair.first);
-      }
-
-      cout << "camera width and height " << pCamera->width << " " << pCamera->height << endl;
+      pFrame = &pImagePyramid->getImageLevel(data_pair.first);
 
       cout << "dataTerm pair" << endl;
       cout << data_pair.first << "->" << data_pair.second << endl;
@@ -3624,9 +3656,12 @@ void DeformNRSFMTracker::GPUEnergyMinimization()
         visibilityMaskPyramidGT[ data_pair.first ]:
         visibilityMaskPyramid[ data_pair.first ];
 
-      gpu_deform.init(&templateMesh, &camPose[0], &meshTrans, &meshRot, &prevCamPose[0], 
-        &prevMeshTrans, &visibilityMask[0], trackerSettings.rigidEnergyFilePath,
-        trackerSettings.nonRigidEnergyFilePath);
+      GPUMeshDeformation &gpu_deform = gpu_deform_pyramid[currLevel];
+
+      gpu_deform.setData(
+        (ImageLevel*)&pFrame,
+        &camPose[0], &meshTrans, &meshRot, &prevCamPose[0], 
+        &prevMeshTrans, &visibilityMask);
 
       gpu_deform.solve();
   }

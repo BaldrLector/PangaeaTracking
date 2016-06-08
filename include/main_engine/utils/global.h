@@ -107,6 +107,10 @@ int typeSize(string dataType);
 #define SafeResetArray(x,size) if(x) { memset(x,0,size); }
 #define SafeResetArrayType(x,size,tp) if(x) { memset(x,0, (size*sizeof(tp))); }
 
+#ifndef SAFE_DELETE
+#define SAFE_DELETE(p)       { if (p) { delete (p);     (p)=NULL; } }
+#endif
+
 #define SafeDeleteArray(x) if(x) {delete []x; x = NULL; }
 
 bool existenceTest(string meshPath, string meshLevelFormat,
