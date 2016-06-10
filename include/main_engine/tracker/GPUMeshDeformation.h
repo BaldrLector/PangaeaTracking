@@ -1,7 +1,5 @@
 #pragma once
 
-#include <iostream>
-
 #include "./ImagePyramid.h"
 #include "./TerraTrackingSolver.h"
 #include "./Mesh.h"
@@ -58,39 +56,39 @@ private:
 
 	double 	f_x, f_y, u_x, u_y;
 
-	double3 *d_templateVertexPos;
-	double 	*d_templateVertexColor;
-	double 	*d_image;
-	double 	*d_gradX_image;
-	double 	*d_gradY_image;
+	float3 *d_templateVertexPos;
+	float 	*d_templateVertexColor;
+	float 	*d_image;
+	float 	*d_gradX_image;
+	float 	*d_gradY_image;
 
-	double3 *d_meshTrans;
-	double3 *d_meshRot;
-	double3 *d_camRot;
-	double3 *d_camTrans;
-	uchar 	*d_visibility;
+	float3 *d_meshTrans;
+	float3 *d_meshRot;
+	float3 *d_camRot;
+	float3 *d_camTrans;
+	int*	d_visibility;
 
-	double3 *d_prevMeshTrans;
-	double3 *d_prevCamTrans;	
+	float3 *d_prevMeshTrans;
+	float3 *d_prevCamTrans;	
 
 	int*	d_numNeighbours;
 	int*	d_neighbourIdx;
 	int* 	d_neighbourOffset;
 
-	double3 *h_meshTrans;
-	double3 *h_meshRot;
-	double3 *h_camRot;
-	double3 *h_camTrans;
-	uchar	*h_visibility;
+	float3 *h_meshTrans;
+	float3 *h_meshRot;
+	float3 *h_camRot;
+	float3 *h_camTrans;
+	int*	h_visibility;
 
-	double3 *h_prevMeshTrans;
-	double3 *h_prevCamTrans;
+	float3 *h_prevMeshTrans;
+	float3 *h_prevCamTrans;
 
-	double 	w_photometric;
-	double 	w_tv;
-	double 	w_arap;
-	double 	w_tempdeform;
-	double 	w_temptrans;
+	float 	w_photometric;
+	float 	w_tv;
+	float 	w_arap;
+	float 	w_tempdeform;
+	float 	w_temptrans;
 
 	unsigned int rigid_num_iter = 5;
 	unsigned int rigid_nonlinear_num_iter = 10;

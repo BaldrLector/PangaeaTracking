@@ -23,11 +23,13 @@ GPUMeshDeformation::GPUMeshDeformation(const PangaeaMeshData* _templateMesh,
 
 	copyTemplateToGPUMemory();
 		
-   	m_optTrackingSolver_Rigid = new TerraTrackingSolver_Rigid(N, 2 * E, 
+   	m_optTrackingSolver_Rigid = new TerraTrackingSolver_Rigid(
+   		img_width, img_height, N, E, 
    		d_neighbourIdx, d_neighbourOffset, _rigidEnergyFilePath, 
    		"gaussNewtonGPU");
 
-	m_optTrackingSolver_NonRigid = new TerraTrackingSolver_NonRigid(N, 2 * E, 
+	m_optTrackingSolver_NonRigid = new TerraTrackingSolver_NonRigid(
+		img_width, img_height, N, E, 
 		d_neighbourIdx, d_neighbourOffset, _nonRigidEnergyFilePath, 
 		"gaussNewtonGPU");
 }
@@ -95,11 +97,11 @@ void GPUMeshDeformation::setEnergyWeights(
 	double _w_tempdeform, 
 	double _w_temptrans)
 {
-	w_photometric = _w_photometric;
-	w_tv = _w_tv;
-	w_arap = _w_arap;
-	w_tempdeform = _w_tempdeform;
-	w_temptrans = _w_temptrans;
+	w_photometric = (float)_w_photometric;
+	w_tv = (float)_w_tv;
+	w_arap = (float)_w_arap;
+	w_tempdeform = (float)_w_tempdeform;
+	w_temptrans = (float)_w_temptrans;
 }
 
 void GPUMeshDeformation::setNumIterations(
@@ -159,75 +161,75 @@ void GPUMeshDeformation::solve()
 void GPUMeshDeformation::copyResultsFromDevice()
 {
 	cutilSafeCall(cudaMemcpy(h_meshTrans, d_meshTrans, 
-		sizeof(double3)*N, cudaMemcpyDeviceToHost));
+		sizeof(float3)*N, cudaMemcpyDeviceToHost));
 	cutilSafeCall(cudaMemcpy(h_meshRot, d_meshRot, 
-		sizeof(double3)*N, cudaMemcpyDeviceToHost));
+		sizeof(float3)*N, cudaMemcpyDeviceToHost));
 	cutilSafeCall(cudaMemcpy(&h_camRot, &d_camRot, 
-		sizeof(double3), cudaMemcpyDeviceToHost));
+		sizeof(float3), cudaMemcpyDeviceToHost));
 	cutilSafeCall(cudaMemcpy(&h_camTrans, &d_camTrans,
-		sizeof(double3), cudaMemcpyDeviceToHost));
+		sizeof(float3), cudaMemcpyDeviceToHost));
 
 	for (unsigned int i = 0; i < N; i++)
 	{
-		(*meshTrans)[i][0] = h_meshTrans[i].x;
-		(*meshTrans)[i][1] = h_meshTrans[i].y;
-		(*meshTrans)[i][2] = h_meshTrans[i].z;
+		(*meshTrans)[i][0] = (double)h_meshTrans[i].x;
+		(*meshTrans)[i][1] = (double)h_meshTrans[i].y;
+		(*meshTrans)[i][2] = (double)h_meshTrans[i].z;
 
-		(*meshRot)[i][0] = h_meshRot[i].x;
-		(*meshRot)[i][1] = h_meshRot[i].y;
-		(*meshRot)[i][2] = h_meshRot[i].z;
+		(*meshRot)[i][0] = (double)h_meshRot[i].x;
+		(*meshRot)[i][1] = (double)h_meshRot[i].y;
+		(*meshRot)[i][2] = (double)h_meshRot[i].z;
 	}
 
-	camPose[0] = h_camRot->x;
-	camPose[1] = h_camRot->y;
-	camPose[2] = h_camRot->z;
-	camPose[3] = h_camTrans->x;
-	camPose[4] = h_camTrans->y;
-	camPose[5] = h_camTrans->z;
+	camPose[0] = (double)h_camRot->x;
+	camPose[1] = (double)h_camRot->y;
+	camPose[2] = (double)h_camRot->z;
+	camPose[3] = (double)h_camTrans->x;
+	camPose[4] = (double)h_camTrans->y;
+	camPose[5] = (double)h_camTrans->z;
 }
 
 void GPUMeshDeformation::allocateMemory()
 {
-	cutilSafeCall(cudaMalloc(&d_templateVertexPos, sizeof(double3)*N));
-	cutilSafeCall(cudaMalloc(&d_templateVertexColor, sizeof(double)*N));
-	cutilSafeCall(cudaMalloc(&d_image, sizeof(double)*img_width*img_height));
-	cutilSafeCall(cudaMalloc(&d_gradX_image, sizeof(double)*img_width*img_height));
-	cutilSafeCall(cudaMalloc(&d_gradY_image, sizeof(double)*img_width*img_height));
+	cutilSafeCall(cudaMalloc(&d_templateVertexPos, sizeof(float3)*N));
+	cutilSafeCall(cudaMalloc(&d_templateVertexColor, sizeof(float)*N));
+	cutilSafeCall(cudaMalloc(&d_image, sizeof(float)*img_width*img_height));
+	cutilSafeCall(cudaMalloc(&d_gradX_image, sizeof(float)*img_width*img_height));
+	cutilSafeCall(cudaMalloc(&d_gradY_image, sizeof(float)*img_width*img_height));
 
-	cutilSafeCall(cudaMalloc(&d_meshTrans, sizeof(double3)*N));
-	cutilSafeCall(cudaMalloc(&d_meshRot, sizeof(double3)*N));
-	cutilSafeCall(cudaMalloc(&d_camRot, sizeof(double3)));
-	cutilSafeCall(cudaMalloc(&d_camTrans, sizeof(double3)));
-	cutilSafeCall(cudaMalloc(&d_visibility, sizeof(uchar)*N));
+	cutilSafeCall(cudaMalloc(&d_meshTrans, sizeof(float3)*N));
+	cutilSafeCall(cudaMalloc(&d_meshRot, sizeof(float3)*N));
+	cutilSafeCall(cudaMalloc(&d_camRot, sizeof(float3)));
+	cutilSafeCall(cudaMalloc(&d_camTrans, sizeof(float3)));
+	cutilSafeCall(cudaMalloc(&d_visibility, sizeof(int)*N));
 
-	cutilSafeCall(cudaMalloc(&d_prevMeshTrans, sizeof(double3)*N));
-	cutilSafeCall(cudaMalloc(&d_prevCamTrans, sizeof(double3)));
+	cutilSafeCall(cudaMalloc(&d_prevMeshTrans, sizeof(float3)*N));
+	cutilSafeCall(cudaMalloc(&d_prevCamTrans, sizeof(float3)));
 
 	cutilSafeCall(cudaMalloc(&d_numNeighbours, sizeof(int)*N));
 	cutilSafeCall(cudaMalloc(&d_neighbourIdx, sizeof(int)*2*E));
 	cutilSafeCall(cudaMalloc(&d_neighbourOffset, sizeof(int)*(N+1)));
 
-	h_meshTrans = new double3[N];
-	h_meshRot = new double3[N];
-	h_camRot = new double3;
-	h_camTrans = new double3;
-	h_visibility = new uchar[N];
-	h_prevMeshTrans = new double3[N];
-	h_prevCamTrans = new double3;
+	h_meshTrans = new float3[N];
+	h_meshRot = new float3[N];
+	h_camRot = new float3;
+	h_camTrans = new float3;
+	h_visibility = new int[N];
+	h_prevMeshTrans = new float3[N];
+	h_prevCamTrans = new float3;
 }
 
 void GPUMeshDeformation::setIntrinsicParameters(const CameraInfo* pCamera)
 {
-	f_x = pCamera->KK[0][0];
-	f_y = pCamera->KK[1][1];
-	u_x = pCamera->KK[0][2];
-	u_y = pCamera->KK[1][2];
+	f_x = (float)pCamera->KK[0][0];
+	f_y = (float)pCamera->KK[1][1];
+	u_x = (float)pCamera->KK[0][2];
+	u_y = (float)pCamera->KK[1][2];
 }
 
 void GPUMeshDeformation::copyTemplateToGPUMemory()
 {
-	double3 *h_templateVertexPos = new double3[N];
-	double 	*h_templateVertexColor= new double[N]; 
+	float3 	*h_templateVertexPos = new float3[N];
+	float 	*h_templateVertexColor= new float[N]; 
 
 	int* 	h_numNeighbours   = new int[N];
 	int* 	h_neighbourIdx	  = new int[2*E];
@@ -237,14 +239,17 @@ void GPUMeshDeformation::copyTemplateToGPUMemory()
 	unsigned int offset = 0;
 	h_neighbourOffset[0] = 0;
 
+	std::cout << templateMesh->numVertices << std::endl;
+
 	const vector<vector<unsigned int> >& meshNeighbors = templateMesh->adjVerticesInd;
 	for (unsigned int i = 0; i < N; i++)
 	{
 		const vector<double> &v = templateMesh->vertices[i];
-		h_templateVertexPos[i] = make_double3(v[0], v[1], v[2]);
+		h_templateVertexPos[i] = make_float3(
+			(float)v[0], (float)v[1], (float)v[2]);
 
 		const double &gray = templateMesh->grays[i];
-		h_templateVertexColor[i] = gray;
+		h_templateVertexColor[i] = (float)gray;
 
 		unsigned int valance = (unsigned int)meshNeighbors[i].size();
 		h_numNeighbours[count] = valance;
@@ -261,9 +266,9 @@ void GPUMeshDeformation::copyTemplateToGPUMemory()
 	}
 	
 	cutilSafeCall(cudaMemcpy(d_templateVertexPos, h_templateVertexPos, 
-		sizeof(double3)*N, cudaMemcpyHostToDevice));
+		sizeof(float3)*N, cudaMemcpyHostToDevice));
 	cutilSafeCall(cudaMemcpy(d_templateVertexColor, h_templateVertexColor, 
-		sizeof(double)*N, cudaMemcpyHostToDevice));
+		sizeof(float)*N, cudaMemcpyHostToDevice));
 
 	cutilSafeCall(cudaMemcpy(d_numNeighbours, h_numNeighbours, 
 		sizeof(int)*N, cudaMemcpyHostToDevice));
@@ -285,26 +290,39 @@ void GPUMeshDeformation::copyDataToGPUMemory()
 	for (unsigned int i = 0; i < N; i++)
 	{
 		const vector<double> &v_trans = (*meshTrans)[i];
-		h_meshTrans[i] = make_double3(v_trans[0], v_trans[1], v_trans[2]);
+		h_meshTrans[i] = make_float3(
+			(float)v_trans[0], (float)v_trans[1], (float)v_trans[2]);
 
 		const vector<double> &v_rot = (*meshTrans)[i];
-		h_meshRot[i] = make_double3(v_rot[0], v_rot[1], v_rot[2]);
+		h_meshRot[i] = make_float3(
+			(float)v_rot[0], (float)v_rot[1], (float)v_rot[2]);
 
 		const vector<double> &v_prev_trans = (*prevMeshTrans)[i];
-		h_prevMeshTrans[i] = make_double3(v_prev_trans[0], v_prev_trans[1], v_prev_trans[2]);
+		h_prevMeshTrans[i] = make_float3(
+			(float)v_prev_trans[0], 
+			(float)v_prev_trans[1], 
+			(float)v_prev_trans[2]);
 
-		h_visibility[i] = (unsigned char)(*visibility)[i];
+		h_visibility[i] = (int)(*visibility)[i];
+
+		// std::cout << h_meshTrans[i].x << ", " << h_meshTrans[i].y << ", " << h_meshTrans[i].z << std::endl;
+		// std::cout << h_meshRot[i].x << ", " << h_meshRot[i].y << ", " << h_meshRot[i].z << std::endl;
+		// std::cout << h_prevMeshTrans[i].x << ", " << h_prevMeshTrans[i].y << ", " << h_prevMeshTrans[i].z << std::endl;
 	}
 
-	h_camRot->x = camPose[0];
-	h_camRot->y = camPose[1];
-	h_camRot->z = camPose[2];
-	h_camTrans->x = camPose[3];
-	h_camTrans->y = camPose[4];
-	h_camTrans->z = camPose[5];
-	h_prevCamTrans->x = prevCamPose[3];
-	h_prevCamTrans->y = prevCamPose[4];
-	h_prevCamTrans->z = prevCamPose[5];
+	h_camRot->x = (float)camPose[0];
+	h_camRot->y = (float)camPose[1];
+	h_camRot->z = (float)camPose[2];
+	h_camTrans->x = (float)camPose[3];
+	h_camTrans->y = (float)camPose[4];
+	h_camTrans->z = (float)camPose[5];
+	h_prevCamTrans->x = (float)prevCamPose[3];
+	h_prevCamTrans->y = (float)prevCamPose[4];
+	h_prevCamTrans->z = (float)prevCamPose[5];
+
+	// std::cout << h_camRot->x << ", " << h_camRot->y << ", " << h_camRot->z << std::endl;
+	// std::cout << h_camTrans->x << ", " << h_camTrans->y << ", " << h_camTrans->z << std::endl;
+	// std::cout << h_prevCamTrans->x << ", " << h_prevCamTrans->y << ", " << h_prevCamTrans->z << std::endl;
 
 	// double 	*h_image = new double[img_width*img_height];
 	// double* p;
@@ -323,25 +341,25 @@ void GPUMeshDeformation::copyDataToGPUMemory()
 	// delete[] h_image;
 
 	cutilSafeCall(cudaMemcpy(d_image, pFrame->grayImage.data, 
-		sizeof(double)*N, cudaMemcpyHostToDevice));	
+		sizeof(float)*N, cudaMemcpyHostToDevice));	
 	cutilSafeCall(cudaMemcpy(d_gradX_image, pFrame->gradXImage.data, 
-		sizeof(double)*N, cudaMemcpyHostToDevice));
+		sizeof(float)*N, cudaMemcpyHostToDevice));
 	cutilSafeCall(cudaMemcpy(d_gradY_image, pFrame->gradYImage.data, 
-		sizeof(double)*N, cudaMemcpyHostToDevice));
+		sizeof(float)*N, cudaMemcpyHostToDevice));
 
 	cutilSafeCall(cudaMemcpy(d_meshTrans, h_meshTrans, 
-		sizeof(double3)*N, cudaMemcpyHostToDevice));	
+		sizeof(float3)*N, cudaMemcpyHostToDevice));	
 	cutilSafeCall(cudaMemcpy(d_meshRot, h_meshRot, 
-		sizeof(double3)*N, cudaMemcpyHostToDevice));
+		sizeof(float3)*N, cudaMemcpyHostToDevice));
 	cutilSafeCall(cudaMemcpy(d_prevMeshTrans, h_prevMeshTrans, 
-		sizeof(double3)*N, cudaMemcpyHostToDevice));
+		sizeof(float3)*N, cudaMemcpyHostToDevice));
 	cutilSafeCall(cudaMemcpy(d_visibility, h_visibility, 
-		sizeof(uchar)*N, cudaMemcpyHostToDevice));
+		sizeof(int)*N, cudaMemcpyHostToDevice));
 
 	cutilSafeCall(cudaMemcpy(&d_camRot, &h_camRot, 
-		sizeof(double3), cudaMemcpyHostToDevice));
+		sizeof(float3), cudaMemcpyHostToDevice));
 	cutilSafeCall(cudaMemcpy(&d_camTrans, &h_camTrans, 
-		sizeof(double3), cudaMemcpyHostToDevice));
+		sizeof(float3), cudaMemcpyHostToDevice));
 	cutilSafeCall(cudaMemcpy(&d_prevCamTrans, &h_prevCamTrans, 
-		sizeof(double3), cudaMemcpyHostToDevice));
+		sizeof(float3), cudaMemcpyHostToDevice));
 }
