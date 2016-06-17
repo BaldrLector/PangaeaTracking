@@ -33,7 +33,7 @@ local G = Graph("G", 19, "v0", {N}, 20, "v1", {N}, 21)				--Graph
 UsePreconditioner(true)
 
 -- create a new math operator that samples from the image
-local I = SampledImage(I_im, Im_dx, Im_dy)
+local I = sampledimage(I_im, I_dx, I_dy)
 
 function Intensity(v)
     local x = v(0)

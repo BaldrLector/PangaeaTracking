@@ -21,64 +21,8 @@ local I_im = Array("I_im",float,{W,H},9) -- frame, sampled
 local I_dx = Array("I_dx",float,{W,H},10) -- partials for frame
 local I_dy = Array("I_dy",float,{W,H},11)
 
--- function LinearInitAxis(x, size)
--- 	local ix = math.floor(x)
--- 	local x1, x2, dx
--- 	if ix < 0 then
---     	x1 = 0
---     	x2 = 0
---     	dx = 1.0
---   	elseif ix > (size - 2) then
--- 		x1 = size - 1
--- 		x2 = size - 1
--- 		dx = 1.0
--- 	else 
--- 		x1 = ix
--- 		x2 = ix + 1
--- 		dx = x2 - x
--- 	end
---     return x1, x2, dx
--- end
-
--- function SampledImage(I_im, I_gradX, I_gradY)
--- 	local x1, y1, x2, y2
--- 	local dx, dy
--- 	local im11, im12, im21, im22, im_value
--- 	local gradx11, gradx12, gradx21, gradx22, gradx_value
--- 	local grady11, grady12, grady21, grady22, grady_value
-
--- 	x1, x2, dx = LinearInitAxis(x, W:index())
--- 	y1, y2, dy = LinearInitAxis(y, H:index())
-
--- 	im11 = I_im(y1, x1)
--- 	im12 = I_im(y1, x2)
--- 	im21 = I_im(y2, x1)
--- 	im22 = I_im(y2, x2)
-
--- 	im_value = dy  * ( dx * im11 + (1.0 - dx) * im12 ) 
--- 		+ (1 - dy) * ( dx * im21 + (1.0 - dx) * im22 )
-
--- 	gradx11 = I_gradX(y1, x1)
--- 	gradx12 = I_gradX(y1, x2)
--- 	gradx21 = I_gradX(y2, x1)
--- 	gradx22 = I_gradX(y2, x2)
-
--- 	gradx_value = dy  * ( dx * gradx11 + (1.0 - dx) * gradx12 ) 
--- 		+ (1 - dy) * ( dx * gradx21 + (1.0 - dx) * gradx22 )
-
--- 	grady11 = I_gradY(y1, x1)
--- 	grady12 = I_gradY(y1, x2)
--- 	grady21 = I_gradY(y2, x1)
--- 	grady22 = I_gradY(y2, x2)
-
--- 	grady_value = dy  * ( dx * grady11 + (1.0 - dx) * grady12 ) 
--- 		+ (1 - dy) * ( dx * grady21 + (1.0 - dx) * grady22 )
-
--- 	return im_value, gradx_value, grady_value
--- end
-
 -- create a new math operator that samples from the image
-local I = SampledImage(I_im, Im_dx, Im_dy)
+local I = sampledimage(I_im, I_dx, I_dy)
 
 local TemplateColors = 	Array("TemplateColors", float, {N},12)			--template shape: vertex.xyz
 local TemplateShape = 	Array("TemplateShape", float3, {N},13)		--template shape: vertex.xyz

@@ -74,6 +74,7 @@ LDFLAGS += $(foreach library_dir, $(LIBRARY_DIRS), -L$(library_dir))
 
 # Setting compiler and building flags
 CXX := g++
+# CXX := clang++
 #CXXFLAGS += -std=c++11 -fopenmp -fPIC $(FLAGS_INCLUDE)
 CXXFLAGS += -std=c++11 -fopenmp $(FLAGS_INCLUDE) -w
 
