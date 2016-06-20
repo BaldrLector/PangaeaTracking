@@ -229,6 +229,9 @@ private:
   // ImagePyramid
   ImagePyramid* pImagePyramid;
 
+  // DepthPyramid
+  ImagePyramid* pDepthPyramid;
+
   bool dataInBuffer;
 
   // FeaturePyramid

@@ -96,6 +96,8 @@ DeformNRSFMTracker::DeformNRSFMTracker(TrackerSettings& settings, int width, int
 
   pImagePyramid = new ImagePyramid;
   pFeaturePyramid = new FeaturePyramid;
+  pDepthyramid = new ImagePyramid;
+
 
   if(trackerSettings.printEnergy)
     {
@@ -190,6 +192,7 @@ DeformNRSFMTracker::~DeformNRSFMTracker()
 
   if(pImagePyramid) delete pImagePyramid;
   if(pFeaturePyramid) delete pFeaturePyramid;
+  if(pDepthPyramid) delete pDepthPyramid;
 
   if(pStrategy) delete pStrategy;
 
@@ -345,6 +348,13 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
       //need to update the number of channels for feature residuals
       PE_RESIDUAL_NUM_ARRAY[PE_FEATURE] = featureSettings.channels;
       PE_RESIDUAL_NUM_ARRAY[PE_FEATURE_NCC] = featureSettings.channels;
+    }
+
+    if (trackerSettings.weightDepth > 0)
+    {
+        // imagePyramid will be created during the processing of the first image
+      pDepthyramid->create(m_nWidth, m_nHeight);
+      pDepthPyramid->setupCameraPyramid(m_nMeshLevels, camInfo);
     }
 
   // setup visibilitymask pyramid

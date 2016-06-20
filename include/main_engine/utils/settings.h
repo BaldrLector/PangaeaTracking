@@ -16,6 +16,9 @@ public:
   std::string imageFormat;
   std::string intrinsicsFile;
 
+  std::string depthPath;
+  std::string depthFormat;
+
   int width;
   int height;
   int startFrame;
@@ -123,6 +126,7 @@ public:
   double weightINEXTENT;
   double weightTransPrior;
   double weightSmoothing;
+  double weightDepth;
   double photometricHuberWidth;
   double photometricIntensityHuberWidth;
   double tvHuberWidth;
