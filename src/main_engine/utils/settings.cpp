@@ -130,9 +130,6 @@ void ImageSourceSettings::read(const cv::FileNode& node)
   if(!node["isOrthoCamera"].empty())
     node["isOrthoCamera"] >> isOrthoCamera;
 
-  if(!node["depthPath"].empty())
-    node["depthPath"] >> depthPath;
-
   if(!node["depthFormat"].empty())
     node["depthFormat"] >> depthFormat;
 

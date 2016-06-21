@@ -1,6 +1,6 @@
 #include "main_engine/image_source/ImageSourceEngine.h"
 
-ImagesBufferReader::ImagesBufferReader(ImageSourceSettings& settings)
+ImagesBufferReader::ImagesBufferReader(ImageSourceSettings& settings, bool use_depth)
 {
     startFrameNo = settings.startFrame;
     totalFrameNo = settings.numFrames;
@@ -135,4 +135,21 @@ void ImagesBufferReader::ReadRawDepth(std::stringstream& data_path, std::string 
     imgTemp = imgTemp.t();
     imgTemp.copyTo(resImage);
     delete[] ref_buffer;
+}
+
+void ImagesBufferReader::ReadEXRDepth(std::stringstream& data_path, 
+    std::string filename, DepthImageType& resImage)
+{
+    std::ifstream inputFileStream;
+    std::stringstream imagePath;
+    imagePath << data_path.str() << filename;
+    
+    cv::Mat_< float > depth_map = imread(imagePath.str().c_str(), -1);
+
+    int width = depth_map.cols(); 
+    int height = depth_map.rows();
+
+    assert(width == m_nWidth && height == m_nHeight);
+
+    depth_map.convertTo(resImage, CV_64F);
 }

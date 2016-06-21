@@ -15,8 +15,6 @@ public:
   std::string dataPath;
   std::string imageFormat;
   std::string intrinsicsFile;
-
-  std::string depthPath;
   std::string depthFormat;
 
   int width;
