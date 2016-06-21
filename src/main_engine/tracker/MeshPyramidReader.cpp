@@ -208,7 +208,8 @@ void MeshPyramidReader::setIntrinsicMatrix(double K[3][3])
 }
 
 bool MeshPyramidReader::trackFrame(int nFrame, unsigned char* pColorImageRGB,
-                                   TrackerOutputInfo** pOutputInfo)
+                                   TrackerOutputInfo** pOutputInfo,
+                                   bool use_depth, CoordinateType* pDepthImage)
 {
   if(!setCurrentFrame(nFrame))
     return false;

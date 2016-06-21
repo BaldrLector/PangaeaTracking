@@ -518,7 +518,8 @@ void ShapesBufferReader::readModelInfo()
 }
 
 bool ShapesBufferReader::trackFrame(int nFrame, unsigned char* pColorImageRGB,
-    TrackerOutputInfo** pOutputInfo)
+    TrackerOutputInfo** pOutputInfo,
+    bool use_depth, CoordinateType* pDepthImage)
 {
     *pOutputInfo = &outputInfo;
 

@@ -569,7 +569,8 @@ void DeformNRSFMTracker::loadGTMeshFromFile(int nFrame)
 }
 
 bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
-	TrackerOutputInfo** pOutputInfoRendering)
+	TrackerOutputInfo** pOutputInfoRendering,
+  bool use_depth, CoordinateType* pDepthImage)
 {
   if(!trackerInitialized)
     cout << "this tracker has not been initialized with a template mesh" << endl;

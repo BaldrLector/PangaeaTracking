@@ -19,7 +19,7 @@ public:
                             DepthImageType& dImage, InternalIntensityImageType& maskImage) = 0;
   virtual void ReadEXRDepth(std::stringstream& data_path, std::string filename,
                     DepthImageType& resImage) = 0;
-
+  virtual CoordinateType* getDepthImage() = 0;
 };
 
 class ImagesBufferReader : public ImageSourceEngine
@@ -40,6 +40,7 @@ public:
                     int width, int height, DepthImageType& resImage);
   void ReadEXRDepth(std::stringstream& data_path, std::string filename,
                     DepthImageType& resImage);
+  CoordinateType* getDepthImage();
 
   int startFrameNo;
   int currentFrameNo;
@@ -88,6 +89,7 @@ public:
                     int width, int height, DepthImageType& resImage);
   void ReadEXRDepth(std::stringstream& data_path, std::string filename,
                     DepthImageType& resImage);
+  CoordinateType* getDepthImage();
 
   int startFrameNo;
   int currentFrameNo;
@@ -101,6 +103,7 @@ public:
 
   std::string inputPath;
   std::string imgFormat;
+  std::string depthFormat;  
 
   ColorImageType m_curImage; // current image
   ColorImageContainerType m_curImages; // all current images

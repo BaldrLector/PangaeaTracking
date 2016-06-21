@@ -83,7 +83,8 @@ bool MeshSequenceReader::loadMesh(std::string& meshPath,
 }
 
 bool MeshSequenceReader::trackFrame(int nFrame, unsigned char* pColorImageRGB,
-                                    TrackerOutputInfo** pOutputInfo)
+                                    TrackerOutputInfo** pOutputInfo,
+                                    bool use_depth, CoordinateType* pDepthImage)
 {
     *pOutputInfo = &outputInfo;
     //

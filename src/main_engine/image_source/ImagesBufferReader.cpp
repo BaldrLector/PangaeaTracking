@@ -144,12 +144,17 @@ void ImagesBufferReader::ReadEXRDepth(std::stringstream& data_path,
     std::stringstream imagePath;
     imagePath << data_path.str() << filename;
     
-    cv::Mat_< float > depth_map = imread(imagePath.str().c_str(), -1);
+    cv::Mat_< float > depth_map = cv::imread(imagePath.str().c_str(), -1);
 
-    int width = depth_map.cols(); 
-    int height = depth_map.rows();
+    int width = depth_map.cols; 
+    int height = depth_map.rows;
 
     assert(width == m_nWidth && height == m_nHeight);
 
     depth_map.convertTo(resImage, CV_64F);
+}
+
+CoordinateType* ImagesBufferReader::getDepthImage()
+{
+  return (CoordinateType*) dImage.data;
 }

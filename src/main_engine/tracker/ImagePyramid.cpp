@@ -109,7 +109,8 @@ void ImagePyramid::deallocateMemory()
     delete []pCurrentColorImageBGR;
 }
 
-void ImagePyramid::setupPyramid(unsigned char* pColorImageRGB, int numLevels)
+void ImagePyramid::setupPyramid(unsigned char* pColorImageRGB, int numLevels,
+        bool use_depth, CoordinateType* pDepthImage)
 {
   // static int currFrame = imageSourceSettings.startFrame;
 

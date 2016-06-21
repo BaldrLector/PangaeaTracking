@@ -8,6 +8,7 @@ ImageSequenceReader::ImageSequenceReader(ImageSourceSettings& settings, bool use
   m_nHeight = settings.height;
   inputPath = settings.dataPath;
   imgFormat = settings.imageFormat;
+  depthFormat = settings.depthFormat;
 
   currentFrameNo = startFrameNo;
 
@@ -28,7 +29,7 @@ ImageSequenceReader::ImageSequenceReader(ImageSourceSettings& settings, bool use
     depthPath << inputPath << buffer;
     //memset(&buffer[0], 0, sizeof(buffer));
 
-    Mat_<float> tempDepth = cv::imread(depthPath.str().c_str(),-1); // read in color image
+    cv::Mat_<float> tempDepth = cv::imread(depthPath.str().c_str(),-1); // read in color image
 
     tempDepth.convertTo(dImage, CV_64F);
 
@@ -254,10 +255,10 @@ void ImageSequenceReader::ReadEXRDepth(std::stringstream& data_path,
     
     if(bfs::exists(imagePath.str()))
     {
-      cv::Mat_< float > depth_map = imread(imagePath.str().c_str(), -1);
+      cv::Mat_< float > depth_map = cv::imread(imagePath.str().c_str(), -1);
 
-      int width = depth_map.cols(); 
-      int height = depth_map.rows();
+      int width = depth_map.cols; 
+      int height = depth_map.rows;
 
       assert(width == m_nWidth && height == m_nHeight);
 
@@ -267,4 +268,9 @@ void ImageSequenceReader::ReadEXRDepth(std::stringstream& data_path,
     {
       cerr << imagePath.str() << " does not exist! " << endl;
     }
+}
+
+CoordinateType* ImageSequenceReader::getDepthImage()
+{
+  return (CoordinateType*) dImage.data;
 }

@@ -18,7 +18,9 @@ public:
   virtual void setInitialMesh(PangaeaMeshData& mesh) = 0;
   virtual void setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyramid) = 0;
   virtual bool trackFrame(int nFrame, unsigned char* pColorImageRGB,
-                          TrackerOutputInfo** pOutputInfo) = 0;
+                          TrackerOutputInfo** pOutputInfo,
+                          bool use_depth = false,
+                          CoordinateType* pDepthImage = NULL) = 0;
 
   virtual void updateRenderingLevel(TrackerOutputInfo** pOutputInfo,
                                     int nRenderLevel, bool renderType = false) = 0;
@@ -46,7 +48,8 @@ public:
 
   void trackerInitSetup(TrackerOutputInfo& outputInfo);
   void trackerUpdate(TrackerOutputInfo& outputInfo);
-  bool trackFrame(int nFrame, unsigned char* pColorImageRGB, TrackerOutputInfo** pOutputInfo);
+  bool trackFrame(int nFrame, unsigned char* pColorImageRGB, TrackerOutputInfo** pOutputInfo,
+          bool use_depth = false, CoordinateType* pDepthImage = NULL);
 
   void updateRenderingLevel(TrackerOutputInfo** pOutputInfo,
                             int nRenderLevel, bool renderType = false){};
@@ -143,7 +146,8 @@ public:
 
   void trackerInitSetup(TrackerOutputInfo& outInfo);
   void trackerUpdate(TrackerOutputInfo& outputInfo);
-  bool trackFrame(int nFrame, unsigned char* pColorImageRGB, TrackerOutputInfo** pOutputInfo);
+  bool trackFrame(int nFrame, unsigned char* pColorImageRGB, TrackerOutputInfo** pOutputInfo,
+          bool use_depth = false, CoordinateType* pDepthImage = NULL);
   void updateRenderingLevel(TrackerOutputInfo** pOutputInfo,
                             int nRenderLevel, bool renderType = false){};
 
@@ -229,7 +233,8 @@ public:
   void setInitialMesh(PangaeaMeshData& mesh){};
   void setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyramid){};
   bool trackFrame(int nFrame, unsigned char* pColorImageRGB,
-                  TrackerOutputInfo** pOutputInfo);
+                  TrackerOutputInfo** pOutputInfo,
+                  bool use_depth = false, CoordinateType* pDepthImage = NULL);
   void updateRenderingLevel(TrackerOutputInfo** pOutputInfo,
                             int nRenderLevel, bool renderType = false){};
 
@@ -279,7 +284,8 @@ public:
   void setInitialMesh(PangaeaMeshData& mesh){};
   void setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyramid){};
   bool trackFrame(int nFrame, unsigned char* pColorImageRGB,
-                  TrackerOutputInfo** pOutputInfo);
+                  TrackerOutputInfo** pOutputInfo,
+                  bool use_depth = false, CoordinateType* pDepthImage = NULL);
   bool loadMeshPyramid(string meshPath, string meshLevelFormat,
                        int frame, IntegerContainerType& meshLevelList);
   void updateRenderingLevel(TrackerOutputInfo** pOutputInfo,
@@ -334,7 +340,8 @@ public:
   void setInitialMesh(PangaeaMeshData& mesh){};
   void setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyramid){};
   bool trackFrame(int nFrame, unsigned char* pColorImageRGB,
-                  TrackerOutputInfo** pOutputInfo);
+                  TrackerOutputInfo** pOutputInfo,
+                  bool use_depth = false, CoordinateType* pDepthImage = NULL);
   void updateRenderingLevel(TrackerOutputInfo** pOutputInfo,
                             int nRenderLevel, bool renderType = false);
 
