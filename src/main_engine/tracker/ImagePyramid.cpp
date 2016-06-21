@@ -152,6 +152,11 @@ void ImagePyramid::setupPyramid(unsigned char* pColorImageRGB, int numLevels,
   cv::Mat tempColorImageRGB(m_nHeight, m_nWidth, CV_8UC3, pCurrentColorImageRGB);
   tempColorImageRGB.convertTo(colorBufferImage, cv::DataType<Vec3d>::type, 1./255);
 
+  if (use_depth)
+  {
+    depthBufferImage = cv::Mat(m_nHeight, m_nWidth, CV_64F, pDepthImage);
+  }
+
   int factor = 1;
   double blurSigma;
 
@@ -172,6 +177,11 @@ void ImagePyramid::setupPyramid(unsigned char* pColorImageRGB, int numLevels,
 
           cv::Mat tempColorImageRGB(m_nHeight, m_nWidth, CV_8UC3, &pCurrentColorImageRGB[ i*3*m_nHeight*m_nWidth ] );
           tempColorImageRGB.convertTo(colorBufferImage, cv::DataType<Vec3d>::type, 1./255);
+        
+          if (use_depth)
+          {
+            depthBufferImage = cv::Mat(m_nHeight, m_nWidth, CV_64F, pDepthImage);
+          }
         }
 
       // check the input images properly
@@ -202,10 +212,23 @@ void ImagePyramid::setupPyramid(unsigned char* pColorImageRGB, int numLevels,
                            blurColorBufferImage,
                            cv::Size(blurSize, blurSize),
                            blurSigma);
+
+          if (use_depth)
+          {
+            cv::GaussianBlur(depthBufferImage,
+                            blurDepthBufferImage,
+                            cv::Size(blurSize, blurSize),
+                            blurSigma);
+          }
         }else
         {
           grayBufferImage.copyTo(blurGrayBufferImage);
           colorBufferImage.copyTo(blurColorBufferImage);
+
+          if (use_depth)
+          {
+            depthBufferImage.copyTo(blurDepthBufferImage);
+          }
         }
 
       // do some proper downsampling at this point
@@ -224,6 +247,15 @@ void ImagePyramid::setupPyramid(unsigned char* pColorImageRGB, int numLevels,
                  cv::Size(),
                  1.0/factor,
                  1.0/factor);
+
+          if (use_depth)
+          {
+            resize(blurDepthBufferImage,
+                  levelsBuffer[i].depthImage,
+                  cv::Size(),
+                  1.0/factor,
+                  1.0/factor);
+          }
         }
 
     }
@@ -260,6 +292,20 @@ void ImagePyramid::setupPyramid(unsigned char* pColorImageRGB, int numLevels,
                      0,1,
                      gradScale);
         }
+      
+      if (use_depth)
+      {
+        cv::Scharr(levelsBuffer[i].depthImage,
+                  levelsBuffer[i].depthGradXImage,
+                  -1,
+                  1,0,
+                  gradScale);
+        cv::Scharr(levelsBuffer[i].grayImage,
+                  levelsBuffer[i].depthGradYImage,
+                  -1,
+                  0,1,
+                  gradScale);
+      }
 
       // cv::namedWindow("level check");
       // cv::imshow("level check", levelsBuffer[i].colorImage);

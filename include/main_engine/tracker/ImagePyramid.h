@@ -88,4 +88,7 @@ private:
 
   IntensityImageType grayImageBYTE;
 
+  InternalIntensityImageType depthBufferImage;
+  InternalIntensityImageType blurDepthBufferImage;
+
 };

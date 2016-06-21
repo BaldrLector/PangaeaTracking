@@ -131,6 +131,7 @@ public:
   double tvRotHuberWidth;
   double arapHuberWidth;
   double smoothingHuberWidth;
+  double depthHuberWidth;
 
   bool use_cotangent;
 
