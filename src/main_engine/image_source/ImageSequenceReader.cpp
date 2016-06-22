@@ -33,7 +33,7 @@ ImageSequenceReader::ImageSequenceReader(ImageSourceSettings& settings, bool _us
 
     cv::Mat_<float> tempDepth = cv::imread(depthPath.str().c_str(),-1); // read in color image
 
-    tempDepth.convertTo(dImage, CV_64F);
+    tempDepth.convertTo(dImage, CV_64F, 1000);
 
     cout << depthPath.str() << endl;
   }
@@ -182,7 +182,7 @@ void ImageSequenceReader::setCurrentFrame(int curFrame)
 
           cv::Mat_<float> tempDepth = cv::imread(depthPath.str().c_str(),-1); // read in as it is
 
-          tempDepth.convertTo(dImage, CV_64F);
+          tempDepth.convertTo(dImage, CV_64F, 1000);
         }
     }
 }
@@ -274,7 +274,7 @@ void ImageSequenceReader::ReadEXRDepth(std::stringstream& data_path,
 
       assert(width == m_nWidth && height == m_nHeight);
 
-      depth_map.convertTo(resImage, CV_64F);
+      depth_map.convertTo(resImage, CV_64F, 1000);
     }
     else
     {
