@@ -277,7 +277,8 @@ bool MainEngine::ProcessOneFrame(int nFrame)
   // do tracking
   TICK("tracking");
   
-  bool track_ok = m_pTrackingEngine->trackFrame(nFrame, m_pColorImageRGB, &pOutputInfo);
+  bool track_ok = m_pTrackingEngine->trackFrame(nFrame, m_pColorImageRGB, &pOutputInfo, 
+                    use_depth, m_pDepth);
   
   if (!track_ok)
     {

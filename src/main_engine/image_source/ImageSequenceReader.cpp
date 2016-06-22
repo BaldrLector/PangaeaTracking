@@ -1,6 +1,6 @@
 #include "main_engine/image_source/ImageSourceEngine.h"
 
-ImageSequenceReader::ImageSequenceReader(ImageSourceSettings& settings, bool use_depth)
+ImageSequenceReader::ImageSequenceReader(ImageSourceSettings& settings, bool _use_depth)
 {
   startFrameNo = settings.startFrame;
   totalFrameNo = settings.numFrames;
@@ -11,6 +11,8 @@ ImageSequenceReader::ImageSequenceReader(ImageSourceSettings& settings, bool use
   depthFormat = settings.depthFormat;
 
   currentFrameNo = startFrameNo;
+
+  use_depth = _use_depth;
 
   char buffer[BUFFER_SIZE];
   std::stringstream imagePath;
@@ -172,6 +174,16 @@ void ImageSequenceReader::setCurrentFrame(int curFrame)
             }
         }
 
+        if (use_depth)
+        {
+          std::stringstream depthPath;
+          sprintf(buffer, depthFormat.c_str(), currentFrameNo);
+          depthPath << inputPath << buffer;
+
+          cv::Mat_<float> tempDepth = cv::imread(depthPath.str().c_str(),-1); // read in as it is
+
+          tempDepth.convertTo(dImage, CV_64F);
+        }
     }
 }
 

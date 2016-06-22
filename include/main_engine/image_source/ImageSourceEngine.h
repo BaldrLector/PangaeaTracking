@@ -101,6 +101,8 @@ public:
 
   double m_ShapeScale;
 
+  bool use_depth;
+
   std::string inputPath;
   std::string imgFormat;
   std::string depthFormat;  

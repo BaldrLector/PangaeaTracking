@@ -300,7 +300,7 @@ void ImagePyramid::setupPyramid(unsigned char* pColorImageRGB, int numLevels,
                   -1,
                   1,0,
                   gradScale);
-        cv::Scharr(levelsBuffer[i].grayImage,
+        cv::Scharr(levelsBuffer[i].depthImage,
                   levelsBuffer[i].depthGradYImage,
                   -1,
                   0,1,
