@@ -282,7 +282,7 @@ void getResidual(double weight, const CameraInfo* pCamera, const Level* pFrame,
     case PE_DEPTH_PLANE:
       {
         for(int i = 0; i < numChannels; ++i)
-          residuals[i] = projValues[i];
+          residuals[i] = T(weight) * projValues[i];
       }
       break;
     }
