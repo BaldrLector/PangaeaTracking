@@ -215,10 +215,16 @@ void ImagePyramid::setupPyramid(unsigned char* pColorImageRGB, int numLevels,
 
           if (use_depth)
           {
-            cv::GaussianBlur(depthBufferImage,
-                            blurDepthBufferImage,
-                            cv::Size(blurSize, blurSize),
-                            blurSigma);
+            // cv::GaussianBlur(depthBufferImage,
+            //                 blurDepthBufferImage,
+            //                 cv::Size(blurSize, blurSize),
+            //                 blurSigma);
+            cv::Mat_<float> tempDepthBufferImage, tempBlurDepthBufferImage;
+            depthBufferImage.convertTo(tempDepthBufferImage, CV_32F);
+            cv::medianBlur(tempDepthBufferImage,
+                            tempBlurDepthBufferImage,
+                            3);
+            tempBlurDepthBufferImage.convertTo(blurDepthBufferImage, CV_64F);
           }
         }else
         {
