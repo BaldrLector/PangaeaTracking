@@ -387,6 +387,11 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
 		  prevMeshRotPyramid[i][j].resize(3, 0);
 	  }
 
+    if (!trackerSettings.estimate_specularities)
+    {
+      templateMeshPyramid.levels[i].specular_colors.assign(numVertices, zeros3D);
+    }
+
 	  templateAlbedoPyramid[i] = templateMeshPyramid.levels[i].colors;
 
       outputInfoPyramid[i].meshData = templateMeshPyramid.levels[i];
