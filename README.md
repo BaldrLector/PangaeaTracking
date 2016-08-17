@@ -1,11 +1,11 @@
 #PangaeaTracking
 
-This is the implementation of the following ICCV2015 paper:
+This is the implementation of the following BMVC2016 paper:
 
-Direct, Dense, and Deformable: Template-Based Non-Rigid 3D Reconstruction from RGB Video
-Rui Yu, Chris Russell, Neill D. F. Campbell, Lourdes Agapito
+Better Together: Joint Reasoning for Non-rigid 3D Reconstruction with Specularities and Shading
+Qi Liu-Yin, Rui Yu, Lourdes Agapito, Andrew Fitzgibbon, Chris Russell
 
-For more information about this work, please visit the [project website](http://www0.cs.ucl.ac.uk/staff/R.Yu/direct_nrsfm/direct_nrsfm.html).
+For more information about this work, please visit the [project website](http://www0.cs.ucl.ac.uk/staff/Qi.Liu/bmvc16/better_together.html).
 
 This github repository is maintained by Rui Yu (R.Yu@cs.ucl.ac.uk).
 Contact me if you have any questions.
