@@ -26,7 +26,8 @@ struct OptimizationLevel
 struct WeightPara
 {
     // weighting parameters of each energy term
-    double dataTermWeight; // photometric term
+	double dataTermWeight; // photometric term
+	double dataIntensityTermWeight; // photometric term
     double tvTermWeight;
     double tvRotTermWeight;
 
@@ -34,14 +35,19 @@ struct WeightPara
     double inextentTermWeight;
     double deformWeight;
 
+	// Laplacian smoothing weight
+	double smoothingTermWeight;
+
     // rigid transformation weight
     double rotWeight;
     double transWeight;
 
     // Huber width
-    double dataHuberWidth;
+	double dataHuberWidth;
+	double dataIntensityHuberWidth;
     double tvHuberWidth;
-    double tvRotHuberWidth;
+	double tvRotHuberWidth;
+	double smoothingHuberWidth;
 
   // feature weighting parameters
   double featureTermWeight;
@@ -56,7 +62,8 @@ struct WeightScale
     vector<double> rotTVTermScale;
     vector<double> arapTermScale;
     vector<double> inextentTermScale;
-    vector<double> deformTermScale;
+	vector<double> deformTermScale;
+	vector<double> smoothingTermScale;
 
     // rigid transformation weighting scale
     // change over different levels of the pyramid

@@ -8,6 +8,9 @@
 #include "./residual.h"
 #include "./ProblemWrapper.h"
 
+#include "../utils/qx_basic.h"
+#include "../utils/qx_highlight_removal_bf.h"
+
 #include "ceres/ceres.h"
 
 // baType mapBA(std::string const& inString);
@@ -42,6 +45,7 @@ public:
 
   bool trackFrame(int nFrame, unsigned char* pColorImageRGB,
                   TrackerOutputInfo** pOutputInfo);
+
   void updateRenderingLevel(TrackerOutputInfo** pOutputInfo,
                             int nRenderLevel, bool renderType = false);
 
@@ -69,6 +73,16 @@ public:
                           ceres::LossFunction* loss_function);
   void AddTemporalMotionCost(ceres::Problem& problem,
                              double rotWeight, double transWeight);
+  void AddSmoothingCost(ceres::Problem& problem,
+	  ceres::LossFunction* loss_function);
+  void AddTemporalSHCoeffCost(ceres::Problem& problem,
+    ceres::LossFunction* loss_function);
+  void AddSpecularSmoothnessCost(ceres::Problem& problem,
+    ceres::LossFunction* loss_function);
+  void AddSpecularMagnitudeCost(ceres::Problem& problem,
+    ceres::LossFunction* loss_function);
+  void AddTemporalSpecularCost(ceres::Problem& problem,
+    ceres::LossFunction* loss_function);
 
   void AddVariableMask(ceres::Problem& problem, baType BA);
   void AddConstantMask(ceres::Problem& problem, baType BA);
@@ -125,6 +139,16 @@ public:
                               CameraInfo* pCamera,
                               Level* pFrame);
 
+  void AddCostImageProjection(ceres::Problem& problem,
+	  ceres::LossFunction* loss_function,
+	  dataTermErrorType errorType,
+	  PangaeaMeshData& templateMesh,
+	  MeshDeformation& meshTrans,
+	  vector<bool>& visibilityMask,
+	  CameraInfo* pCamera,
+	  Level* pFrame,
+	  MeshDeformation& local_ligthing);
+
   void AddCostImageProjectionPatch(ceres::Problem& problem,
                                    ceres::LossFunction* loss_function,
                                    dataTermErrorType errorType,
@@ -166,6 +190,10 @@ public:
                                          CameraInfo* pCamera,
                                          Level* pFrame);
 
+  dataTermErrorType getPEType();
+
+  void setMeshIntensityPyramid(PangaeaMeshPyramid &_templateIntensityPyramid);
+
 private:
 
   // Siggraph14 or DynamicFusion
@@ -185,6 +213,11 @@ private:
   double prevCamPose[6];
   double camPose[6];
   double KK[3][3];
+
+  // Spherical Harmonic Coefficients for representing illumination
+  //vector<double> sh_coeff;
+  // Spherical Harmonic order
+  //int sh_order;
 
   //
   CameraInfo camInfo;
@@ -216,6 +249,16 @@ private:
   vector< MeshDeformation > meshRotPyramid;
   vector< MeshDeformation > prevMeshTransPyramid;
   vector< MeshDeformation > prevMeshRotPyramid;
+
+  PangaeaMeshPyramid templateIntensityPyramid;
+
+  vector< MeshDeformation > templateAlbedoPyramid;
+
+  vector<MeshNeighborsNano> fineToCoarseNeighbours;
+  vector<MeshWeights> fineToCoarseWeights;
+
+  uchar*** qx_image;
+  uchar*** qx_diffuse_image;
 
   // what about if we use dual quarternion representation?
   // In that case, we will need a dual quarternion
@@ -264,6 +307,68 @@ private:
   // recording the average error over the whole sequence
   double meanError;
   std::ofstream scoresOutput;
+
+  // Estimates sh coeff, albedo, and local lighting maps
+  void updateIntrinsics(unsigned char* pColorImageRGB);
+
+  void initProjectedValues(const vector<vector<CoordinateType> > &meshProj, 
+	  const vector<bool> &visibility, const InternalColorImageType &colorImage,
+	  const InternalIntensityImageType &brightnessImage,
+	  const InternalIntensityImageType &specularImage, 
+	  vector< vector<double> > &intensities, 
+	  vector<double> &brightness,
+	  vector< vector<double> > &local_lightings);
+
+  void projectValues( const vector<vector<CoordinateType> > &meshProj,
+  const vector<bool> &visibility, const InternalColorImageType &colorImage,
+  vector< vector<double> > &intensities);
+
+  void estimateSHCoeff(const PangaeaMeshData &mesh, 
+	  const vector<bool> &visibility, const vector<vector<double>> &intensities,
+	  vector<vector<double>> &albedos, const vector<double> &specular_weights,
+	  const int sh_order, vector<double> &sh_coeff);
+
+  void estimateSHCoeff( const PangaeaMeshData &mesh, 
+    const vector<bool> &visibility, const vector<vector<double>> &intensities,
+    vector<vector<double>> &albedos, vector<vector<double>> &local_lightings,
+    const int sh_order, vector<double> &sh_coeff);
+
+  void updateShading(const PangaeaMeshData &mesh,
+	  const vector<double> &sh_coeff, const int sh_order,
+	  vector<double> &shadings);
+
+  void estimateAlbedo(const PangaeaMeshData &mesh,
+	  const vector<bool> &visibility,
+	  const MeshDeformation &intensities,
+	  const vector<double> &shadings,
+	  const MeshDeformation &local_lightings,
+	  const vector<double> &specular_weights, 
+	  const MeshDeformation &template_albedos,
+	  MeshDeformation &albedos);
+
+  double computeDiffWeight(
+	  const MeshDeformation &local_lightings, const MeshDeformation &colors,
+	  const unsigned int v_idx1, const unsigned int v_idx2);
+
+  void estimateLocalLighting(const PangaeaMeshData &mesh,
+	  const vector<bool> &visibility,
+	  const MeshDeformation &intensities,
+	  const MeshDeformation &albedos,
+	  const vector<double> &shadings,
+	  MeshDeformation &local_lightings);
+
+  void estimateSHCoeffLocalLighting(const PangaeaMeshData &mesh,
+      const vector<bool> &visibility,
+      const MeshDeformation &intensities,
+      MeshDeformation &albedos,
+      const int sh_order, vector<double> &sh_coeff,
+      MeshDeformation &local_lightings);
+
+  void initNeighboursWeightsFineToCoarse();
+
+  void propagateAlbedoLocalLightingFineToCoarse();
+
+  void estimateDiffuse(const cv::Mat color_image, cv::Mat &diffuse_image);
 
 };
 

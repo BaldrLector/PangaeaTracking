@@ -95,6 +95,7 @@ public:
 
   // DeformNRSFM para
   std::string errorType;
+  std::string errorIntensityType;
   std::string baType;
   std::string meshFile;
   std::string optimizationType;
@@ -112,6 +113,7 @@ public:
   double depth2MeshScale;
 
   double weightPhotometric;
+  double weightPhotometricIntensity;
   double weightTV;
   double weightRotTV;
 
@@ -120,14 +122,60 @@ public:
   double weightARAP;
   double weightINEXTENT;
   double weightTransPrior;
+  double weightSmoothing;
   double photometricHuberWidth;
+  double photometricIntensityHuberWidth;
   double tvHuberWidth;
   double tvRotHuberWidth;
+  double arapHuberWidth;
+  double smoothingHuberWidth;
+
+  bool use_cotangent;
 
   double meshScaleUpFactor;
 
 	// Faces of the mesh are defined clockwise or not (anti-clockwise)
 	bool clockwise;
+
+	// Path to Spherical Harmonic Coefficients for Illumination
+	std::string sh_coeff_file;
+
+	double specular_weight_var;
+	double brightness_percentile;
+
+	double sh_coeff_data_weight;
+	double sh_coeff_data_huber_width;
+	double sh_coeff_temporal_weight;
+	double sh_coeff_temporal_huber_width;
+
+  bool update_albedo;
+	double albedo_data_weight;
+	double albedo_data_huber_width;
+	double albedo_smoothness_weight;
+	double albedo_smoothness_huber_width;
+	double albedo_difference_weight;
+	double albedo_difference_huber_width;
+
+	double smoothness_specular_weight;
+	double smoothness_color_diff_var;
+	double smoothness_color_diff_threshold;
+
+	double local_lighting_data_weight;
+	double local_lighting_data_huber_width;
+	double local_lighting_smoothness_weight;
+	double local_lighting_smoothness_huber_width;
+	double local_lighting_magnitude_weight;
+	double local_lighting_magnitude_huber_width;
+	double local_lighting_temporal_weight;
+	double local_lighting_temporal_huber_width;
+
+	bool estimate_all_together;
+	bool estimate_with_sh_coeff;
+
+  bool estimate_diffuse;
+	bool estimate_sh_coeff_specular_together;
+
+	bool estimate_specularities;
 
   // ceres parameter
   std::string linearSolver;
@@ -152,6 +200,8 @@ public:
   bool isMinimizerProgressToStdout;
 
   // debugging
+  bool save_binary_mesh;
+
   bool saveResults;
   std::string ceresOutputFile;
   std::string diffFileFormat;
@@ -182,6 +232,9 @@ public:
   IntegerContainerType meshNeighborNum;
   CoordinateContainerType meshNeighborRadius;
   bool meshPyramidUseRadius;
+
+  bool use_intensity_pyramid;
+  std::string meshIntensityLevelFormat;
 
   // create a mesh pyramid from depth image
   bool useDepthPyramid;
@@ -216,6 +269,7 @@ public:
   std::string meshPathGT;
   std::string meshLevelFormatGT;
   IntegerContainerType meshLevelListGT;
+  int firstFrameGT;
 
   // print energy and error compared with ground truth
   bool printEnergy;
@@ -224,6 +278,9 @@ public:
 
   // save the mesh as ply files
   // bool savePLY;
+
+  // List of pyramid levels to save
+  IntegerContainerType levelsMeshPyramidSave; 
 };
 
 class FeatureSettings

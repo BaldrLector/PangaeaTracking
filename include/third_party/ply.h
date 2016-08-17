@@ -83,14 +83,22 @@ static int ply_type_size[] = {
 #define OTHER_PROP       0
 #define NAMED_PROP       1
 
-#define PLY_VERTEX_RGB			0
-#define PLY_VERTEX_NORMAL_RGB	1
-#define PLY_VERTEX_RGBA			2
-#define PLY_VERTEX_NORMAL_RGBA	3
+#define PLY_VERTEX_RGB					0
+#define PLY_VERTEX_NORMAL_RGB			1
+#define PLY_VERTEX_RGBA					2
+#define PLY_VERTEX_NORMAL_RGBA			3
+#define PLY_VERTEX_RGB_SPECULAR			4
+#define PLY_VERTEX_NORMAL_RGB_SPECULAR	5
+#define PLY_VERTEX_RGBA_SPECULAR		6
+#define PLY_VERTEX_NORMAL_RGBA_SPECULAR	7
+
+#define PLY_WITH_NORMAL		0x01
+#define PLY_WITH_ALPHA		0x02
+#define PLY_WITH_SPECULAR	0x04
 
 typedef struct PlyProperty {    /* description of a property */
 
-  const char *name;                           /* property name */
+  std::string name;                     /* property name */
   int external_type;                    /* file's data type */
   int internal_type;                    /* program's data type */
   int offset;                           /* offset bytes of prop in a struct */
@@ -103,7 +111,7 @@ typedef struct PlyProperty {    /* description of a property */
 } PlyProperty;
 
 typedef struct PlyElement {     /* description of an element */
-  char *name;                   /* element name */
+  std::string name;             /* element name */
   int num;                      /* number of elements in this object */
   int size;                     /* size of element (bytes) or -1 if variable */
   int nprops;                   /* number of properties for this element */
@@ -111,29 +119,79 @@ typedef struct PlyElement {     /* description of an element */
   char *store_prop;             /* flags: property wanted by user? */
   int other_offset;             /* offset to un-asked-for props, or -1 if none*/
   int other_size;               /* size of other_props structure */
+
+  ~PlyElement()
+  {
+	  if (nprops > 0)
+	  {
+		  for (int i = 0; i < nprops; i++)
+		  {
+			  delete props[i];
+		  }
+		  free(props);
+		  free(store_prop);
+	  }
+  }
+
 } PlyElement;
 
 typedef struct PlyOtherProp {   /* describes other properties in an element */
-  char *name;                   /* element name */
+  std::string name;                   /* element name */
   int size;                     /* size of other_props */
   int nprops;                   /* number of properties in other_props */
   PlyProperty **props;          /* list of properties in other_props */
+
+  ~PlyOtherProp()
+  {
+	  if (nprops > 0)
+	  {
+		  for (int i = 0; i < nprops; i++)
+		  {
+			  delete props[i];
+		  }
+		  delete[] props;
+	  }
+  }
+
 } PlyOtherProp;
 
 typedef struct OtherData { /* for storing other_props for an other element */
   void *other_props;
+
+  ~OtherData()
+  {
+	  //delete[] other_props;
+  }
+
 } OtherData;
 
 typedef struct OtherElem {     /* data for one "other" element */
-  char *elem_name;             /* names of other elements */
+  std::string elem_name;             /* names of other elements */
   int elem_count;              /* count of instances of each element */
   OtherData **other_data;      /* actual property data for the elements */
   PlyOtherProp *other_props;   /* description of the property data */
+
+  ~OtherElem()
+  {
+	  for (int i = 0; i < elem_count; i++)
+	  {
+		  delete other_data[i];
+	  }
+	  delete[] other_data;
+	  delete[] other_props;
+  }
+
 } OtherElem;
 
 typedef struct PlyOtherElems {  /* "other" elements, not interpreted by user */
   int num_elems;                /* number of other elements */
   OtherElem *other_list;        /* list of data for other elements */
+
+  ~PlyOtherElems()
+  {
+	  delete[] other_list;
+  }
+
 } PlyOtherElems;
 
 typedef struct PlyFile {        /* description of PLY file */
@@ -148,6 +206,37 @@ typedef struct PlyFile {        /* description of PLY file */
   char **obj_info;              /* list of object info items */
   PlyElement *which_elem;       /* which element we're currently writing */
   PlyOtherElems *other_elems;   /* "other" elements from a PLY file */
+
+  ~PlyFile()
+  {
+	  if (nelems > 0)
+	  {
+		  for (int i = 0; i < nelems; i++)
+		  {
+			  delete elems[i];
+		  }
+		  free(elems);
+	  }
+
+	  if (num_comments > 0)
+	  {
+		  for (int i = 0; i < num_comments; i++)
+		  {
+			  delete comments[i];
+		  }
+		  delete[] comments;
+	  }
+
+	  if (num_obj_info > 0)
+	  {
+		  for (int i = 0; i < num_obj_info; i++)
+		  {
+			  delete obj_info[i];
+		  }
+		  delete[] obj_info;
+	  }
+  }
+
 } PlyFile;
 
 /* memory allocation */
@@ -285,9 +374,9 @@ inline PlyFile *ply_write(
 
 	plyfile->elems = (PlyElement **)myalloc(sizeof (PlyElement *)* nelems);
 	for (i = 0; i < nelems; i++) {
-		elem = (PlyElement *)myalloc(sizeof (PlyElement));
+		elem = new PlyElement();
 		plyfile->elems[i] = elem;
-		elem->name = strdup(elem_names[i]);
+		elem->name = std::string(elem_names[i]);
 		elem->num = 0;
 		elem->nprops = 0;
 	}
@@ -319,9 +408,7 @@ inline PlyFile *ply_open_for_writing(
 	float *version
 	)
 {
-	int i;
 	PlyFile *plyfile;
-	PlyElement *elem;
 	char *name;
 	FILE *fp;
 
@@ -344,7 +431,7 @@ inline PlyFile *ply_open_for_writing(
 		fp = fopen(name, "wb");
 	}
 
-  delete name;
+  	free(name);
 
 	if (fp == NULL) {
 		return (NULL);
@@ -404,7 +491,7 @@ inline void ply_describe_element(
 	elem->store_prop = (char *)myalloc(sizeof (char)* nprops);
 
 	for (i = 0; i < nprops; i++) {
-		prop = (PlyProperty *)myalloc(sizeof (PlyProperty));
+		prop = new PlyProperty();
 		elem->props[i] = prop;
 		elem->store_prop[i] = NAMED_PROP;
 		copy_property(prop, &prop_list[i]);
@@ -455,7 +542,7 @@ inline void ply_describe_property(
 
 	/* copy the new property */
 
-	elem_prop = (PlyProperty *)myalloc(sizeof (PlyProperty));
+	elem_prop = new PlyProperty();
 	elem->props[elem->nprops - 1] = elem_prop;
 	elem->store_prop[elem->nprops - 1] = NAMED_PROP;
 	copy_property(elem_prop, prop);
@@ -478,10 +565,10 @@ inline void ply_describe_other_properties(
 	PlyProperty *prop;
 
 	/* look for appropriate element */
-	elem = find_element(plyfile, other->name);
+	elem = find_element(plyfile, other->name.c_str());
 	if (elem == NULL) {
 		fprintf(stderr, "ply_describe_other_properties: can't find element '%s'\n",
-			other->name);
+			other->name.c_str());
 		return;
 	}
 
@@ -505,7 +592,7 @@ inline void ply_describe_other_properties(
 	/* copy the other properties */
 
 	for (i = 0; i < other->nprops; i++) {
-		prop = (PlyProperty *)myalloc(sizeof (PlyProperty));
+		prop = new PlyProperty();
 		copy_property(prop, other->props[i]);
 		elem->props[elem->nprops] = prop;
 		elem->store_prop[elem->nprops] = OTHER_PROP;
@@ -533,9 +620,7 @@ inline void ply_element_count(
 	int nelems
 	)
 {
-	int i;
 	PlyElement *elem;
-	PlyProperty *prop;
 
 	/* look for appropriate element */
 	elem = find_element(plyfile, elem_name);
@@ -596,7 +681,7 @@ inline void ply_header_complete(PlyFile *plyfile)
 	for (i = 0; i < plyfile->nelems; i++) {
 
 		elem = plyfile->elems[i];
-		fprintf(fp, "element %s %d\n", elem->name, elem->num);
+		fprintf(fp, "element %s %d\n", elem->name.c_str(), elem->num);
 
 		/* write out each property */
 		for (j = 0; j < elem->nprops; j++) {
@@ -606,12 +691,12 @@ inline void ply_header_complete(PlyFile *plyfile)
 				write_scalar_type(fp, prop->count_external);
 				fprintf(fp, " ");
 				write_scalar_type(fp, prop->external_type);
-				fprintf(fp, " %s\n", prop->name);
+				fprintf(fp, " %s\n", prop->name.c_str());
 			}
 			else {
 				fprintf(fp, "property ");
 				write_scalar_type(fp, prop->external_type);
-				fprintf(fp, " %s\n", prop->name);
+				fprintf(fp, " %s\n", prop->name.c_str());
 			}
 		}
 	}
@@ -655,7 +740,7 @@ elem_ptr - pointer to the element
 
 inline void ply_put_element(PlyFile *plyfile, void *elem_ptr)
 {
-	int i, j, k;
+	int j, k;
 	FILE *fp = plyfile->fp;
 	PlyElement *elem;
 	PlyProperty *prop;
@@ -875,7 +960,7 @@ inline PlyFile *ply_read(FILE *fp, int *nelems, char ***elem_names)
 				plyfile->file_type = PLY_BINARY_LE;
 			else
 				return (NULL);
-			plyfile->version = atof(words[2]);
+			plyfile->version = (float)atof(words[2]);
 			found_format = 1;
 		}
 		else if (equal_strings(words[0], "element"))
@@ -895,6 +980,8 @@ inline PlyFile *ply_read(FILE *fp, int *nelems, char ***elem_names)
 		words = get_words(plyfile->fp, &nwords, &orig_line);
 	}
 
+	free(words);
+
 	/* create tags for each property of each element, to be used */
 	/* later to say whether or not to store each property for the user */
 
@@ -910,7 +997,7 @@ inline PlyFile *ply_read(FILE *fp, int *nelems, char ***elem_names)
 
 	elist = (char **)myalloc(sizeof (char *)* plyfile->nelems);
 	for (i = 0; i < plyfile->nelems; i++)
-		elist[i] = strdup(plyfile->elems[i]->name);
+		elist[i] = strdup(plyfile->elems[i]->name.c_str());
 
 	*elem_names = elist;
 	*nelems = plyfile->nelems;
@@ -945,19 +1032,10 @@ inline PlyFile *ply_open_for_reading(
 {
 	FILE *fp;
 	PlyFile *plyfile;
-	char *name;
-
-	/* tack on the extension .ply, if necessary */
-
-	name = (char *)myalloc(sizeof (char)* (strlen(filename) + 5));
-	strcpy(name, filename);
-	if (strlen(name) < 4 ||
-		strcmp(name + strlen(name) - 4, ".ply") != 0)
-		strcat(name, ".ply");
 
 	/* open the file for reading */
 
-	fp = fopen(name, "rb");
+	fp = fopen(filename, "rb");
 	if (fp == NULL)
 		return (NULL);
 
@@ -1004,9 +1082,7 @@ inline PlyProperty **ply_get_element_description(
 	int *nprops
 	)
 {
-	int i;
 	PlyElement *elem;
-	PlyProperty *prop;
 	PlyProperty **prop_list;
 
 	/* find information about the element */
@@ -1018,12 +1094,15 @@ inline PlyProperty **ply_get_element_description(
 	*nprops = elem->nprops;
 
 	/* make a copy of the element's property list */
-	prop_list = (PlyProperty **)myalloc(sizeof (PlyProperty *)* elem->nprops);
-	for (i = 0; i < elem->nprops; i++) {
-		prop = (PlyProperty *)myalloc(sizeof (PlyProperty));
-		copy_property(prop, elem->props[i]);
-		prop_list[i] = prop;
-	}
+	//prop_list = (PlyProperty **)myalloc(sizeof (PlyProperty *)* elem->nprops);
+	//for (i = 0; i < elem->nprops; i++) {
+	//	prop = (PlyProperty *)myalloc(sizeof (PlyProperty));
+	//	copy_property(prop, elem->props[i]);
+	//	prop_list[i] = prop;
+	//}
+
+	// No need to copy the values. Just return pointer to properties of the element
+	prop_list = elem->props;
 
 	/* return this duplicate property list */
 	return (prop_list);
@@ -1061,10 +1140,10 @@ inline void ply_get_element_setup(
 	for (i = 0; i < nprops; i++) {
 
 		/* look for actual property */
-		prop = find_property(elem, prop_list[i].name, &index);
+		prop = find_property(elem, prop_list[i].name.c_str(), &index);
 		if (prop == NULL) {
 			fprintf(stderr, "Warning:  Can't find property '%s' in element '%s'\n",
-				prop_list[i].name, elem_name);
+				prop_list[i].name.c_str(), elem_name);
 			continue;
 		}
 
@@ -1108,10 +1187,10 @@ inline void ply_get_property(
 
 	/* deposit the property information into the element's description */
 
-	prop_ptr = find_property(elem, prop->name, &index);
+	prop_ptr = find_property(elem, prop->name.c_str(), &index);
 	if (prop_ptr == NULL) {
 		fprintf(stderr, "Warning:  Can't find property '%s' in element '%s'\n",
-			prop->name, elem_name);
+			prop->name.c_str(), elem_name);
 		return;
 	}
 	prop_ptr->internal_type = prop->internal_type;
@@ -1292,8 +1371,8 @@ inline PlyOtherProp *ply_get_other_properties(
 	setup_other_props(plyfile, elem);
 
 	/* create structure for describing other_props */
-	other = (PlyOtherProp *)myalloc(sizeof (PlyOtherProp));
-	other->name = strdup(elem_name);
+	other = new PlyOtherProp();
+	other->name = std::string(elem_name);
 #if 0
 	if (elem->other_offset == NO_OTHER_PROPS) {
 		other->size = 0;
@@ -1310,7 +1389,7 @@ inline PlyOtherProp *ply_get_other_properties(
 	for (i = 0; i < elem->nprops; i++) {
 		if (elem->store_prop[i])
 			continue;
-		prop = (PlyProperty *)myalloc(sizeof (PlyProperty));
+		prop = new PlyProperty();
 		copy_property(prop, elem->props[i]);
 		other->props[nprops] = prop;
 		nprops++;
@@ -1361,7 +1440,6 @@ inline PlyOtherElems *ply_get_other_element(
 	PlyElement *elem;
 	PlyOtherElems *other_elems;
 	OtherElem *other;
-	int num_elems;
 
 	/* look for appropriate element */
 	elem = find_element(plyfile, elem_name);
@@ -1377,7 +1455,7 @@ inline PlyOtherElems *ply_get_other_element(
 	if (plyfile->other_elems == NULL) {
 		plyfile->other_elems = (PlyOtherElems *)myalloc(sizeof (PlyOtherElems));
 		other_elems = plyfile->other_elems;
-		other_elems->other_list = (OtherElem *)myalloc(sizeof (OtherElem));
+		other_elems->other_list = new OtherElem();
 		other = &(other_elems->other_list[0]);
 		other_elems->num_elems = 1;
 	}
@@ -1386,6 +1464,7 @@ inline PlyOtherElems *ply_get_other_element(
 		other_elems->other_list = (OtherElem *)realloc(other_elems->other_list,
 			sizeof (OtherElem)* other_elems->num_elems + 1);
 		other = &(other_elems->other_list[other_elems->num_elems]);
+		new (other)OtherElem();
 		other_elems->num_elems++;
 	}
 
@@ -1393,7 +1472,7 @@ inline PlyOtherElems *ply_get_other_element(
 	other->elem_count = elem_count;
 
 	/* save name of element */
-	other->elem_name = strdup(elem_name);
+	other->elem_name = std::string(elem_name);
 
 	/* create a list to hold all the current elements */
 	other->other_data = (OtherData **)
@@ -1443,7 +1522,7 @@ inline void ply_describe_other_elements(
 
 	for (i = 0; i < other_elems->num_elems; i++) {
 		other = &(other_elems->other_list[i]);
-		ply_element_count(plyfile, other->elem_name, other->elem_count);
+		ply_element_count(plyfile, other->elem_name.c_str(), other->elem_count);
 		ply_describe_other_properties(plyfile, other->other_props,
 			offsetof(OtherData, other_props));
 	}
@@ -1471,7 +1550,7 @@ inline void ply_put_other_elements(PlyFile *plyfile)
 	for (i = 0; i < plyfile->other_elems->num_elems; i++) {
 
 		other = &(plyfile->other_elems->other_list[i]);
-		ply_put_element_setup(plyfile, other->elem_name);
+		ply_put_element_setup(plyfile, other->elem_name.c_str());
 
 		/* write out each instance of the current element */
 		for (j = 0; j < other->elem_count; j++)
@@ -1543,8 +1622,6 @@ Compare two strings.  Returns 1 if they are the same, 0 if not.
 
 inline int equal_strings(const char *s1, const char *s2)
 {
-	int i;
-
 	while (*s1 && *s2)
 	if (*s1++ != *s2++)
 		return (0);
@@ -1572,7 +1649,7 @@ inline PlyElement *find_element(PlyFile *plyfile, const char *element)
 	int i;
 
 	for (i = 0; i < plyfile->nelems; i++)
-	if (equal_strings(element, plyfile->elems[i]->name))
+	if (equal_strings(element, plyfile->elems[i]->name.c_str()))
 		return (plyfile->elems[i]);
 
 	return (NULL);
@@ -1596,7 +1673,7 @@ inline PlyProperty *find_property(PlyElement *elem, const char *prop_name, int *
 	int i;
 
 	for (i = 0; i < elem->nprops; i++)
-	if (equal_strings(prop_name, elem->props[i]->name)) {
+	if (equal_strings(prop_name, elem->props[i]->name.c_str())) {
 		*index = i;
 		return (elem->props[i]);
 	}
@@ -1616,7 +1693,7 @@ elem_ptr - pointer to element
 
 inline void ascii_get_element(PlyFile *plyfile, char *elem_ptr)
 {
-	int i, j, k;
+	int j, k;
 	PlyElement *elem;
 	PlyProperty *prop;
 	char **words;
@@ -1738,7 +1815,7 @@ elem_ptr - pointer to an element
 
 inline void binary_get_element(PlyFile *plyfile, char *elem_ptr)
 {
-	int i, j, k;
+	int j, k;
 	PlyElement *elem;
 	PlyProperty *prop;
 	FILE *fp = plyfile->fp;
@@ -1882,7 +1959,6 @@ returns a list of words from the line, or NULL if end-of-file
 inline char **get_words(FILE *fp, int *nwords, char **orig_line)
 {
 #define BIG_STRING 4096
-	int i, j;
 	static char str[BIG_STRING];
 	static char str_copy[BIG_STRING];
 	char **words;
@@ -2487,8 +2563,8 @@ inline void add_element(PlyFile *plyfile, char **words, int nwords)
 	PlyElement *elem;
 
 	/* create the new element */
-	elem = (PlyElement *)myalloc(sizeof (PlyElement));
-	elem->name = strdup(words[1]);
+	elem = new PlyElement();
+	elem->name = std::string(words[1]);
 	elem->num = atoi(words[2]);
 	elem->nprops = 0;
 
@@ -2539,24 +2615,22 @@ nwords  - number of words in the list
 
 inline void add_property(PlyFile *plyfile, char **words, int nwords)
 {
-	int prop_type;
-	int count_type;
 	PlyProperty *prop;
 	PlyElement *elem;
 
 	/* create the new property */
 
-	prop = (PlyProperty *)myalloc(sizeof (PlyProperty));
+	prop = new PlyProperty();
 
 	if (equal_strings(words[1], "list")) {       /* is a list */
 		prop->count_external = get_prop_type(words[2]);
 		prop->external_type = get_prop_type(words[3]);
-		prop->name = strdup(words[4]);
+		prop->name = std::string(words[4]);
 		prop->is_list = 1;
 	}
 	else {                                        /* not a list */
 		prop->external_type = get_prop_type(words[1]);
-		prop->name = strdup(words[2]);
+		prop->name = std::string(words[2]);
 		prop->is_list = 0;
 	}
 
@@ -2623,7 +2697,7 @@ Copy a property.
 
 inline void copy_property(PlyProperty *dest, PlyProperty *src)
 {
-	dest->name = strdup(src->name);
+	dest->name = src->name;
 	dest->external_type = src->external_type;
 	dest->internal_type = src->internal_type;
 	dest->offset = src->offset;
@@ -2683,13 +2757,41 @@ namespace ply{
 		unsigned char a;
 	};
 
+	struct VertexColorSpecular : public VertexColor {
+		unsigned char specular_r, specular_g, specular_b;
+	};
+
+	struct VertexNormalColorSpecular : public VertexNormalColor {
+		unsigned char specular_r, specular_g, specular_b;
+	};
+
+	struct VertexColorAlphaSpecular : public VertexColorAlpha {
+		unsigned char specular_r, specular_g, specular_b;
+	};
+
+	struct VertexNormalColorAlphaSpecular : public VertexNormalColorAlpha {
+		unsigned char specular_r, specular_g, specular_b;
+	};
+
 	struct Face {
 		unsigned char nverts;    /* number of vertex indices in list */
 		int* verts;              /* vertex index list */
+
+		~Face()
+		{
+			if (nverts)
+			{
+				free(verts);
+			}
+		}
+	};
+
+	struct SH_Coefficient {
+		float value; /* sh coefficient value */
 	};
 
 	static const char *elem_names[] = { /* list of the kinds of elements in the user's object */
-		"vertex", "face"
+		"vertex", "face", "sh_coefficient"
 	};
 
 	static PlyProperty vc_props[] = { /* list of property information for a vertex with uchar rgb */
@@ -2736,11 +2838,71 @@ namespace ply{
 		{ "alpha", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorAlpha, a), 0, 0, 0, 0 },
 	};
 
+	static PlyProperty vcs_props[] = { /* list of property information for a vertex with uchar rgb */
+		{ "x", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexColorSpecular, x), 0, 0, 0, 0 },
+		{ "y", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexColorSpecular, y), 0, 0, 0, 0 },
+		{ "z", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexColorSpecular, z), 0, 0, 0, 0 },
+		{ "red", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorSpecular, r), 0, 0, 0, 0 },
+		{ "green", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorSpecular, g), 0, 0, 0, 0 },
+		{ "blue", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorSpecular, b), 0, 0, 0, 0 },
+		{ "specular_red", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorSpecular, specular_r), 0, 0, 0, 0 },
+		{ "specular_green", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorSpecular, specular_g), 0, 0, 0, 0 },
+		{ "specular_blue", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorSpecular, specular_b), 0, 0, 0, 0 }
+	};
+
+	static PlyProperty vncs_props[] = { /* list of property information for a vertex with normals and uchar specular rgb */
+		{ "x", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorSpecular, x), 0, 0, 0, 0 },
+		{ "y", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorSpecular, y), 0, 0, 0, 0 },
+		{ "z", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorSpecular, z), 0, 0, 0, 0 },
+		{ "nx", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorSpecular, nx), 0, 0, 0, 0 },
+		{ "ny", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorSpecular, ny), 0, 0, 0, 0 },
+		{ "nz", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorSpecular, nz), 0, 0, 0, 0 },
+		{ "red", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorSpecular, r), 0, 0, 0, 0 },
+		{ "green", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorSpecular, g), 0, 0, 0, 0 },
+		{ "blue", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorSpecular, b), 0, 0, 0, 0 },
+		{ "specular_red", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorSpecular, specular_r), 0, 0, 0, 0 },
+		{ "specular_green", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorSpecular, specular_g), 0, 0, 0, 0 },
+		{ "specular_blue", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorSpecular, specular_b), 0, 0, 0, 0 }
+	};
+
+	static PlyProperty vcas_props[] = { /* list of property information for a vertex with uchar rgba and specular rgb */
+		{ "x", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexColorAlphaSpecular, x), 0, 0, 0, 0 },
+		{ "y", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexColorAlphaSpecular, y), 0, 0, 0, 0 },
+		{ "z", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexColorAlphaSpecular, z), 0, 0, 0, 0 },
+		{ "red", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorAlphaSpecular, r), 0, 0, 0, 0 },
+		{ "green", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorAlphaSpecular, g), 0, 0, 0, 0 },
+		{ "blue", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorAlphaSpecular, b), 0, 0, 0, 0 },
+		{ "alpha", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorAlphaSpecular, a), 0, 0, 0, 0 },
+		{ "specular_red", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorAlphaSpecular, specular_r), 0, 0, 0, 0 },
+		{ "specular_green", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorAlphaSpecular, specular_g), 0, 0, 0, 0 },
+		{ "specular_blue", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexColorAlphaSpecular, specular_b), 0, 0, 0, 0 }
+	};
+
+	static PlyProperty vncas_props[] = { /* list of property information for a vertex with normals, uchar rgba ad specular rgb */
+		{ "x", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorAlphaSpecular, x), 0, 0, 0, 0 },
+		{ "y", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorAlphaSpecular, y), 0, 0, 0, 0 },
+		{ "z", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorAlphaSpecular, z), 0, 0, 0, 0 },
+		{ "nx", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorAlphaSpecular, nx), 0, 0, 0, 0 },
+		{ "ny", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorAlphaSpecular, ny), 0, 0, 0, 0 },
+		{ "nz", PLY_FLOAT, PLY_FLOAT, offsetof(ply::VertexNormalColorAlphaSpecular, nz), 0, 0, 0, 0 },
+		{ "red", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorAlphaSpecular, r), 0, 0, 0, 0 },
+		{ "green", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorAlphaSpecular, g), 0, 0, 0, 0 },
+		{ "blue", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorAlphaSpecular, b), 0, 0, 0, 0 },
+		{ "alpha", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorAlphaSpecular, a), 0, 0, 0, 0 },
+		{ "specular_red", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorAlphaSpecular, specular_r), 0, 0, 0, 0 },
+		{ "specular_green", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorAlphaSpecular, specular_g), 0, 0, 0, 0 },
+		{ "specular_blue", PLY_UCHAR, PLY_UCHAR, offsetof(ply::VertexNormalColorAlphaSpecular, specular_b), 0, 0, 0, 0 }
+	};
+
 	static int n_vprops[] = { // number of vertex properties for each case
 		6,	// xyz and uchar rgb
 		9,	// xyz, normals and uchar rgb
 		7,	// xyz and uchar rgba
-		10	// xyz, normals and uchar rgba
+		10,	// xyz, normals and uchar rgba
+		9,	// xyz, uchar rgb and uchar specular rgb
+		12,	// xyz, normals, uchar rgb and uchar specular rgb
+		10,	// xyz, uchar rgba and uchar specular rgb
+		13	// xyz, normals, uchar rgba and uchar specular rgb
 	};
 
 	static PlyProperty face_props[] = { /* list of property information for a vertex */
@@ -2750,6 +2912,13 @@ namespace ply{
 
 	static int n_fprops = 1;
 
+	static PlyProperty sh_coeff_props[] = { /* list of spherical harmonic coefficients */
+		{ "value", PLY_FLOAT, PLY_FLOAT, offsetof(ply::SH_Coefficient, value),
+		0, 0, 0, 0 },
+	};
+
+	static int n_sh_coeff_props = 1;
+
 	inline int get_vertex_type(PlyProperty** _plist, int _nprops)
 	{
 		int vertex_type = 0;
@@ -2758,53 +2927,73 @@ namespace ply{
 		{
 			PlyProperty* prop = _plist[i];
 
-			if (equal_strings(prop->name, "x") || equal_strings(prop->name, "y")
-				|| equal_strings(prop->name, "z"))
+			if (equal_strings(prop->name.c_str(), "x") 
+				|| equal_strings(prop->name.c_str(), "y")
+				|| equal_strings(prop->name.c_str(), "z"))
 			{
 				if (prop->external_type != PLY_FLOAT)
 				{
 					std::cout << "ERROR: float type expected for property'"
-						<< prop->name << "'." << std::endl;
+						<< prop->name.c_str() << "'." << std::endl;
 					exit(0);
 				}
 			}
 			else
 			{
-				if (equal_strings(prop->name, "nx") || equal_strings(prop->name, "ny")
-					|| equal_strings(prop->name, "nz"))
+				if (equal_strings(prop->name.c_str(), "nx")
+					|| equal_strings(prop->name.c_str(), "ny")
+					|| equal_strings(prop->name.c_str(), "nz"))
 				{
 					if (prop->external_type != PLY_FLOAT)
 					{
 						std::cout << "ERROR: float type expected for property'"
-							<< prop->name << "'." << std::endl;
+							<< prop->name.c_str() << "'." << std::endl;
 						exit(0);
 					}
 
-					vertex_type |= 0x01;
+					vertex_type |= PLY_WITH_NORMAL;
 				}
 				else
 				{
-					if (equal_strings(prop->name, "red") || equal_strings(prop->name, "green")
-						|| equal_strings(prop->name, "blue"))
+					if (equal_strings(prop->name.c_str(), "red")
+						|| equal_strings(prop->name.c_str(), "green")
+						|| equal_strings(prop->name.c_str(), "blue"))
 					{
 						if (prop->external_type != PLY_UCHAR)
 						{
 							std::cout << "ERROR: uchar type expected for property'"
-								<< prop->name << "'." << std::endl;
+								<< prop->name.c_str() << "'." << std::endl;
 							exit(0);
 						}
 					}
 					else
 					{
-						if (equal_strings(prop->name, "alpha"))
+						if (equal_strings(prop->name.c_str(), "alpha"))
 						{
-							vertex_type |= 0x02;
+							vertex_type |= PLY_WITH_ALPHA;
 						}
 						else
 						{
-							std::cout << "ERROR: property'"
-								<< prop->name << "' is not supported." << std::endl;
-							exit(0);
+							if (equal_strings(prop->name.c_str(), "specular_red")
+								|| equal_strings(prop->name.c_str(), "specular_green")
+								|| equal_strings(prop->name.c_str(), "specular_blue"))
+							{
+								if (prop->external_type != PLY_UCHAR)
+								{
+									std::cout << "ERROR: uchar type expected for property'"
+										<< prop->name.c_str() << "'." << std::endl;
+									exit(0);
+								}
+
+								vertex_type |= PLY_WITH_SPECULAR;
+							}
+							else
+							{
+								std::cout << "ERROR: property'"
+									<< prop->name.c_str() << "' is not supported."
+									<< std::endl;
+								exit(0);
+							}
 						}
 					}
 				}
@@ -2831,6 +3020,18 @@ namespace ply{
 			break;
 		case PLY_VERTEX_NORMAL_RGBA:
 			prop = &ply::vnca_props[_prop_idx];
+			break;
+		case PLY_VERTEX_RGB_SPECULAR:
+			prop = &ply::vcs_props[_prop_idx];
+			break;
+		case PLY_VERTEX_NORMAL_RGB_SPECULAR:
+			prop = &ply::vncs_props[_prop_idx];
+			break;
+		case PLY_VERTEX_RGBA_SPECULAR:
+			prop = &ply::vcas_props[_prop_idx];
+			break;
+		case PLY_VERTEX_NORMAL_RGBA_SPECULAR:
+			prop = &ply::vncas_props[_prop_idx];
 			break;
 		default:
 			break;

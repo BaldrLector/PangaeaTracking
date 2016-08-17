@@ -1,6 +1,8 @@
 #include "../utils/global.h"
 #include "ceres/ceres.h"
 
+#define NUM_PRINT_COSTS	15
+
 class ProblemWrapper
 {
 public:
@@ -23,6 +25,11 @@ public:
   void addINEXTENTTerm(int nLevel, ceres::ResidualBlockId& residualBlockId);
   void addDeformTerm(int nLevel, ceres::ResidualBlockId& residualBlockId);
   void addTemporalTerm(int nLevel, ceres::ResidualBlockId& residualBlockId);
+  void addSmoothingTerm(int nLevel, ceres::ResidualBlockId& residualBlockId);
+  void addTemporalSHCoeffTerm(int nLevel, ceres::ResidualBlockId& residualBlockId);
+  void addSpecularSmoothnessTerm(int nLevel, ceres::ResidualBlockId& residualBlockId);
+  void addSpecularMagnitudeTerm(int nLevel, ceres::ResidualBlockId& residualBlockId);
+  void addTemporalSpecularTerm(int nLevel, ceres::ResidualBlockId& residualBlockId);
 
   void addDataTermCost(int nLevel, ceres::CostFunction* pCostFunction);
   void addFeatureTermCost(int nLevel, ceres::CostFunction* pCostFunction);
@@ -56,8 +63,13 @@ public:
   void getINEXTENTTermCost(int nLevel, double* cost);
   void getDeformTermCost(int nLevel, double* cost);
   void getTemporalTermCost(int nLevel, double* cost);
+  void getSmoothingTermCost(int nLevel, double* cost);
+  void getTemporalSHCoeffTermCost(int nLevel, double* cost);
+  void getSpecularSmoothnessTermCost(int nLevel, double* cost);
+  void getSpecularMagnitudeTermCost(int nLevel, double* cost);
+  void getTemporalSpecularTermCost(int nLevel, double* cost);
 
-  void getAllCost(int nLevel, double cost[7], double* total_cost, double* sum_cost);
+  void getAllCost(int nLevel, double *cost, double* total_cost, double* sum_cost);
 
 
   void clearDataTermCost(int nLevel);
@@ -111,6 +123,11 @@ private:
   vector<vector<ceres::ResidualBlockId> > inextentTermResidualBlocks;
   vector<vector<ceres::ResidualBlockId> > deformTermResidualBlocks;
   vector<vector<ceres::ResidualBlockId> > temporalTermResidualBlocks;
+  vector<vector<ceres::ResidualBlockId> > smoothingTermResidualBlocks;
+  vector<vector<ceres::ResidualBlockId> > temporalSHCoeffTermResidualBlocks;
+  vector<vector<ceres::ResidualBlockId> > specularSmoothnessTermResidualBlocks;
+  vector<vector<ceres::ResidualBlockId> > specularMagnitudeTermResidualBlocks;
+  vector<vector<ceres::ResidualBlockId> > temporalSpecularTermResidualBlocks;
 
 
   vector<vector<ceres::CostFunction*> > dataTermCostFunctions;

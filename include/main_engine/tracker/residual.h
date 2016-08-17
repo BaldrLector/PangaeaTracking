@@ -1,7 +1,7 @@
 #pragma once
 
 #include "./Mesh.h"
-#include "./ImagePyramid.h"
+#include "./FeaturePyramid.h"
 
 #include "sample.h"
 #include "jet_extras.h"
@@ -22,10 +22,12 @@ enum dataTermErrorType{
   PE_COLOR_NCC,
   PE_FEATURE, // number of residuals depend on the number of channels
   PE_FEATURE_NCC,
+  PE_INTRINSIC,
+  PE_INTRINSIC_COLOR,
   COST_TYPE_NUM
 };
 
-static int PE_RESIDUAL_NUM_ARRAY[COST_TYPE_NUM] = {1,3,3,1,1,3,-1,-1};
+static int PE_RESIDUAL_NUM_ARRAY[COST_TYPE_NUM] = {1,3,3,1,1,3,-1,-1,1,3};
 
 template<typename T>
 void getValueFromMesh(const PangaeaMeshData* pMeshData, dataTermErrorType errorType, int pntInd, T** pValue)
@@ -490,7 +492,7 @@ public:
     return true;
   }
 
-private:
+protected:
   bool optimizeDeformation;  // whether optimize deformation directly
   double* pVertex;
   double weight;
@@ -1236,4 +1238,1051 @@ public:
     m_EnergyRecord.clear();
   }
 
+};
+
+// class ResidualPhotometricCallback: public ceres::IterationCallback
+// {
+
+
+// }
+
+// Applies deformation, rotation and translation to a vertex
+template <typename T>
+void getRotTransP(const T* const rotation, const T* const translation,
+	const T* const xyz, const double* const pVertex, bool optimizeDeformation, T* p)
+{
+	T afterTrans[3];
+
+	// if we are doing optimization on the transformation,
+	// we need to add up the template position first
+	if (optimizeDeformation)
+	{
+		afterTrans[0] = xyz[0] + pVertex[0];
+		afterTrans[1] = xyz[1] + pVertex[1];
+		afterTrans[2] = xyz[2] + pVertex[2];
+	}
+	else
+	{
+		afterTrans[0] = xyz[0];
+		afterTrans[1] = xyz[1];
+		afterTrans[2] = xyz[2];
+	}
+
+	ceres::AngleAxisRotatePoint(rotation, afterTrans, p);
+	p[0] += translation[0];
+	p[1] += translation[1];
+	p[2] += translation[2];
+}
+
+// Computes vertex normal direction given its position, its one-ring neighbours 
+// and the corresponding face indexes. Can handle clockwise and counter-clockwise
+template <typename T>
+void computeNormal(const T* p, const vector<T*> &adjP, 
+  const int &_n_faces, const bool clockwise, T* normal)
+{
+	normal[0] = T(0.0);
+	normal[1] = T(0.0);
+	normal[2] = T(0.0);
+
+	for (int i = 0; i < _n_faces; i++)
+	{
+		unsigned int vIdx1 = i;
+		unsigned int vIdx2 = (i + 1) % adjP.size();
+
+		T face_normal[3];
+		compnorm(p, adjP[vIdx1], adjP[vIdx2], face_normal, false);
+
+		normal[0] += face_normal[0];
+		normal[1] += face_normal[1];
+		normal[2] += face_normal[2];
+	}
+
+	T norm = sqrt(normal[1] * normal[1] + normal[2] * normal[2] + normal[0] * normal[0]);
+	if (norm != T(0.0))
+	{
+		normal[0] /= norm;
+		normal[1] /= norm;
+		normal[2] /= norm;
+	}
+}
+
+// Computes shading value given normal direction, spherical harmonic coefficients 
+// and the SH order
+template <typename T>
+T computeShading(const T* _normal, const T* _sh_coeff, int _sh_order)
+{
+	T n_x = _normal[0];
+	T n_y = _normal[1];
+	T n_z = _normal[2];
+
+	T n_x2 = n_x * n_x;
+	T n_y2 = n_y * n_y;
+	T n_z2 = n_z * n_z;
+	T n_xy = n_x * n_y;
+	T n_xz = n_x * n_z;
+	T n_yz = n_y * n_z;
+	T n_x2_y2 = n_x2 - n_y2;
+
+	T shading = _sh_coeff[0];
+
+	if (_sh_order > 0)
+		shading = shading
+		+ _sh_coeff[1] * n_x					// x
+		+ _sh_coeff[2] * n_y					// y
+		+ _sh_coeff[3] * n_z;				// z
+
+	if (_sh_order > 1)
+		shading = shading
+		+ _sh_coeff[4] * n_xy						// x * y
+		+ _sh_coeff[5] * n_xz						// x * z
+		+ _sh_coeff[6] * n_yz						// y * z
+		+ _sh_coeff[7] * n_x2_y2						// x^2 - y^2
+		+ _sh_coeff[8] * (T(3.0) * n_z2 - T(1.0));	// 3 * z^2 - 1
+
+	if (_sh_order > 2)
+		shading = shading
+		+ _sh_coeff[9] * (T(3.0) * n_x2 - n_y2) * n_y		// (3 * x^2 - y^2) * y 
+		+ _sh_coeff[10] * n_x * n_y * n_z					// x * y * z
+		+ _sh_coeff[11] * (T(5.0) * n_z2 - T(1.0)) * n_y		// (5 * z^2 - 1) * y
+		+ _sh_coeff[12] * (T(5.0) * n_z2 - T(3.0)) * n_z		// (5 * z^2 - 3) * z
+		+ _sh_coeff[13] * (T(5.0) * n_z2 - T(1.0)) * n_x		// (5 * z^2 - 1) * x
+		+ _sh_coeff[14] * n_x2_y2 * n_z						// (x^2 - y^2) * z
+		+ _sh_coeff[15] * (n_x2 - T(3.0) * n_y2) * n_x;		// (x^2 - 3 * y^2) * x
+
+	if (_sh_order > 3)
+		shading = shading
+		+ _sh_coeff[16] * n_x2_y2 * n_x * n_y								// (x^2 - y^2) * x * y
+		+ _sh_coeff[17] * (T(3.0) * n_x2 - n_y2) * n_yz						// (3 * x^2 - y^2) * yz
+		+ _sh_coeff[18] * (T(7.0) * n_z2 - T(1.0)) * n_xy					// (7 * z^2 - 1) * x * y
+		+ _sh_coeff[19] * (T(7.0) * n_z2 - T(3.0)) * n_yz					// (7 * z^2 - 3) * y * z
+		+ _sh_coeff[20] * (T(3.0) - T(30.0) * n_z2 + T(35.0) * n_z2 * n_z2)	// 3 - 30 * z^2 + 35 * z^4
+		+ _sh_coeff[21] * (T(7.0) * n_z - T(3.0)) * n_xz						// (7 * z^2 - 3) * x * z
+		+ _sh_coeff[22] * (T(7.0) * n_z - T(1.0)) * n_x2_y2					// (7 * z^2 - 1) * (x^2 - y^2)
+		+ _sh_coeff[23] * (n_x2 - T(3.0) * n_y2) * n_xz						// (x^2 - 3 * y^2) * x * z
+		+ _sh_coeff[24] * ((n_x2 - T(3.0) * n_y2) * n_x2					// (x^2 - 3 * y^2) * x^2 - (3 * x^2 - y^2) * y^2 
+		- (T(3.0) * n_x2 - n_y2) * n_y2);
+
+	return shading;
+}
+
+// Computes shading value given normal direction, spherical harmonic coefficients 
+// and the SH order
+template <typename T>
+T computeShading(const T* _normal, const vector<double> &_sh_coeff, int _sh_order)
+{
+	T n_x = _normal[0];
+	T n_y = _normal[1];
+	T n_z = _normal[2];
+
+	T n_x2 = n_x * n_x;
+	T n_y2 = n_y * n_y;
+	T n_z2 = n_z * n_z;
+	T n_xy = n_x * n_y;
+	T n_xz = n_x * n_z;
+	T n_yz = n_y * n_z;
+	T n_x2_y2 = n_x2 - n_y2;
+
+	T shading = T(_sh_coeff[0]);
+
+	if (_sh_order > 0)
+		shading = shading
+		+ T(_sh_coeff[1]) * n_x					// x
+		+ T(_sh_coeff[2]) * n_y					// y
+		+ T(_sh_coeff[3]) * n_z;				// z
+
+	if (_sh_order > 1)
+		shading = shading
+		+ T(_sh_coeff[4]) * n_xy						// x * y
+		+ T(_sh_coeff[5]) * n_xz						// x * z
+		+ T(_sh_coeff[6]) * n_yz						// y * z
+		+ T(_sh_coeff[7]) * n_x2_y2						// x^2 - y^2
+		+ T(_sh_coeff[8]) * (T(3.0) * n_z2 - T(1.0));	// 3 * z^2 - 1
+
+	if (_sh_order > 2)
+		shading = shading
+		+ T(_sh_coeff[9]) * (T(3.0) * n_x2 - n_y2) * n_y		// (3 * x^2 - y^2) * y 
+		+ T(_sh_coeff[10]) * n_x * n_y * n_z					// x * y * z
+		+ T(_sh_coeff[11]) * (T(5.0) * n_z2 - T(1.0)) * n_y		// (5 * z^2 - 1) * y
+		+ T(_sh_coeff[12]) * (T(5.0) * n_z2 - T(3.0)) * n_z		// (5 * z^2 - 3) * z
+		+ T(_sh_coeff[13]) * (T(5.0) * n_z2 - T(1.0)) * n_x		// (5 * z^2 - 1) * x
+		+ T(_sh_coeff[14]) * n_x2_y2 * n_z						// (x^2 - y^2) * z
+		+ T(_sh_coeff[15]) * (n_x2 - T(3.0) * n_y2) * n_x;		// (x^2 - 3 * y^2) * x
+
+	if (_sh_order > 3)
+		shading = shading
+		+ T(_sh_coeff[16]) * n_x2_y2 * n_x * n_y								// (x^2 - y^2) * x * y
+		+ T(_sh_coeff[17]) * (T(3.0) * n_x2 - n_y2) * n_yz						// (3 * x^2 - y^2) * yz
+		+ T(_sh_coeff[18]) * (T(7.0) * n_z2 - T(1.0)) * n_xy					// (7 * z^2 - 1) * x * y
+		+ T(_sh_coeff[19]) * (T(7.0) * n_z2 - T(3.0)) * n_yz					// (7 * z^2 - 3) * y * z
+		+ T(_sh_coeff[20]) * (T(3.0) - T(30.0) * n_z2 + T(35.0) * n_z2 * n_z2)	// 3 - 30 * z^2 + 35 * z^4
+		+ T(_sh_coeff[21]) * (T(7.0) * n_z - T(3.0)) * n_xz						// (7 * z^2 - 3) * x * z
+		+ T(_sh_coeff[22]) * (T(7.0) * n_z - T(1.0)) * n_x2_y2					// (7 * z^2 - 1) * (x^2 - y^2)
+		+ T(_sh_coeff[23]) * (n_x2 - T(3.0) * n_y2) * n_xz						// (x^2 - 3 * y^2) * x * z
+		+ T(_sh_coeff[24]) * ((n_x2 - T(3.0) * n_y2) * n_x2					// (x^2 - 3 * y^2) * x^2 - (3 * x^2 - y^2) * y^2 
+		- (T(3.0) * n_x2 - n_y2) * n_y2);
+
+	return shading;
+}
+
+template<typename T>
+void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level* pFrame,
+	double* pValue, T* shading, T* p, T* residuals, const dataTermErrorType& PE_TYPE,
+	const T* local_lighting)
+{
+	T transformed_r, transformed_c;
+
+	IntrinsicProjection(pCamera, p, &transformed_c, &transformed_r);
+
+	T templateValue, currentValue;
+
+	if (transformed_r >= T(0.0) && transformed_r < T(pCamera->height) &&
+		transformed_c >= T(0.0) && transformed_c < T(pCamera->width))
+	{
+		ImageLevel* pImageLevel = (ImageLevel*)pFrame;
+		switch (PE_TYPE)
+		{
+		case PE_INTRINSIC:
+			templateValue = T(pValue[0]) * shading[0];
+
+      // Add specular highlight
+			templateValue += local_lighting[0];
+
+			currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->grayImage,
+				pImageLevel->gradXImage,
+				pImageLevel->gradYImage,
+				transformed_c,
+				transformed_r);
+			residuals[0] = T(weight) * (currentValue - templateValue);
+			break;
+
+		case PE_INTRINSIC_COLOR:
+			for (int i = 0; i < 3; ++i)
+			{
+				templateValue = T(pValue[i]) * shading[0];
+
+        // Add specular highlight
+        templateValue += local_lighting[i];
+
+				currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->colorImageSplit[i],
+					pImageLevel->colorImageGradXSplit[i],
+					pImageLevel->colorImageGradYSplit[i],
+					transformed_c,
+					transformed_r);
+				residuals[i] = T(weight) * (currentValue - templateValue);
+			}
+			break;
+
+		default:
+			break;
+		}
+	}
+
+}
+
+template<typename T>
+void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level* pFrame,
+	double* pValue, T* shading, T* p, T* residuals, const dataTermErrorType& PE_TYPE,
+	const vector<double> &local_lighting)
+{
+	T transformed_r, transformed_c;
+
+	IntrinsicProjection(pCamera, p, &transformed_c, &transformed_r);
+
+	T templateValue, currentValue;
+
+	if (transformed_r >= T(0.0) && transformed_r < T(pCamera->height) &&
+		transformed_c >= T(0.0) && transformed_c < T(pCamera->width))
+	{
+		ImageLevel* pImageLevel = (ImageLevel*)pFrame;
+		switch (PE_TYPE)
+		{
+		case PE_INTRINSIC:
+			templateValue = T(pValue[0]) * shading[0];
+
+			// Add specular highlight
+			templateValue += T(local_lighting[0]);
+
+			currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->grayImage,
+				pImageLevel->gradXImage,
+				pImageLevel->gradYImage,
+				transformed_c,
+				transformed_r);
+			residuals[0] = T(weight) * (currentValue - templateValue);
+			break;
+
+		case PE_INTRINSIC_COLOR:
+			for (int i = 0; i < 3; ++i)
+			{
+				templateValue = T(pValue[i]) * shading[0];
+
+				// Add specular highlight
+				templateValue += T(local_lighting[i]);
+
+				currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->colorImageSplit[i],
+					pImageLevel->colorImageGradXSplit[i],
+					pImageLevel->colorImageGradYSplit[i],
+					transformed_c,
+					transformed_r);
+				residuals[i] = T(weight) * (currentValue - templateValue);
+			}
+			break;
+
+		default:
+			break;
+		}
+	}
+
+}
+
+// Photometric cost for the case of known albedo and illumination (sh representation)
+class ResidualImageProjectionIntrinsic : public ResidualImageProjection
+{
+public:
+	ResidualImageProjectionIntrinsic(double weight, double* pValue, double* pVertex,
+		const CameraInfo* pCamera, const Level* pFrame, 
+		const vector< vector<double> > &_vertices, 
+		const vector<unsigned int> &_adjVerticesInd, const int &_n_adj_faces,
+		dataTermErrorType PE_TYPE = PE_INTRINSIC, const bool _clockwise = true,
+		const int _sh_order = 0) :
+		ResidualImageProjection(weight, pValue, pVertex,
+		pCamera, pFrame, PE_TYPE),
+		vertices(_vertices),
+		adjVerticesInd(_adjVerticesInd),
+		n_adj_faces(_n_adj_faces),
+		clockwise(_clockwise),
+		sh_order(_sh_order)
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const* const parameters, T* residuals) const
+	{
+		// Parameters:
+		// 0 - Rotation
+		// 1 - Translation
+		// 2 - Current vertex position or translation
+		// >2 - Neighbour vertices positions or translations
+
+		const T* sh_coeff = parameters[0];
+		const T* rotation = parameters[1];
+    const T* translation = parameters[2];
+		const T* local_lighting = parameters[3];
+
+		T p[3];
+		getRotTransP(rotation, translation, parameters[4], pVertex,
+			optimizeDeformation, p);
+
+		vector<T*> adjP;
+		T* p_neighbour;
+		int num_neighbours = adjVerticesInd.size();
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			int v_idx = adjVerticesInd[i];
+
+			p_neighbour = new T[3];
+			getRotTransP(rotation, translation, parameters[5 + i], &vertices[v_idx][0],
+				optimizeDeformation, p_neighbour);
+			adjP.push_back(p_neighbour);
+		}
+
+		T normal[3];
+		computeNormal(p, adjP, n_adj_faces, clockwise, normal);
+
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			delete[] adjP[i];
+		}
+
+		T shading = computeShading(normal, sh_coeff, sh_order);
+
+		getResidualIntrinsic(weight, pCamera, pFrame, pValue, &shading, p, residuals,
+			PE_TYPE, local_lighting);
+
+		return true;
+
+	}
+
+private:
+	// List of vertices
+	const vector< vector<double> > &vertices;
+	// List of ordered adjacent vertices
+	const vector<unsigned int> &adjVerticesInd;
+	// Number of adjacent faces
+	const int n_adj_faces;
+
+	// Identifies if faces are defined clockwise
+	const bool clockwise;
+	// SH order
+	const int sh_order;
+};
+
+// Photometric cost for the case of known albedo and illumination (sh representation)
+class ResidualImageProjectionIntrinsicSpec : public ResidualImageProjection
+{
+public:
+	ResidualImageProjectionIntrinsicSpec(double weight, double* pValue, double* pVertex,
+		const CameraInfo* pCamera, const Level* pFrame,
+		const vector< vector<double> > &_vertices,
+		const vector<unsigned int> &_adjVerticesInd, const int &_n_adj_faces,
+		dataTermErrorType PE_TYPE, const vector<double> &_local_lighting, 
+		const bool _clockwise = true,
+		const int _sh_order = 0) :
+		ResidualImageProjection(weight, pValue, pVertex,
+		pCamera, pFrame, PE_TYPE),
+		vertices(_vertices),
+		adjVerticesInd(_adjVerticesInd),
+		n_adj_faces(_n_adj_faces),
+		clockwise(_clockwise),
+		sh_order(_sh_order),
+		local_lighting(_local_lighting)
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const* const parameters, T* residuals) const
+	{
+		// Parameters:
+		// 0 - Rotation
+		// 1 - Translation
+		// 2 - Current vertex position or translation
+		// >2 - Neighbour vertices positions or translations
+
+		const T* sh_coeff = parameters[0];
+		const T* rotation = parameters[1];
+		const T* translation = parameters[2];
+
+		T p[3];
+		getRotTransP(rotation, translation, parameters[3], pVertex,
+			optimizeDeformation, p);
+
+		vector<T*> adjP;
+		T* p_neighbour;
+		int num_neighbours = adjVerticesInd.size();
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			int v_idx = adjVerticesInd[i];
+
+			p_neighbour = new T[3];
+			getRotTransP(rotation, translation, parameters[4 + i], &vertices[v_idx][0],
+				optimizeDeformation, p_neighbour);
+			adjP.push_back(p_neighbour);
+		}
+
+		T normal[3];
+		computeNormal(p, adjP, n_adj_faces, clockwise, normal);
+
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			delete[] adjP[i];
+		}
+
+		T shading = computeShading(normal, sh_coeff, sh_order);
+
+		getResidualIntrinsic(weight, pCamera, pFrame, pValue, &shading, p, residuals,
+			PE_TYPE, local_lighting);
+
+		return true;
+
+	}
+
+private:
+	// List of vertices
+	const vector< vector<double> > &vertices;
+	// List of ordered adjacent vertices
+	const vector<unsigned int> &adjVerticesInd;
+	// Number of adjacent faces
+	const int n_adj_faces;
+
+	// Identifies if faces are defined clockwise
+	const bool clockwise;
+	// SH order
+	const int sh_order;
+
+	// Known local lighting
+	const vector<double> &local_lighting;
+};
+
+// Photometric cost for the case of known albedo and illumination (sh representation)
+class ResidualImageProjectionIntrinsicSHSpec : public ResidualImageProjection
+{
+public:
+	ResidualImageProjectionIntrinsicSHSpec(double weight, double* pValue, double* pVertex,
+		const CameraInfo* pCamera, const Level* pFrame,
+		const vector< vector<double> > &_vertices,
+		const vector<unsigned int> &_adjVerticesInd, const int &_n_adj_faces,
+		dataTermErrorType PE_TYPE, const vector<double> &_sh_coeff,
+		const vector<double> &_local_lighting, const bool _clockwise = true,
+		const int _sh_order = 0) :
+		ResidualImageProjection(weight, pValue, pVertex,
+		pCamera, pFrame, PE_TYPE),
+		vertices(_vertices),
+		adjVerticesInd(_adjVerticesInd),
+		n_adj_faces(_n_adj_faces),
+		clockwise(_clockwise),
+		sh_order(_sh_order),
+		sh_coeff(_sh_coeff),
+		local_lighting(_local_lighting)
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const* const parameters, T* residuals) const
+	{
+		// Parameters:
+		// 0 - Rotation
+		// 1 - Translation
+		// 2 - Current vertex position or translation
+		// >2 - Neighbour vertices positions or translations
+
+		const T* rotation = parameters[0];
+		const T* translation = parameters[1];
+
+		T p[3];
+		getRotTransP(rotation, translation, parameters[2], pVertex,
+			optimizeDeformation, p);
+
+		vector<T*> adjP;
+		T* p_neighbour;
+		int num_neighbours = adjVerticesInd.size();
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			int v_idx = adjVerticesInd[i];
+
+			p_neighbour = new T[3];
+			getRotTransP(rotation, translation, parameters[3 + i], &vertices[v_idx][0],
+				optimizeDeformation, p_neighbour);
+			adjP.push_back(p_neighbour);
+		}
+
+		T normal[3];
+		computeNormal(p, adjP, n_adj_faces, clockwise, normal);
+
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			delete[] adjP[i];
+		}
+
+		T shading = computeShading(normal, sh_coeff, sh_order);
+
+		getResidualIntrinsic(weight, pCamera, pFrame, pValue, &shading, p, residuals,
+			PE_TYPE, local_lighting);
+
+		return true;
+
+	}
+
+private:
+	// List of vertices
+	const vector< vector<double> > &vertices;
+	// List of ordered adjacent vertices
+	const vector<unsigned int> &adjVerticesInd;
+	// Number of adjacent faces
+	const int n_adj_faces;
+
+	// Identifies if faces are defined clockwise
+	const bool clockwise;
+	// SH order
+	const int sh_order;
+
+	// Known sh coefficients
+	const vector<double> &sh_coeff;
+
+	// Known local lighting
+	const vector<double> &local_lighting;
+};
+
+// Residual of the difference between the previous SH coefficients and the current ones
+class ResidualTemporalSHCoeff
+{
+public:
+	ResidualTemporalSHCoeff(const vector<double> &_prev_sh_coeff) : 
+		prev_sh_coeff(_prev_sh_coeff),
+		n_sh_coeff(_prev_sh_coeff.size())
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const* const parameters, T* residuals) const
+	{
+		const T* sh_coeff = parameters[0];
+
+		for (int i = 0; i < n_sh_coeff; i++)
+		{
+			residuals[i] = sh_coeff[i] - T(prev_sh_coeff[i]);
+		}
+
+		return true;
+	}
+
+private:
+	// Previous SH coeff
+	const vector<double> prev_sh_coeff;
+
+	// Number of SH Coeff
+	const int n_sh_coeff;
+};
+
+// Residual of the difference between the previous Local lighting and the current ones
+class ResidualTemporalLocalLighting
+{
+public:
+	ResidualTemporalLocalLighting(const vector<double> &_prev_local_lighting) :
+		prev_local_lighting(_prev_local_lighting),
+		n_channels(_prev_local_lighting.size())
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const* const parameters, T* residuals) const
+	{
+		const T* local_lighting = parameters[0];
+
+		for (int i = 0; i < n_channels; i++)
+		{
+			residuals[i] = local_lighting[i] - T(prev_local_lighting[i]);
+		}
+
+		return true;
+	}
+
+private:
+	// Previous Local lighting values
+	const vector<double> prev_local_lighting;
+
+	// Number of channels
+	const int n_channels;
+};
+
+// Residual of the difference between the previous albedo values and the current ones
+class ResidualTemplateAlbedo
+{
+public:
+	ResidualTemplateAlbedo(const double* _template_albedo, const bool _is_grayscale) :
+		template_albedo(_template_albedo),
+		n_channels(_is_grayscale ? 1 : 3)
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const* const parameters, T* residuals) const
+	{
+		const T* albedo = parameters[0];
+
+		for (int i = 0; i < n_channels; i++)
+		{
+			residuals[i] = albedo[i] - T(template_albedo[i]);
+		}
+
+		return true;
+	}
+
+private:
+	// Template albedo color
+	const double* template_albedo;
+
+	// Number of albedo channels
+	const int n_channels;
+
+};
+
+// Laplacian smoothing residual
+class ResidualLaplacianSmoothing
+{
+public:
+public:
+	ResidualLaplacianSmoothing(double* _pVertex,
+		const vector< vector<double> > &_vertices,
+		const vector<unsigned int> &_adjVerticesInd,
+		const int _nAdjFaces,
+		const bool _use_cotangent = false,
+		const bool _clockwise = true,
+		const bool _optimizeDeformation = true) :
+		pVertex(_pVertex),
+		vertices(_vertices),
+		adjVerticesInd(_adjVerticesInd),
+		use_cotangent(_use_cotangent),
+		clockwise(_clockwise),
+		optimizeDeformation(_optimizeDeformation)
+	{
+
+	}
+
+	template <typename T>
+	bool operator()(const T* const* const parameters, T* residuals) const
+	{
+		// Parameters:
+		// 0 - Current vertex position or translation
+		// >0 - Neighbour vertices positions or translations
+
+		T p[3];
+		p[0] = parameters[0][0];
+		p[1] = parameters[0][1];
+		p[2] = parameters[0][2];
+
+		if (optimizeDeformation)
+		{
+			p[0] += T(pVertex[0]);
+			p[1] += T(pVertex[1]);
+			p[2] += T(pVertex[2]);
+		}
+
+		vector<T*> adjP;
+		T* p_neighbour;
+		int num_neighbours = adjVerticesInd.size();
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			int v_idx = adjVerticesInd[i];
+
+			p_neighbour = new T[3];
+
+			p_neighbour[0] = parameters[i + 1][0];
+			p_neighbour[1] = parameters[i + 1][1];
+			p_neighbour[2] = parameters[i + 1][2];
+
+			if (optimizeDeformation)
+			{
+				p_neighbour[0] += T(vertices[v_idx][0]);
+				p_neighbour[1] += T(vertices[v_idx][1]);
+				p_neighbour[2] += T(vertices[v_idx][2]);
+			}
+
+			adjP.push_back(p_neighbour);
+		}
+
+		T laplacian_x = T(0.0);
+		T laplacian_y = T(0.0);
+		T laplacian_z = T(0.0);
+		T weight_norm = T(0.0);
+
+		T weight = T(1.0 / (double)adjVerticesInd.size());
+		for (int i = 1; i <= num_neighbours; i++)
+		{
+			int prev_i = (i - 1) % num_neighbours;
+			int curr_i = i % num_neighbours;
+			int next_i = (i + 1) % num_neighbours;
+
+			if (use_cotangent)
+			{
+				weight = computeCotangent(p, adjP[curr_i], adjP[prev_i]);
+				weight += computeCotangent(p, adjP[curr_i], adjP[next_i]);
+			}
+
+			laplacian_x += weight * (adjP[curr_i][0] - p[0]);
+			laplacian_y += weight * (adjP[curr_i][1] - p[1]);
+			laplacian_z += weight * (adjP[curr_i][2] - p[2]);
+
+			weight_norm += weight;
+		}
+
+		for (int i = 0; i < num_neighbours; i++)
+		{
+			delete[] adjP[i];
+		}
+
+		if (weight_norm >= T(std::numeric_limits<double>::epsilon()))
+		{
+			laplacian_x /= weight_norm;
+			laplacian_y /= weight_norm;
+			laplacian_z /= weight_norm;
+		}
+
+		residuals[0] = ceres::sqrt(laplacian_x * laplacian_x
+			+ laplacian_y * laplacian_y
+			+ laplacian_z * laplacian_z);
+
+		return true;
+	}
+
+	template <typename T>
+	T computeCotangent(const T* const _p0, const T* const _p1,
+		const T* const _p2) const {
+
+		// Vector from the thrid vertex to the center of the ring
+		T v1_x = _p0[0] - _p2[0];
+		T v1_y = _p0[1] - _p2[1];
+		T v1_z = _p0[2] - _p2[2];
+
+		// Normalize first vector
+		T v1_norm = ceres::sqrt(v1_x * v1_x + v1_y * v1_y + v1_z * v1_z);
+		v1_x /= v1_norm;
+		v1_y /= v1_norm;
+		v1_z /= v1_norm;
+
+		// Vector from the third vertex to the current neighbour
+		T v2_x = _p1[0] - _p2[0];
+		T v2_y = _p1[1] - _p2[1];
+		T v2_z = _p1[2] - _p2[2];
+
+		// Normalize second vector
+		T v2_norm = ceres::sqrt(v2_x * v2_x + v2_y * v2_y + v2_z * v2_z);
+		v2_x /= v2_norm;
+		v2_y /= v2_norm;
+		v2_z /= v2_norm;
+
+		// Cosine of alpha as the dot product of both vectors
+		T cos_a = v1_x * v2_x + v1_y * v2_y + v1_z * v2_z;
+
+		// Projection of the first vector onto the orthogonal component of the 
+		// second vector on the plane v1-v2
+		T v1p_x = v1_x - cos_a * v2_x;
+		T v1p_y = v1_y - cos_a * v2_y;
+		T v1p_z = v1_z - cos_a * v2_z;
+
+		// Sine of alpha as the norm of the projcted vector
+		T sin_a = ceres::sqrt(v1p_x * v1p_x + v1p_y * v1p_y + v1p_z * v1p_z);
+
+		//if (sin_a < T(1e-20) && sin_a > T(-1e-20))
+		//{
+		//	std::cout << "ERROR!!!!! sin(a) == 0" << endl;
+		//}
+
+		if (sin_a < T(std::numeric_limits<double>::epsilon()) 
+			&& sin_a > -T(std::numeric_limits<double>::epsilon()))
+		{
+			sin_a = T(std::numeric_limits<double>::epsilon());
+		}
+
+		// cot(a) = cos(a) / sin(a)
+		T cot_a = cos_a / sin_a;
+
+		return cot_a;
+	}
+
+private:
+	// Whether optimize deformation directly
+	bool optimizeDeformation;
+	// Current vertex of interest
+	double* pVertex;
+	// Vertices coordinates
+	const vector< vector<double> > &vertices;
+	// Adjacent vertex indexes
+	const vector< unsigned int > &adjVerticesInd;
+
+	// Identifies if faces are defined clockwise
+	const bool clockwise;
+
+	// Use uniform weight or cotangent weight
+	const bool use_cotangent;
+};
+
+// Photometric cost for the case of known normal
+class ResidualPhotometricErrorWithNormal
+{
+public:
+	ResidualPhotometricErrorWithNormal(const double* _intensity,
+		const double* _normal,
+		const unsigned int _n_channels,
+		const unsigned int _sh_order,
+		const bool _use_lower_bound_shading = false,
+		const bool _use_upper_bound_shading = false) :
+		intensity(_intensity),
+		normal(_normal),
+		n_channels(_n_channels),
+		sh_order(_sh_order),
+		use_lower_bound_shading(_use_lower_bound_shading),
+		use_upper_bound_shading(_use_upper_bound_shading)
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const* const parameters, T* residuals) const
+	{
+		const T* albedo = parameters[0];
+		const T* sh_coeff = parameters[1];
+		const T* lighting_variation = parameters[2];
+
+		T aux_normal[3];
+		aux_normal[0] = T(normal[0]);
+		aux_normal[1] = T(normal[1]);
+		aux_normal[2] = T(normal[2]);
+		T shading = computeShading(aux_normal, sh_coeff, sh_order);
+
+		for (size_t i = 0; i < n_channels; ++i)
+		{
+			T est_value = albedo[i] * shading + lighting_variation[i];
+			residuals[i] = T(intensity[i]) - est_value;
+		}
+
+		bool shading_in_bounds = true;
+
+		if (use_lower_bound_shading)
+		{
+			shading_in_bounds = shading_in_bounds && shading >= T(0.0);
+		}
+
+		if (use_upper_bound_shading)
+		{
+			shading_in_bounds = shading_in_bounds && shading <= T(1.0);
+		}
+
+		return shading_in_bounds;
+	}
+
+private:
+	// Vertex intensity
+	const double* intensity;
+
+	// Vertex normal vector
+	const double* normal;
+
+	// Number of color channels
+	const unsigned int n_channels;
+
+	// SH order
+	const unsigned int sh_order;
+
+	// Constrain lower and/or upper shading bound
+	const bool use_lower_bound_shading;
+	const bool use_upper_bound_shading;
+};
+
+// Photometric cost for the case of known shading
+class ResidualPhotometricErrorWithShading
+{
+public:
+	ResidualPhotometricErrorWithShading(const double* _intensity,
+		const double _shading,
+		const unsigned int _n_channels) :
+		intensity(_intensity),
+		shading(_shading),
+		n_channels(_n_channels)
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const* const parameters, T* residuals) const
+	{
+		const T* albedo = parameters[0];
+		const T* lighting_variation = parameters[1];
+
+		for (size_t i = 0; i < n_channels; ++i)
+		{
+			T est_value = albedo[i] * T(shading) + lighting_variation[i];
+			residuals[i] = T(intensity[i]) - est_value;
+		}
+
+		return true;
+	}
+
+private:
+	// Vertex intensity
+	const double* intensity;
+
+	// Vertex shading
+	const double shading;
+
+	// Number of color channels
+	const unsigned int n_channels;
+};
+
+// Residual of difference between values of neighbour vertices
+class ResidualWeightedDifference
+{
+public:
+	ResidualWeightedDifference(
+		const double _weight,
+		const unsigned int _n_channels) :
+		weight(_weight),
+		n_channels(_n_channels)
+	{
+
+	}
+
+	template <typename T>
+	bool operator()(const T* const _value1, const T* const _value2,
+		T* residuals) const
+	{
+		for (size_t i = 0; i < n_channels; ++i)
+		{
+			residuals[i] = T(weight) * (_value1[i] - _value2[i]);
+		}
+
+		return true;
+	}
+
+private:
+	// Weight
+	const double weight;
+
+	// Number of color channels
+	const unsigned int n_channels;
+};
+
+// Photometric cost for the case of known shading
+class ResidualPhotometricErrorWithAlbedoShading
+{
+public:
+	ResidualPhotometricErrorWithAlbedoShading(const double* _intensity,
+		const double* _albedo,
+		const double _shading,
+		const unsigned int _n_channels) :
+		intensity(_intensity),
+		albedo(_albedo),
+		shading(_shading),
+		n_channels(_n_channels)
+	{
+
+	}
+
+	template<typename T>
+	bool operator()(const T* const* const parameters, T* residuals) const
+	{
+		const T* lighting_variation = parameters[0];
+
+		for (size_t i = 0; i < n_channels; ++i)
+		{
+			T est_value = T(albedo[i]) * T(shading) + lighting_variation[i];
+			residuals[i] = T(intensity[i]) - est_value;
+		}
+
+		return true;
+	}
+
+private:
+	// Vertex intensity
+	const double* intensity;
+
+	// Vertex albedo
+	const double* albedo;
+
+	// Vertex shading
+	const double shading;
+
+	// Number of color channels
+	const unsigned int n_channels;
+};
+
+// Residual of magnitude of value
+class ResidualValueMagnitude
+{
+public:
+	ResidualValueMagnitude(const unsigned int _n_channels) :
+		n_channels(_n_channels)
+	{
+
+	}
+
+	template <typename T>
+	bool operator()(const T* const _value,
+		T* residuals) const
+	{
+		for (size_t i = 0; i < n_channels; ++i)
+		{
+			residuals[i] = _value[i];
+		}
+
+		return true;
+	}
+
+private:
+	// Number of color channels
+	const unsigned int n_channels;
 };

@@ -289,6 +289,7 @@ TrackerSettings::TrackerSettings()
 
   // default value for tracking
   errorType = "gray";
+  errorIntensityType = "gray";
   baType = "motstr";
 
   isRigid = false;
@@ -304,6 +305,7 @@ TrackerSettings::TrackerSettings()
   depth2MeshScale = 1.0;
 
   weightPhotometric = 500;
+  weightPhotometricIntensity = 500;
   weightTV = 0.5;
   weightRotTV = 0;
   weightDeform = 0;
@@ -311,10 +313,53 @@ TrackerSettings::TrackerSettings()
   weightARAP = 0;
   weightINEXTENT = 0;
   weightTransPrior = 0;
+  weightSmoothing = 0;
   photometricHuberWidth = 0.1;
+  photometricIntensityHuberWidth = 0.1;
   tvHuberWidth = 0.2;
   tvRotHuberWidth = 0.2;
   meshScaleUpFactor = 1.0;
+  arapHuberWidth = 0.2;
+  smoothingHuberWidth = 0;
+
+  use_cotangent = false;
+
+  specular_weight_var = 0.1;
+  brightness_percentile = 0.98;
+
+  sh_coeff_data_weight = 1;
+  sh_coeff_data_huber_width = 0;
+  sh_coeff_temporal_weight = 1;
+  sh_coeff_temporal_huber_width = 0;
+
+  update_albedo = false;
+  albedo_data_weight = 1;
+  albedo_data_huber_width = 0;
+  albedo_smoothness_weight = 0.1;
+  albedo_smoothness_huber_width = 0;
+  albedo_difference_weight = 0.1;
+  albedo_difference_huber_width = 0;
+
+  smoothness_specular_weight = 10;
+  smoothness_color_diff_var = 0.05;
+  smoothness_color_diff_threshold = 0.5;
+
+  local_lighting_data_weight = 1;
+  local_lighting_data_huber_width = 1e-1;
+  local_lighting_smoothness_weight = 1;
+  local_lighting_smoothness_huber_width = 1e-1;
+  local_lighting_magnitude_weight = 1;
+  local_lighting_magnitude_huber_width = 1e-1;
+  local_lighting_temporal_weight = 1;
+  local_lighting_temporal_huber_width = 1e-1;
+
+  estimate_all_together = false;
+  estimate_with_sh_coeff = false;
+
+  estimate_diffuse = true;
+  estimate_sh_coeff_specular_together = true;
+
+  estimate_specularities = true;
 
   // ceres parameter
   linearSolver = "CG";
@@ -325,6 +370,8 @@ TrackerSettings::TrackerSettings()
   isMinimizerProgressToStdout = true;
 
   // debugging
+  save_binary_mesh = true;
+
   saveResults = false;
   ceresOutputFile = "ceres_output.txt";
   diffFileFormat = "diff%04d.png";
@@ -350,6 +397,9 @@ TrackerSettings::TrackerSettings()
   // meshPyramid
   meshLevelFormat = "";
   meshPyramidUseRadius = false;
+
+  use_intensity_pyramid = false;
+  meshIntensityLevelFormat = "";
 
   //
   useDepthPyramid = false;
@@ -379,6 +429,7 @@ TrackerSettings::TrackerSettings()
   hasGT = false;
   meshPathGT = "/cvfish/home/Work/data/Qi_synthetic/remeshed_0180/cropped_remeshed_color_obj/";
   meshLevelFormatGT = "cropped_remeshed_color_%04d_%02dk.obj";
+  firstFrameGT = 0;
 
   // print energy
   printEnergy = false;
@@ -393,6 +444,9 @@ void TrackerSettings::read(const cv::FileNode& node)
 
   if(!node["error_type"].empty())
     node["error_type"] >> errorType;
+
+  if (!node["error_intensity_type"].empty())
+	  node["error_intensity_type"] >> errorIntensityType;
 
   if(!node["ba_type"].empty())
     node["ba_type"] >> baType;
@@ -433,6 +487,9 @@ void TrackerSettings::read(const cv::FileNode& node)
   if(!node["photometric_weight"].empty())
     node["photometric_weight"] >> weightPhotometric;
 
+  if (!node["photometric_intensity_weight"].empty())
+	  node["photometric_intensity_weight"] >> weightPhotometricIntensity;
+
   if(!node["tv_weight"].empty())
     node["tv_weight"] >> weightTV;
 
@@ -454,8 +511,14 @@ void TrackerSettings::read(const cv::FileNode& node)
   if(!node["trans_weight"].empty())
     node["trans_weight"] >> weightTransPrior;
 
+  if (!node["smoothing_weight"].empty())
+	  node["smoothing_weight"] >> weightSmoothing;
+
   if(!node["photometric_huber_width"].empty())
     node["photometric_huber_width"] >> photometricHuberWidth;
+
+  if (!node["photometric_intensity_huber_width"].empty())
+	  node["photometric_intensity_huber_width"] >> photometricIntensityHuberWidth;
 
   if(!node["tv_huber_width"].empty())
     node["tv_huber_width"] >> tvHuberWidth;
@@ -465,6 +528,84 @@ void TrackerSettings::read(const cv::FileNode& node)
 
   if(!node["mesh_scale_up_factor"].empty())
     node["mesh_scale_up_factor"] >> meshScaleUpFactor;
+
+  if (!node["arap_huber_width"].empty())
+	  node["arap_huber_width"] >> arapHuberWidth;
+
+  if (!node["smoothing_huber_width"].empty())
+	  node["smoothing_huber_width"] >> smoothingHuberWidth;
+
+  if (!node["use_cotangent"].empty())
+	  node["use_cotangent"] >> use_cotangent;
+
+  if (!node["specular_weight_var"].empty())
+	  node["specular_weight_var"] >> specular_weight_var;
+  if (!node["brightness_percentile"].empty())
+	  node["brightness_percentile"] >> brightness_percentile;
+
+  if (!node["sh_coeff_data_weight"].empty())
+	  node["sh_coeff_data_weight"] >> sh_coeff_data_weight;
+  if (!node["sh_coeff_data_huber_width"].empty())
+	  node["sh_coeff_data_huber_width"] >> sh_coeff_data_huber_width;
+  if (!node["sh_coeff_temporal_weight"].empty())
+	  node["sh_coeff_temporal_weight"] >> sh_coeff_temporal_weight;
+  if (!node["sh_coeff_temporal_huber_width"].empty())
+	  node["sh_coeff_temporal_huber_width"] >> sh_coeff_temporal_huber_width;
+
+  if (!node["update_albedo"].empty())
+    node["update_albedo"] >> update_albedo;
+  if (!node["albedo_data_weight"].empty())
+	  node["albedo_data_weight"] >> albedo_data_weight;
+  if (!node["albedo_data_huber_width"].empty())
+	  node["albedo_data_huber_width"] >> albedo_data_huber_width;
+  if (!node["albedo_smoothness_weight"].empty())
+	  node["albedo_smoothness_weight"] >> albedo_smoothness_weight;
+  if (!node["albedo_smoothness_huber_width"].empty())
+	  node["albedo_smoothness_huber_width"] >> albedo_smoothness_huber_width;
+  if (!node["albedo_difference_weight"].empty())
+	  node["albedo_difference_weight"] >> albedo_difference_weight;
+  if (!node["albedo_difference_huber_width"].empty())
+	  node["albedo_difference_huber_width"] >> albedo_difference_huber_width;
+
+  if (!node["smoothness_specular_weight"].empty())
+	  node["smoothness_specular_weight"] >> smoothness_specular_weight;
+  if (!node["smoothness_color_diff_var"].empty())
+	  node["smoothness_color_diff_var"] >> smoothness_color_diff_var;
+  if (!node["smoothness_color_diff_threshold"].empty())
+	  node["smoothness_color_diff_threshold"] >> smoothness_color_diff_threshold;
+
+  if (!node["local_lighting_data_weight"].empty())
+	  node["local_lighting_data_weight"] >> local_lighting_data_weight;
+  if (!node["local_lighting_data_huber_width"].empty())
+	  node["local_lighting_data_huber_width"] >> local_lighting_data_huber_width;
+  if (!node["local_lighting_smoothness_weight"].empty())
+	  node["local_lighting_smoothness_weight"] >> local_lighting_smoothness_weight;
+  if (!node["local_lighting_smoothness_huber_width"].empty())
+	  node["local_lighting_smoothness_huber_width"] >> local_lighting_smoothness_huber_width;
+  if (!node["local_lighting_magnitude_weight"].empty())
+	  node["local_lighting_magnitude_weight"] >> local_lighting_magnitude_weight;
+  if (!node["local_lighting_magnitude_huber_width"].empty())
+	  node["local_lighting_magnitude_huber_width"] >> local_lighting_magnitude_huber_width;
+  if (!node["local_lighting_temporal_weight"].empty())
+	  node["local_lighting_temporal_weight"] >> local_lighting_temporal_weight;
+  if (!node["local_lighting_temporal_huber_width"].empty())
+	  node["local_lighting_temporal_huber_width"] >> local_lighting_temporal_huber_width;
+
+  if (!node["estimate_all_together"].empty())
+	  node["estimate_all_together"] >> estimate_all_together;
+  if (!node["estimate_with_sh_coeff"].empty())
+	  node["estimate_with_sh_coeff"] >> estimate_with_sh_coeff;
+
+  if (!node["estimate_diffuse"].empty())
+	  node["estimate_diffuse"] >> estimate_diffuse;
+  
+  if (!node["estimate_sh_coeff_specular_together"].empty())
+    node["estimate_sh_coeff_specular_together"] >> estimate_sh_coeff_specular_together;
+
+  if (!node["estimate_specularities"].empty())
+  {
+	  node["estimate_specularities"] >> estimate_specularities;
+  }
 
   // ceres
   if(!node["linear_solver"].empty())
@@ -531,6 +672,9 @@ void TrackerSettings::read(const cv::FileNode& node)
     node["num_threads"] >> numThreads;
 
   // debugging
+  if (!node["save_binary_mesh"].empty())
+	  node["save_binary_mesh"] >> save_binary_mesh;
+
   if(!node["save_results"].empty())
     node["save_results"] >> saveResults;
   if(!node["ceres_output"].empty())
@@ -575,6 +719,11 @@ void TrackerSettings::read(const cv::FileNode& node)
     node["mesh_pyramid_neighbor_radius"] >> meshNeighborRadius;
   if(!node["mesh_pyramid_use_radius"].empty())
     node["mesh_pyramid_use_radius"] >> meshPyramidUseRadius;
+
+  if (!node["use_intensity_pyramid"].empty())
+	  node["use_intensity_pyramid"] >> use_intensity_pyramid;
+  if (!node["mesh_intensity_pyramid_file"].empty())
+	  node["mesh_intensity_pyramid_file"] >> meshIntensityLevelFormat;
 
   if(!node["use_depth_pyramid"].empty())
     node["use_depth_pyramid"] >> useDepthPyramid;
@@ -645,8 +794,37 @@ void TrackerSettings::read(const cv::FileNode& node)
   if(!node["meshLevelListGT"].empty())
     node["meshLevelListGT"] >> meshLevelListGT;
 
+  if(!node["firstFrameGT"].empty())
+    node["firstFrameGT"] >> firstFrameGT;
+
   // if(!node["save_ply"].empty())
   //   node["save_ply"] >> savePLY;
+
+  // Read Spherical Harmonic Coefficients for Illumination
+  if (!node["sh_coeff_file"].empty())
+	  node["sh_coeff_file"] >> sh_coeff_file;
+
+  // Read list of pyramid levels to save
+  if (!node["levelsMeshPyramidSave"].empty())
+    node["levelsMeshPyramidSave"] >> levelsMeshPyramidSave;
+  else
+  {
+	// Commented because the cluster has g++ 4.4.7 which does not support c++11
+	// Then, it does not support lambda definitions
+	//levelsMeshPyramidSave.reserve(meshVertexNum.size());
+    //int n(0);
+    //std::generate_n(
+    //  std::back_inserter(levelsMeshPyramidSave), 
+    //  meshVertexNum.size(), 
+    //  [n]()mutable { return n++; }
+    //  );
+
+	levelsMeshPyramidSave.resize(meshVertexNum.size());
+	for (int i = 0; i < meshVertexNum.size(); i++)
+	{
+		levelsMeshPyramidSave[i] = i;
+	}
+  }
 }
 
 FeatureSettings::FeatureSettings()

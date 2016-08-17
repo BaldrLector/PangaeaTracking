@@ -22,6 +22,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread.hpp>
+#include <boost/interprocess/mapped_region.hpp>
 
 #ifdef _MSC_VER
 #include "third_party/msvc/Stopwatch.h"
@@ -139,7 +140,7 @@ void flipnorm(FloatType* normals, int num)
 }
 
 template<typename FloatType>
-void compnorm(FloatType* ver1,  FloatType* ver2, FloatType* ver3, FloatType* location,
+void compnorm(const FloatType* ver1,  const FloatType* ver2, const FloatType* ver3, FloatType* location,
 	bool clockwise)
 {
     // compute normals assume that the normal at each point
@@ -238,8 +239,8 @@ void SampleLinear( const TImage & intensityImage,
   /* x -= 0.5; */
   /* y -= 0.5; */
 
-  x -= 1.0;
-  y -= 1.0;
+  //x -= 1.0;
+  //y -= 1.0;
 
   LinearInitAxis(y, intensityImage.rows, &y1, &y2, &dy);
   LinearInitAxis(x, intensityImage.cols,  &x1, &x2, &dx);
@@ -273,8 +274,8 @@ void SampleLinear( const TImage & intensityImage,
   /* x -= 0.5; */
   /* y -= 0.5; */
 
-  x -= 1.0;
-  y -= 1.0;
+  //x -= 1.0;
+  //y -= 1.0;
 
   LinearInitAxis(y, intensityImage.rows, &y1, &y2, &dy);
   LinearInitAxis(x, intensityImage.cols,  &x1, &x2, &dx);

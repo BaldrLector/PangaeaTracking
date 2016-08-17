@@ -33,6 +33,7 @@ public:
 
     facesVerticesInd = d.facesVerticesInd;
     adjVerticesInd = d.adjVerticesInd;
+	adjFacesInd = d.adjFacesInd;
     modelColors = d.modelColors;
     modelLabels = d.modelLabels;
 
@@ -44,6 +45,9 @@ public:
 		clockwise = d.clockwise;
     features = d.features;
 
+	specular_colors = d.specular_colors;
+	sh_coefficients = d.sh_coefficients;
+	sh_order = d.sh_order;
   }
 
   MeshData& operator=(const MeshData& d)
@@ -55,6 +59,7 @@ public:
 
     facesVerticesInd = d.facesVerticesInd;
     adjVerticesInd = d.adjVerticesInd;
+	adjFacesInd = d.adjFacesInd;
     modelColors = d.modelColors;
     modelLabels = d.modelLabels;
 
@@ -66,6 +71,10 @@ public:
 		clockwise = d.clockwise;
 
     features = d.features;
+
+	specular_colors = d.specular_colors;
+	sh_coefficients = d.sh_coefficients;
+	sh_order = d.sh_order;
 
     return *this;
   }
@@ -79,6 +88,7 @@ public:
 
     facesVerticesInd = std::move(d.facesVerticesInd);
     adjVerticesInd = std::move(d.adjVerticesInd);
+	adjFacesInd = std::move(d.adjFacesInd);
     modelColors = std::move(d.modelColors);
     modelLabels = std::move(d.modelLabels);
 
@@ -91,6 +101,8 @@ public:
 
     features = std::move(d.features);
 
+	specular_colors = std::move(d.specular_colors);
+	sh_coefficients = std::move(d.sh_coefficients);
 	};
 	MeshData& operator=(MeshData&& d) {
     vertices = std::move(d.vertices);
@@ -99,6 +111,7 @@ public:
     grays = std::move(d.grays);
     facesVerticesInd = std::move(d.facesVerticesInd);
     adjVerticesInd = std::move(d.adjVerticesInd);
+	adjFacesInd = std::move(d.adjFacesInd);
     modelColors = std::move(d.modelColors);
     modelLabels = std::move(d.modelLabels);
 
@@ -111,11 +124,25 @@ public:
 
     features = std::move(d.features);
 
+	specular_colors = std::move(d.specular_colors);
+	sh_coefficients = std::move(d.sh_coefficients);
+	sh_order = d.sh_order;
+
     return *this;
 	};
 
 
   ~MeshData(){};
+
+  bool has_specular_colors()
+  {
+	  return specular_colors.size() == numVertices;
+  }
+
+  bool has_sh_coefficients()
+  {
+	  return sh_order >= 0 && sh_coefficients.size() == pow(sh_order + 1, 2);
+  }
 
   vector<vector<FloatType> > vertices;
   vector<vector<FloatType> > normals;
@@ -124,6 +151,7 @@ public:
 
   vector<vector<unsigned int> > facesVerticesInd;
   vector<vector<unsigned int> > adjVerticesInd;
+  vector<vector<unsigned int> > adjFacesInd;
 
   vector<vector<FloatType> > modelColors;
   vector<unsigned int> modelLabels;
@@ -140,6 +168,13 @@ public:
 
   // error with ground truth
   vector<vector<FloatType> > diffWithGT;
+
+  // specular colors
+  vector<vector<FloatType> > specular_colors;
+
+  // spherical harmonic coefficients
+  vector<FloatType> sh_coefficients;
+  int sh_order;
 };
 
 template<typename FloatType>
@@ -151,10 +186,14 @@ void MeshData<FloatType>::clear()
   grays.clear();
   facesVerticesInd.clear();
   adjVerticesInd.clear();
+  adjFacesInd.clear();
   modelColors.clear();
   modelLabels.clear();
 
   features.clear();
+
+  specular_colors.clear();
+  sh_coefficients.clear();
 }
 
 template<typename FloatType>

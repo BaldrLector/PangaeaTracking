@@ -87,10 +87,10 @@ void MainEngine::SetupInputAndTracker()
     {
       // start from the first frame
     case ALLIMAGESBUFFER:
-      m_pImageSourceEngine = new ImagesBufferReader(imageSourceSettings);
+		m_pImageSourceEngine = new ImagesBufferReader(imageSourceSettings);
       break;
     case IMAGESEQUENCE:
-      m_pImageSourceEngine = new ImageSequenceReader(imageSourceSettings);
+		m_pImageSourceEngine = new ImageSequenceReader(imageSourceSettings);
       break;
     }
 
@@ -158,8 +158,16 @@ void MainEngine::SetupInputAndTracker()
     case DEFORMNRSFM:
       {
         // LoadInitialMesh(); // this is loading mesh created from saved shape results
-        if(trackerSettings.loadMesh)
-          LoadInitialMeshFromFile();
+		  if (trackerSettings.loadMesh)
+		  {
+			  LoadInitialMeshFromFile(templateMeshPyramid, trackerSettings.meshLevelFormat);
+
+			  if (trackerSettings.use_intensity_pyramid)
+			  {
+				  LoadInitialMeshFromFile(templateMeshIntensityPyramid, trackerSettings.meshIntensityLevelFormat);
+			  }
+		  }
+
         else
           LoadInitialMeshUVD(); // this is loading mesh from uImage, vImage and dImage
 
@@ -168,6 +176,11 @@ void MainEngine::SetupInputAndTracker()
         m_pTrackingEngine->setInitialMeshPyramid(templateMeshPyramid);
 
         m_nNumMeshLevels = templateMeshPyramid.numLevels;
+
+		if (trackerSettings.use_intensity_pyramid)
+		{
+			((DeformNRSFMTracker*)m_pTrackingEngine)->setMeshIntensityPyramid(templateMeshIntensityPyramid);
+		}
 
         break;
       }
@@ -190,6 +203,7 @@ void MainEngine::SetupInputAndTracker()
 
   // m_nCurrentFrame++;
   // GetInput(m_nCurrentFrame);
+
   m_pTrackingEngine->trackFrame(m_nCurrentFrame, m_pColorImageRGB, &pOutputInfo);
 
   // for(int i = 0; i < 3; ++i)
@@ -254,7 +268,10 @@ bool MainEngine::ProcessOneFrame(int nFrame)
 
   // do tracking
   TICK("tracking");
-  if(!m_pTrackingEngine->trackFrame(nFrame, m_pColorImageRGB, &pOutputInfo))
+  
+  bool track_ok = m_pTrackingEngine->trackFrame(nFrame, m_pColorImageRGB, &pOutputInfo);
+  
+  if (!track_ok)
     {
       cout << "tracking failed: " << endl;
       return false;
@@ -355,7 +372,8 @@ void MainEngine::LoadInitialMeshUVD()
 
 }
 
-void MainEngine::LoadInitialMeshFromFile()
+void MainEngine::LoadInitialMeshFromFile(PangaeaMeshPyramid &templateMeshPyramid, 
+	const string &meshLevelFormat)
 {
 
   if(trackerSettings.meshLevelFormat.empty())
@@ -366,7 +384,7 @@ void MainEngine::LoadInitialMeshFromFile()
       templateMeshPyramid = std::move(PangaeaMeshPyramid(templateMesh));
     }else{
     templateMeshPyramid = std::move(
-                                    PangaeaMeshPyramid(trackerSettings.meshLevelFormat,
+                                    PangaeaMeshPyramid(meshLevelFormat,
                                                        trackerSettings.meshVertexNum, trackerSettings.clockwise));
   }
 
