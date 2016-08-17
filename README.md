@@ -7,7 +7,7 @@ Qi Liu-Yin, Rui Yu, Lourdes Agapito, Andrew Fitzgibbon, Chris Russell
 
 For more information about this work, please visit the [project website](http://www0.cs.ucl.ac.uk/staff/Qi.Liu/bmvc16/better_together.html).
 
-This github repository is maintained by Rui Yu (R.Yu@cs.ucl.ac.uk).
+This github repository is maintained by Qi Liu (Qi.Liu@cs.ucl.ac.uk).
 Contact me if you have any questions.
 
 #1. Building the System
