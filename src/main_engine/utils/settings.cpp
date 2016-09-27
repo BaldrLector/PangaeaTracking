@@ -389,7 +389,6 @@ TrackerSettings::TrackerSettings()
 
   use_gpu = false;
 
-  rigidEnergyFilePath = "/home/qi/Work/code/github/PangaeaTracking/energy/energy_gray_rigid.t";
   nonRigidEnergyFilePath = "/home/qi/Work/code/github/PangaeaTracking/energy/energy_gray_non_rigid.t";
 
   opt_num_iter = 5;
@@ -659,9 +658,6 @@ void TrackerSettings::read(const cv::FileNode& node)
 
   if(!node["use_gpu"].empty())
     node["use_gpu"] >> use_gpu;
-
-  if(!node["rigidEnergyFilePath"].empty())
-    node["rigidEnergyFilePath"] >> rigidEnergyFilePath;
 
   if(!node["nonRigidEnergyFilePath"].empty())
     node["nonRigidEnergyFilePath"] >> nonRigidEnergyFilePath;

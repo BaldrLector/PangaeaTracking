@@ -226,7 +226,6 @@ public:
   // bool savePLY;
 
   bool use_gpu;
-  std::string rigidEnergyFilePath;
   std::string nonRigidEnergyFilePath;
   int opt_num_iter;
   int opt_nonlinear_num_iter;

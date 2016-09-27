@@ -2,7 +2,7 @@
 Q ?= @
 
 # Set DEBUG to 1 for debugging
-DEBUG := 0
+DEBUG := 1
 
 # if only want to visualize saving results and don't do tracking,
 # you could set VIS_ONLY to 1 and compile without ceres solver,
@@ -66,7 +66,7 @@ HDF5_LIB := -lhdf5_hl -lhdf5
 
 CUDA_LIB := -L$(CUDAHOME)/lib64  -Wl,-rpath,$(CUDAHOME)/lib64 -lcudart 
 
-OPT_LIB := -L./lib -lOpt -lterra -ldl -pthread
+OPT_LIB := -L/home/qi/Work/code/github/Opt/API/release/lib -lOpt -lterra -ldl -pthread
 
 LIBRARY_DIRS += $(LIB_BUILD_DIR)
 LDFLAGS := $(WX_LIB) $(BOOST_LIB) $(OPENCV_LIB) $(CERES_LIB) $(GL_LIB) $(LMDB_LIB) $(HDF5_LIB) $(CUDA_LIB) $(OPT_LIB)
