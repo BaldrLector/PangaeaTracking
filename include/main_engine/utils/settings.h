@@ -177,6 +177,9 @@ public:
 
 	bool estimate_specularities;
 
+	//Refine shape, sh coeff and specular highights together
+	bool refine_all_together;
+
   // ceres parameter
   std::string linearSolver;
   int numOptimizationLevels;

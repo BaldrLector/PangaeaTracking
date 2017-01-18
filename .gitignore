@@ -29,6 +29,8 @@ pangaea
 *.sdf
 *.suo
 *.user
+*.db
+*.opendb
 
 # MSVC folders
 msvc/.localhistory/

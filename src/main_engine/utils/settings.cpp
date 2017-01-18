@@ -361,6 +361,8 @@ TrackerSettings::TrackerSettings()
 
   estimate_specularities = true;
 
+  refine_all_together = false;
+
   // ceres parameter
   linearSolver = "CG";
   numOptimizationLevels = 3;
@@ -605,6 +607,11 @@ void TrackerSettings::read(const cv::FileNode& node)
   if (!node["estimate_specularities"].empty())
   {
 	  node["estimate_specularities"] >> estimate_specularities;
+  }
+
+  if (!node["refine_all_together"].empty())
+  {
+	  node["refine_all_together"] >> refine_all_together;
   }
 
   // ceres

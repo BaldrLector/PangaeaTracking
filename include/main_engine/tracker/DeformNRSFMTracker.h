@@ -55,7 +55,8 @@ public:
 
   void AddPhotometricCostNew(ceres::Problem& problem,
                           ceres::LossFunction* loss_function,
-                          dataTermErrorType errorType);
+                          dataTermErrorType errorType,
+						  bool refinement = false);
 
   void AddFeatureCost(ceres::Problem& problem,
                       ceres::LossFunction* loss_function);
@@ -98,8 +99,8 @@ public:
                       MeshDeformation& meshRot);
 
   //
-  void EnergySetup(ceres::Problem& problem);
-  void EnergyMinimization(ceres::Problem& problem);
+  void EnergySetup(ceres::Problem& problem, bool refinement = false);
+  void EnergyMinimization(ceres::Problem& problem, bool estimate_motion = true);
   void RegTermsSetup(ceres::Problem& problem, WeightPara& weightParaLevel);
 
   void EnergyMinimizationGT(ceres::Problem& problem);
@@ -147,7 +148,8 @@ public:
 	  vector<bool>& visibilityMask,
 	  CameraInfo* pCamera,
 	  Level* pFrame,
-	  MeshDeformation& local_ligthing);
+	  MeshDeformation& local_ligthing,
+	  bool refinement = false);
 
   void AddCostImageProjectionPatch(ceres::Problem& problem,
                                    ceres::LossFunction* loss_function,

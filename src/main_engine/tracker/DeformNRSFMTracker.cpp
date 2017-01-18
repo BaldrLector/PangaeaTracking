@@ -731,6 +731,43 @@ bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
       UpdateResults();
       TOCK( "trackingTimeLevel" + std::to_string(ii)  + "::UpdateResults");
 
+	  TICK("intrinsicPostprocessing");
+
+	  // estimate intrinsic properties
+	  if ((PEType == PE_INTRINSIC || PEType == PE_INTRINSIC_COLOR) && !trackerSettings.estimate_all_together)
+	  {
+		  updateIntrinsics(pColorImageRGB);
+
+		  if (trackerSettings.refine_all_together)
+		  {
+			  TICK("trackingTimeLevel" + std::to_string(ii) + "::ProblemSetup");
+			  EnergySetup(problem, true);
+			  TOCK("trackingTimeLevel" + std::to_string(ii) + "::ProblemSetup");
+
+			  TICK("trackingTimeLevel" + std::to_string(ii) + "::ProblemMinimization");
+			  EnergyMinimization(problem, false);
+			  TOCK("trackingTimeLevel" + std::to_string(ii) + "::ProblemMinimization");
+
+			  if (useProblemWrapper && trackerSettings.useRGBImages && trackerSettings.weightPhotometric > 0)
+			  {
+
+				  ceresOutput << "number of tracking data terms " << endl
+					  << "levels " << currLevel << endl
+					  << problemWrapper.getDataTermNum(currLevel) << endl;
+
+				  TICK("trackingTimeLevel" + std::to_string(ii) + "::RemoveDataTermResidual");
+
+				  problemWrapper.clearDataTerm(currLevel);
+				  problemWrapper.clearDataTermCost(currLevel);
+				  problemWrapper.clearDataTermLoss(currLevel);
+
+				  TOCK("trackingTimeLevel" + std::to_string(ii) + "::RemoveDataTermResidual");
+			  }
+		  }
+	  }
+
+	  TOCK("intrinsicPostprocessing");
+
       TICK( "trackingTimeLevel" + std::to_string(ii)  + "::PropagateMesh");
       PropagateMesh();
       TOCK( "trackingTimeLevel" + std::to_string(ii)  + "::PropagateMesh");
@@ -875,15 +912,6 @@ bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
       scoresOutput.close();
     }
 
-  TICK("intrinsicPostprocessing");
-
-  // estimate intrinsic properties
-  if ((PEType == PE_INTRINSIC || PEType ==PE_INTRINSIC_COLOR) && !trackerSettings.estimate_all_together)
-  {
-	  updateIntrinsics(pColorImageRGB);
-  }
-
-  TOCK("intrinsicPostprocessing");
 
   // print out memory usage
   double vm, rss;
@@ -1268,7 +1296,7 @@ void DeformNRSFMTracker::PropagateMeshCoarseToFine(int coarse_level, int fine_le
           mesh_trans_fine[i][1] = 0;
           mesh_trans_fine[i][2] = 0;
 
-          if (trackerSettings.estimate_all_together)
+          if (trackerSettings.estimate_all_together || trackerSettings.refine_all_together)
           {
             local_lighting_fine[i][0] = 0;
             local_lighting_fine[i][1] = 0;
@@ -1283,7 +1311,7 @@ void DeformNRSFMTracker::PropagateMeshCoarseToFine(int coarse_level, int fine_le
                 {
                   mesh_trans_fine[i][index] += weights[i][j] * mesh_trans[ neighbors[i][j] ][index];
 
-                  if (trackerSettings.estimate_all_together)
+                  if (trackerSettings.estimate_all_together || trackerSettings.refine_all_together)
                   {
                     local_lighting_fine[i][index] += weights[i][j] * local_lighting_coarse[ neighbors[i][j] ][index];
                   }
@@ -1291,7 +1319,7 @@ void DeformNRSFMTracker::PropagateMeshCoarseToFine(int coarse_level, int fine_le
             }
         }
 
-        if (trackerSettings.estimate_all_together)
+        if (trackerSettings.estimate_all_together || trackerSettings.estimate_with_sh_coeff || trackerSettings.refine_all_together)
         {
           template_fine_mesh.sh_coefficients = template_coarse_mesh.sh_coefficients;
         }
@@ -1514,7 +1542,8 @@ void DeformNRSFMTracker::AddCostImageProjection(ceres::Problem& problem,
 	vector<bool>& visibilityMask,
 	CameraInfo* pCamera,
 	Level* pFrame,
-	MeshDeformation& local_lighting)
+	MeshDeformation& local_lighting,
+	bool refinement)
 {
 	vector<double> &sh_coeff = templateMesh.sh_coefficients;
 	int sh_order = templateMesh.sh_order;
@@ -1523,7 +1552,7 @@ void DeformNRSFMTracker::AddCostImageProjection(ceres::Problem& problem,
 
 		if (visibilityMask[i])
 		{
-			if (trackerSettings.estimate_all_together)
+			if (trackerSettings.estimate_all_together || refinement)
 			{
 				// Dynamic photometric cost function
 				ceres::DynamicAutoDiffCostFunction<ResidualImageProjectionIntrinsic, 5>* dyn_cost_function
@@ -2114,7 +2143,8 @@ void DeformNRSFMTracker::AddCostImageProjectionPatchCoarse(ceres::Problem& probl
 
 void DeformNRSFMTracker::AddPhotometricCostNew(ceres::Problem& problem,
                                                ceres::LossFunction* loss_function,
-                                               dataTermErrorType errorType)
+                                               dataTermErrorType errorType,
+											   bool refinement)
 {
   // add photometric cost
   // there are two different cases
@@ -2223,7 +2253,8 @@ void DeformNRSFMTracker::AddPhotometricCostNew(ceres::Problem& problem,
 					visibilityMask,
 					pCamera,
 					pFrame,
-					local_lighting);
+					local_lighting,
+					refinement);
 			}
 			break;
             case PE_NCC:
@@ -3346,7 +3377,7 @@ void DeformNRSFMTracker::AddTemporalSpecularCost(ceres::Problem& problem,
   }
 }
 
-void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem)
+void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem, bool refinement)
 {
   // now we are already to construct the energy
   // photometric term
@@ -3657,7 +3688,7 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
 
   // If we estimate shape, sh coefficients and specular highlights together, 
   // we need to add the temporal regularisation terms also
-  if (trackerSettings.estimate_all_together)
+  if (trackerSettings.estimate_with_sh_coeff || trackerSettings.estimate_all_together)
   {
     // Temporal SH Coefficient
     if (trackerSettings.sh_coeff_temporal_weight > 0)
@@ -3686,91 +3717,94 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
       }
     }
 
-    // Specular smoothness
-    if (trackerSettings.local_lighting_smoothness_weight > 0.0)
-    {
-      ceres::LossFunction* huber_loss = NULL;
+	if (trackerSettings.estimate_all_together)
+	{
+		// Specular smoothness
+		if (trackerSettings.local_lighting_smoothness_weight > 0.0)
+		{
+			ceres::LossFunction* huber_loss = NULL;
 
-      if (trackerSettings.local_lighting_smoothness_huber_width > 0)
-      {
-        huber_loss = 
-          new ceres::HuberLoss(trackerSettings.local_lighting_smoothness_huber_width);
-      }
+			if (trackerSettings.local_lighting_smoothness_huber_width > 0)
+			{
+				huber_loss =
+					new ceres::HuberLoss(trackerSettings.local_lighting_smoothness_huber_width);
+			}
 
-      ceres::ScaledLoss* loss_function = new ceres::ScaledLoss(
-        huber_loss,
-        trackerSettings.local_lighting_smoothness_weight,
-        ceres::TAKE_OWNERSHIP);
+			ceres::ScaledLoss* loss_function = new ceres::ScaledLoss(
+				huber_loss,
+				trackerSettings.local_lighting_smoothness_weight,
+				ceres::TAKE_OWNERSHIP);
 
-      AddSpecularSmoothnessCost(problem, loss_function);
+			AddSpecularSmoothnessCost(problem, loss_function);
 
-      if (useProblemWrapper)
-      {
-        if (modeGT)
-          problemWrapperGT.addRegTermLoss(currLevel, loss_function);
-        else
-          problemWrapper.addRegTermLoss(currLevel, loss_function);
-      }
-    }
+			if (useProblemWrapper)
+			{
+				if (modeGT)
+					problemWrapperGT.addRegTermLoss(currLevel, loss_function);
+				else
+					problemWrapper.addRegTermLoss(currLevel, loss_function);
+			}
+		}
 
-    // Specular magnitude
-    if (trackerSettings.local_lighting_magnitude_weight > 0.0)
-    {
-      ceres::LossFunction* huber_loss = NULL;
+		// Specular magnitude
+		if (trackerSettings.local_lighting_magnitude_weight > 0.0)
+		{
+			ceres::LossFunction* huber_loss = NULL;
 
-      if (trackerSettings.local_lighting_magnitude_huber_width > 0)
-      {
-        huber_loss = 
-          new ceres::HuberLoss(trackerSettings.local_lighting_magnitude_huber_width);
-      }
+			if (trackerSettings.local_lighting_magnitude_huber_width > 0)
+			{
+				huber_loss =
+					new ceres::HuberLoss(trackerSettings.local_lighting_magnitude_huber_width);
+			}
 
-      ceres::ScaledLoss* loss_function = new ceres::ScaledLoss(
-        huber_loss,
-        trackerSettings.local_lighting_magnitude_weight,
-        ceres::TAKE_OWNERSHIP);
+			ceres::ScaledLoss* loss_function = new ceres::ScaledLoss(
+				huber_loss,
+				trackerSettings.local_lighting_magnitude_weight,
+				ceres::TAKE_OWNERSHIP);
 
-      AddSpecularMagnitudeCost(problem, loss_function);
+			AddSpecularMagnitudeCost(problem, loss_function);
 
-      if (useProblemWrapper)
-      {
-        if (modeGT)
-          problemWrapperGT.addRegTermLoss(currLevel, loss_function);
-        else
-          problemWrapper.addRegTermLoss(currLevel, loss_function);
-      }
-    }
+			if (useProblemWrapper)
+			{
+				if (modeGT)
+					problemWrapperGT.addRegTermLoss(currLevel, loss_function);
+				else
+					problemWrapper.addRegTermLoss(currLevel, loss_function);
+			}
+		}
 
-    // Temporal specular highlight
-    if (trackerSettings.local_lighting_temporal_weight > 0.0)
-    {
-      ceres::LossFunction* huber_loss = NULL;
+		// Temporal specular highlight
+		if (trackerSettings.local_lighting_temporal_weight > 0.0)
+		{
+			ceres::LossFunction* huber_loss = NULL;
 
-      if (trackerSettings.local_lighting_temporal_huber_width > 0)
-      {
-        huber_loss =
-          new ceres::HuberLoss(trackerSettings.local_lighting_temporal_huber_width);
-      }
+			if (trackerSettings.local_lighting_temporal_huber_width > 0)
+			{
+				huber_loss =
+					new ceres::HuberLoss(trackerSettings.local_lighting_temporal_huber_width);
+			}
 
-      ceres::ScaledLoss* loss_function = new ceres::ScaledLoss(
-        huber_loss,
-        trackerSettings.local_lighting_temporal_weight,
-        ceres::TAKE_OWNERSHIP);
+			ceres::ScaledLoss* loss_function = new ceres::ScaledLoss(
+				huber_loss,
+				trackerSettings.local_lighting_temporal_weight,
+				ceres::TAKE_OWNERSHIP);
 
-      AddTemporalSpecularCost(problem, loss_function);
+			AddTemporalSpecularCost(problem, loss_function);
 
-      if (useProblemWrapper)
-      {
-        if (modeGT)
-          problemWrapperGT.addRegTermLoss(currLevel, loss_function);
-        else
-          problemWrapper.addRegTermLoss(currLevel, loss_function);
-      }
-    }
+			if (useProblemWrapper)
+			{
+				if (modeGT)
+					problemWrapperGT.addRegTermLoss(currLevel, loss_function);
+				else
+					problemWrapper.addRegTermLoss(currLevel, loss_function);
+			}
+		}
+	}
 
   }
 }
 
-void DeformNRSFMTracker::EnergyMinimization(ceres::Problem& problem)
+void DeformNRSFMTracker::EnergyMinimization(ceres::Problem& problem, bool estimate_motion)
 {
   ceres::Solver::Options options;
 
@@ -3813,33 +3847,36 @@ void DeformNRSFMTracker::EnergyMinimization(ceres::Problem& problem)
 
   if(BAType == BA_MOTSTR && trackerSettings.doAlternation)
     {
-      // fix the structure and optimize the motion
-      AddConstantMask(problem, BA_STR); // make structure parameters constant
+	  if (estimate_motion)
+	  {
+		  // fix the structure and optimize the motion
+		  AddConstantMask(problem, BA_STR); // make structure parameters constant
 
-      options.minimizer_type = ceres::TRUST_REGION;
-      ceres::Solve(options, &problem, &summary);
+		  options.minimizer_type = ceres::TRUST_REGION;
+		  ceres::Solve(options, &problem, &summary);
 
-      if(trackerSettings.saveResults)
-        {
-          ceresOutput << summary.FullReport() << std::endl;
-          ceresOutput << "Optimize Motion" << std::endl;
-          energy_callback.PrintEnergy(ceresOutput);
-        }
-      else if(trackerSettings.isMinimizerProgressToStdout)
-        {
-          std::cout << summary.FullReport() << std::endl;
-          std::cout << "Optimize Motion" << std::endl;
-        }
+		  if (trackerSettings.saveResults)
+		  {
+			  ceresOutput << summary.FullReport() << std::endl;
+			  ceresOutput << "Optimize Motion" << std::endl;
+			  energy_callback.PrintEnergy(ceresOutput);
+		  }
+		  else if (trackerSettings.isMinimizerProgressToStdout)
+		  {
+			  std::cout << summary.FullReport() << std::endl;
+			  std::cout << "Optimize Motion" << std::endl;
+		  }
 
-      energy_callback.Reset();
+		  energy_callback.Reset();
 
-      // make the structure variable again after optimization
-      AddVariableMask(problem, BA_STR);
+		  // make the structure variable again after optimization
+		  AddVariableMask(problem, BA_STR);
 
-      // cout << "printing after motion optimization started" << endl;
-      // cout << camPose[0] << " " << camPose[1] << " " << camPose[2] << endl;
-      // cout << camPose[3] << " " << camPose[4] << " " << camPose[5] << endl;
-      // cout << "printing after motion optimization finished" << endl;
+		  // cout << "printing after motion optimization started" << endl;
+		  // cout << camPose[0] << " " << camPose[1] << " " << camPose[2] << endl;
+		  // cout << camPose[3] << " " << camPose[4] << " " << camPose[5] << endl;
+		  // cout << "printing after motion optimization finished" << endl;
+	  }
 
       // optimize the shape
       // fix the motion
