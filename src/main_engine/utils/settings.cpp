@@ -82,6 +82,9 @@ ImageSourceSettings::ImageSourceSettings()
   height = 720;
   startFrame = 1;
 
+  dataPath = "/home/cvfish/Work/depth/pangaea_tracking_data/test/input/";
+  imageFormat = "Depth%04d.png";
+
   isOrthoCamera = false;
 
   frameStep = 1;
@@ -126,6 +129,9 @@ void ImageSourceSettings::read(const cv::FileNode& node)
 
   if(!node["isOrthoCamera"].empty())
     node["isOrthoCamera"] >> isOrthoCamera;
+
+  if(!node["depthFormat"].empty())
+    node["depthFormat"] >> depthFormat;
 
   // read calibration matrix from intrinsics file
   std::stringstream intrinsicsFileName;
@@ -314,6 +320,7 @@ TrackerSettings::TrackerSettings()
   weightINEXTENT = 0;
   weightTransPrior = 0;
   weightSmoothing = 0;
+  weightDepth = 0;
   photometricHuberWidth = 0.1;
   photometricIntensityHuberWidth = 0.1;
   tvHuberWidth = 0.2;
@@ -321,6 +328,7 @@ TrackerSettings::TrackerSettings()
   meshScaleUpFactor = 1.0;
   arapHuberWidth = 0.2;
   smoothingHuberWidth = 0;
+  depthHuberWidth = 0;
 
   use_cotangent = false;
 
@@ -516,6 +524,9 @@ void TrackerSettings::read(const cv::FileNode& node)
   if (!node["smoothing_weight"].empty())
 	  node["smoothing_weight"] >> weightSmoothing;
 
+  if (!node["depth_weight"].empty())
+    node["depth_weight"] >> weightDepth;
+
   if(!node["photometric_huber_width"].empty())
     node["photometric_huber_width"] >> photometricHuberWidth;
 
@@ -536,6 +547,9 @@ void TrackerSettings::read(const cv::FileNode& node)
 
   if (!node["smoothing_huber_width"].empty())
 	  node["smoothing_huber_width"] >> smoothingHuberWidth;
+
+  if (!node["depth_huber_width"].empty())
+	  node["depth_huber_width"] >> depthHuberWidth;
 
   if (!node["use_cotangent"].empty())
 	  node["use_cotangent"] >> use_cotangent;

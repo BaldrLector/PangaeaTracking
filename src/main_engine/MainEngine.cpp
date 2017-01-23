@@ -58,6 +58,11 @@ void MainEngine::GetInput(int nFrame)
               m_pColorImageRGBBuffer[3*i+1] = m_pColorImage[3*i+1];
               m_pColorImageRGBBuffer[3*i+2] = m_pColorImage[3*i];
             }
+
+          if (use_depth)
+          {
+            m_pDepth = m_pImageSourceEngine->getDepthImage();
+          }
         }
 
       //TOCK("BGR2RGB");
@@ -83,14 +88,16 @@ void MainEngine::SetIntrinsicMatrix(double K[3][3])
 void MainEngine::SetupInputAndTracker()
 {
 
+  use_depth = trackerSettings.weightDepth > 0;
+
   switch(imageSourceType)
     {
       // start from the first frame
     case ALLIMAGESBUFFER:
-		m_pImageSourceEngine = new ImagesBufferReader(imageSourceSettings);
+		m_pImageSourceEngine = new ImagesBufferReader(imageSourceSettings, use_depth);
       break;
     case IMAGESEQUENCE:
-		m_pImageSourceEngine = new ImageSequenceReader(imageSourceSettings);
+		m_pImageSourceEngine = new ImageSequenceReader(imageSourceSettings, use_depth);
       break;
     }
 
@@ -204,7 +211,8 @@ void MainEngine::SetupInputAndTracker()
   // m_nCurrentFrame++;
   // GetInput(m_nCurrentFrame);
 
-  m_pTrackingEngine->trackFrame(m_nCurrentFrame, m_pColorImageRGB, &pOutputInfo);
+  m_pTrackingEngine->trackFrame(m_nCurrentFrame, m_pColorImageRGB, &pOutputInfo,
+                          use_depth, m_pDepth);
 
   // for(int i = 0; i < 3; ++i)
   // center[i] = (*pOutputInfo).meshDataGT.center[i];
@@ -269,7 +277,8 @@ bool MainEngine::ProcessOneFrame(int nFrame)
   // do tracking
   TICK("tracking");
   
-  bool track_ok = m_pTrackingEngine->trackFrame(nFrame, m_pColorImageRGB, &pOutputInfo);
+  bool track_ok = m_pTrackingEngine->trackFrame(nFrame, m_pColorImageRGB, &pOutputInfo, 
+                    use_depth, m_pDepth);
   
   if (!track_ok)
     {

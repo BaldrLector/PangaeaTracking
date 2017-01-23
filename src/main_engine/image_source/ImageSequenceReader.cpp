@@ -1,6 +1,6 @@
 #include "main_engine/image_source/ImageSourceEngine.h"
 
-ImageSequenceReader::ImageSequenceReader(ImageSourceSettings& settings)
+ImageSequenceReader::ImageSequenceReader(ImageSourceSettings& settings, bool _use_depth)
 {
   startFrameNo = settings.startFrame;
   totalFrameNo = settings.numFrames;
@@ -8,8 +8,11 @@ ImageSequenceReader::ImageSequenceReader(ImageSourceSettings& settings)
   m_nHeight = settings.height;
   inputPath = settings.dataPath;
   imgFormat = settings.imageFormat;
+  depthFormat = settings.depthFormat;
 
   currentFrameNo = startFrameNo;
+
+  use_depth = _use_depth;
 
   char buffer[BUFFER_SIZE];
   std::stringstream imagePath;
@@ -20,6 +23,20 @@ ImageSequenceReader::ImageSequenceReader(ImageSourceSettings& settings)
   m_curImage = cv::imread(imagePath.str().c_str(),1); // read in color image
 
   cout << imagePath.str() << endl;
+
+  if (use_depth)
+  {
+    std::stringstream depthPath;
+    sprintf(buffer, depthFormat.c_str(), currentFrameNo);
+    depthPath << inputPath << buffer;
+    //memset(&buffer[0], 0, sizeof(buffer));
+
+    cv::Mat_<float> tempDepth = cv::imread(depthPath.str().c_str(),-1); // read in color image
+
+    tempDepth.convertTo(dImage, CV_64F, 1000);
+
+    cout << depthPath.str() << endl;
+  }
 
   // read the calibration information
   std::stringstream intrinsicsFileName;
@@ -157,6 +174,16 @@ void ImageSequenceReader::setCurrentFrame(int curFrame)
             }
         }
 
+        if (use_depth)
+        {
+          std::stringstream depthPath;
+          sprintf(buffer, depthFormat.c_str(), currentFrameNo);
+          depthPath << inputPath << buffer;
+
+          cv::Mat_<float> tempDepth = cv::imread(depthPath.str().c_str(),-1); // read in as it is
+
+          tempDepth.convertTo(dImage, CV_64F, 1000);
+        }
     }
 }
 
@@ -229,4 +256,33 @@ void ImageSequenceReader::ReadRawDepth(std::stringstream& data_path, std::string
     {
       cerr << imagePath.str() << " does not exist! " << endl;
     }
+}
+
+void ImageSequenceReader::ReadEXRDepth(std::stringstream& data_path, 
+  std::string filename, DepthImageType& resImage)
+{
+    std::ifstream inputFileStream;
+    std::stringstream imagePath;
+    imagePath << data_path.str() << filename;
+    
+    if(bfs::exists(imagePath.str()))
+    {
+      cv::Mat_< float > depth_map = cv::imread(imagePath.str().c_str(), -1);
+
+      int width = depth_map.cols; 
+      int height = depth_map.rows;
+
+      assert(width == m_nWidth && height == m_nHeight);
+
+      depth_map.convertTo(resImage, CV_64F, 1000);
+    }
+    else
+    {
+      cerr << imagePath.str() << " does not exist! " << endl;
+    }
+}
+
+CoordinateType* ImageSequenceReader::getDepthImage()
+{
+  return (CoordinateType*) dImage.data;
 }

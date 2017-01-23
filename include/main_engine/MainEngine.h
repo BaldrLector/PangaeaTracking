@@ -68,6 +68,8 @@ public:
     boost::thread* pInputThread;
     bool inputFlag;
 
+    bool use_depth;
+    CoordinateType* m_pDepth;
 };
 
 #endif

@@ -101,7 +101,8 @@ bool MeshBufferReader::setCurrentFrame(int curFrame)
 }
 
 bool MeshBufferReader::trackFrame(int nFrame, unsigned char* pColorImageRGB,
-                                  TrackerOutputInfo** pOutputInfo)
+                                  TrackerOutputInfo** pOutputInfo,
+                                  bool use_depth, CoordinateType* pDepthImage)
 {
   memcpy(pCurrentColorImageRGB, pColorImageRGB, 3*m_nWidth*m_nHeight);
   cv::Mat tempColorImageRGB(m_nHeight, m_nWidth, CV_8UC3, pCurrentColorImageRGB);

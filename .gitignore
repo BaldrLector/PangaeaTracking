@@ -38,3 +38,9 @@ msvc/x64
 msvc/MainEngine/x64
 msvc/ConsoleApp/x64
 msvc/GUIApp/x64
+
+build/
+build_debug/
+config/
+lib/
+.vscode/
