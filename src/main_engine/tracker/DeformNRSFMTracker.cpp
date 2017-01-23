@@ -97,6 +97,7 @@ DeformNRSFMTracker::DeformNRSFMTracker(TrackerSettings& settings, int width, int
   pImagePyramid = new ImagePyramid;
   pFeaturePyramid = new FeaturePyramid;
 
+
   if(trackerSettings.printEnergy)
     {
       std::stringstream energyOutputPath;
@@ -266,12 +267,14 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
   weightPara.transWeight        = trackerSettings.weightTransPrior;
   weightPara.rotWeight = 0;
   weightPara.smoothingTermWeight = trackerSettings.weightSmoothing;
+  weightPara.depthTermWeight = trackerSettings.weightDepth;
 
   //    weightPara.dataHuberWidth = trackerSettings.dataHuberWidth;
   weightPara.dataHuberWidth  = trackerSettings.photometricHuberWidth;
   weightPara.dataIntensityHuberWidth  = trackerSettings.photometricIntensityHuberWidth;
   weightPara.tvHuberWidth    = trackerSettings.tvHuberWidth;
   weightPara.tvRotHuberWidth = trackerSettings.tvRotHuberWidth;
+  weightPara.depthHuberWidth = trackerSettings.depthHuberWidth;
 
   weightPara.featureTermWeight = featureSettings.featureTermWeight;
   weightPara.featureHuberWidth = featureSettings.featureHuberWidth;
@@ -573,7 +576,8 @@ void DeformNRSFMTracker::loadGTMeshFromFile(int nFrame)
 }
 
 bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
-	TrackerOutputInfo** pOutputInfoRendering)
+	TrackerOutputInfo** pOutputInfoRendering,
+  bool use_depth, CoordinateType* pDepthImage)
 {
   if(!trackerInitialized)
     cout << "this tracker has not been initialized with a template mesh" << endl;
@@ -583,7 +587,7 @@ bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
   TICK("imagePreprocessing");
 
   // prepare data in buffer
-  pImagePyramid->setupPyramid(pColorImageRGB, m_nMeshLevels);
+  pImagePyramid->setupPyramid(pColorImageRGB, m_nMeshLevels, use_depth, pDepthImage);
   // get new data from buffer
   pImagePyramid->updateData();
 
@@ -2183,6 +2187,7 @@ void DeformNRSFMTracker::AddPhotometricCostNew(ceres::Problem& problem,
             case PE_INTENSITY:
             case PE_COLOR:
             case PE_FEATURE:
+            case PE_DEPTH:
 			{
 				if (trackerSettings.use_intensity_pyramid)
 				{
@@ -3445,6 +3450,33 @@ void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem)
 
       TOCK("SetupFeatureTermCost" + std::to_string(ii));
 
+    }
+
+  if(trackerSettings.weightDepth > 0)
+    {
+      TICK( "SetupDepthDataTermCost" + std::to_string(ii) );
+
+      ceres::LossFunction* pPhotometricLossFunction = NULL;
+      if(weightParaLevel.depthHuberWidth)
+        {
+          pPhotometricLossFunction = new ceres::HuberLoss(weightParaLevel.depthHuberWidth);
+        }
+      ceres::ScaledLoss* photometricScaledLoss = new ceres::ScaledLoss(
+                                                                       pPhotometricLossFunction,
+                                                                       weightParaLevel.depthTermWeight,
+                                                                       ceres::TAKE_OWNERSHIP);
+
+      AddPhotometricCostNew(problem, photometricScaledLoss, PE_DEPTH);
+
+      if(useProblemWrapper)
+        {
+          if(modeGT)
+            problemWrapperGT.addDataTermLoss(currLevel, photometricScaledLoss);
+          else
+            problemWrapper.addDataTermLoss(currLevel, photometricScaledLoss);
+        }
+
+      TOCK( "SetupDepthDataTermCost" + std::to_string(ii) );
     }
 
   TICK( "SetupRegTermCost" + std::to_string(ii) );

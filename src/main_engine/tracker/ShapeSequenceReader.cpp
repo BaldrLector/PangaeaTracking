@@ -480,7 +480,8 @@ CoordinateType* ShapeSequenceReader::getTextureColors()
 
 // In this case, pColorImageRGB is not necessary
 bool ShapeSequenceReader::trackFrame(int nFrame, unsigned char* pColorImageRGB,
-    TrackerOutputInfo** pOutputInfo)
+    TrackerOutputInfo** pOutputInfo,
+    bool use_depth, CoordinateType* pDepthImage)
 {
     *pOutputInfo= &outputInfo;
 

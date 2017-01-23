@@ -44,7 +44,8 @@ public:
   void updateGT();
 
   bool trackFrame(int nFrame, unsigned char* pColorImageRGB,
-                  TrackerOutputInfo** pOutputInfo);
+                  TrackerOutputInfo** pOutputInfo,
+                  bool use_depth = false, CoordinateType* pDepthImage = NULL);
 
   void updateRenderingLevel(TrackerOutputInfo** pOutputInfo,
                             int nRenderLevel, bool renderType = false);

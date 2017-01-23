@@ -15,6 +15,7 @@ public:
   std::string dataPath;
   std::string imageFormat;
   std::string intrinsicsFile;
+  std::string depthFormat;
 
   int width;
   int height;
@@ -123,12 +124,14 @@ public:
   double weightINEXTENT;
   double weightTransPrior;
   double weightSmoothing;
+  double weightDepth;
   double photometricHuberWidth;
   double photometricIntensityHuberWidth;
   double tvHuberWidth;
   double tvRotHuberWidth;
   double arapHuberWidth;
   double smoothingHuberWidth;
+  double depthHuberWidth;
 
   bool use_cotangent;
 

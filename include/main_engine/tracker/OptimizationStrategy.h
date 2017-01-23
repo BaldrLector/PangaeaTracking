@@ -38,6 +38,9 @@ struct WeightPara
 	// Laplacian smoothing weight
 	double smoothingTermWeight;
 
+    // Depth weight
+	double depthTermWeight;
+
     // rigid transformation weight
     double rotWeight;
     double transWeight;
@@ -48,6 +51,7 @@ struct WeightPara
     double tvHuberWidth;
 	double tvRotHuberWidth;
 	double smoothingHuberWidth;
+	double depthHuberWidth;
 
   // feature weighting parameters
   double featureTermWeight;
@@ -64,6 +68,7 @@ struct WeightScale
     vector<double> inextentTermScale;
 	vector<double> deformTermScale;
 	vector<double> smoothingTermScale;
+	vector<double> depthTermScale;
 
     // rigid transformation weighting scale
     // change over different levels of the pyramid

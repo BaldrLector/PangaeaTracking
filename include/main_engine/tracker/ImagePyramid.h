@@ -55,7 +55,8 @@ public:
   void allocateMemory(int width, int height); // allocate memory based on the size
   void deallocateMemory();
 
-  void setupPyramid(unsigned char* pColorImageRGB, int numLevels);
+  void setupPyramid(unsigned char* pColorImageRGB, int numLevels,
+          bool use_depth = false, CoordinateType* pDepthImage = NULL);
   void setupCameraPyramid(int numLevels, CameraInfo& camInfo);
 
   void updateData();
@@ -86,5 +87,8 @@ private:
   InternalColorImageType blurColorBufferImage;
 
   IntensityImageType grayImageBYTE;
+
+  InternalIntensityImageType depthBufferImage;
+  InternalIntensityImageType blurDepthBufferImage;
 
 };
