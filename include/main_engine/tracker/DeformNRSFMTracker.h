@@ -257,6 +257,11 @@ private:
 
   vector< MeshDeformation > templateAlbedoPyramid;
 
+  vector< MeshDeformation > meshSpecularPyramid;
+  vector< MeshDeformation > prevMeshSpecularPyramid;
+  vector<double> shCoeff;
+  vector<double> prevSHCoeff;
+
   vector<MeshNeighborsNano> fineToCoarseNeighbours;
   vector<MeshWeights> fineToCoarseWeights;
 
@@ -372,6 +377,10 @@ private:
   void propagateAlbedoLocalLightingFineToCoarse();
 
   void estimateDiffuse(const cv::Mat color_image, cv::Mat &diffuse_image);
+
+  void updateSHCoeff();
+
+  void resetIntrinsics();
 
 };
 
