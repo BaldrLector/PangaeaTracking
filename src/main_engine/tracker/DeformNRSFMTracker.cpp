@@ -398,11 +398,9 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
     {
       templateMeshPyramid.levels[i].specular_colors.assign(numVertices, zeros3D);
 	}
-	else
-	{
-		meshSpecularPyramid[i] = templateMeshPyramid.levels[i].specular_colors;
-		prevMeshSpecularPyramid[i] = templateMeshPyramid.levels[i].specular_colors;
-	}
+
+	meshSpecularPyramid[i] = templateMeshPyramid.levels[i].specular_colors;
+	prevMeshSpecularPyramid[i] = templateMeshPyramid.levels[i].specular_colors;
 
 	  templateAlbedoPyramid[i] = templateMeshPyramid.levels[i].colors;
 
