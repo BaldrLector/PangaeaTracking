@@ -359,6 +359,10 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
   prevMeshRotPyramid.resize(m_nMeshLevels);
 
   templateAlbedoPyramid.resize(m_nMeshLevels);
+  meshSpecularPyramid.resize(m_nMeshLevels);
+  prevMeshSpecularPyramid.resize(m_nMeshLevels);
+  shCoeff = templateMeshPyramid.levels[0].sh_coefficients;
+  prevSHCoeff = templateMeshPyramid.levels[0].sh_coefficients;
 
   outputInfoPyramid.resize(m_nMeshLevels);
   outputPropPyramid.resize(m_nMeshLevels);
@@ -393,7 +397,12 @@ void DeformNRSFMTracker::setInitialMeshPyramid(PangaeaMeshPyramid& initMeshPyram
     if (!trackerSettings.estimate_specularities)
     {
       templateMeshPyramid.levels[i].specular_colors.assign(numVertices, zeros3D);
-    }
+	}
+	else
+	{
+		meshSpecularPyramid[i] = templateMeshPyramid.levels[i].specular_colors;
+		prevMeshSpecularPyramid[i] = templateMeshPyramid.levels[i].specular_colors;
+	}
 
 	  templateAlbedoPyramid[i] = templateMeshPyramid.levels[i].colors;
 
@@ -726,20 +735,15 @@ bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
           TOCK( "trackingTimeLevel" + std::to_string(ii)  + "::RemoveFeatureTermResidual");
         }
 
-      // at this point we've finished the optimization on level i
-      // now we need to update all the results and propagate the optimization
-      // results to next level if necessary
-      // the first step is update the current results
-
-      TICK( "trackingTimeLevel" + std::to_string(ii)  + "::UpdateResults");
-      UpdateResults();
-      TOCK( "trackingTimeLevel" + std::to_string(ii)  + "::UpdateResults");
-
 	  TICK("intrinsicPostprocessing");
 
 	  // estimate intrinsic properties
 	  if ((PEType == PE_INTRINSIC || PEType == PE_INTRINSIC_COLOR) && !trackerSettings.estimate_all_together)
 	  {
+		  //Specularities and SH coeff may have changed during minimization because of the regularisation. 
+		  //We reset these values
+		  resetIntrinsics();
+
 		  updateIntrinsics(pColorImageRGB);
 
 		  if (trackerSettings.refine_all_together)
@@ -771,6 +775,15 @@ bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
 	  }
 
 	  TOCK("intrinsicPostprocessing");
+
+	  // at this point we've finished the optimization on level i
+	  // now we need to update all the results and propagate the optimization
+	  // results to next level if necessary
+	  // the first step is update the current results
+
+	  TICK("trackingTimeLevel" + std::to_string(ii) + "::UpdateResults");
+	  UpdateResults();
+	  TOCK("trackingTimeLevel" + std::to_string(ii) + "::UpdateResults");
 
       TICK( "trackingTimeLevel" + std::to_string(ii)  + "::PropagateMesh");
       PropagateMesh();
@@ -915,6 +928,9 @@ bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
 
       scoresOutput.close();
     }
+
+  //Update prev sh coefficients and propagate to coarser levels
+  updateSHCoeff();
 
 
   // print out memory usage
@@ -1112,6 +1128,8 @@ void DeformNRSFMTracker::UpdateResultsLevel(int level)
   MeshDeformation& mesh_rot = meshRotPyramid[level];
   MeshDeformation& prev_mesh_rot = prevMeshRotPyramid[level];
 
+  MeshDeformation& prev_mesh_specular = prevMeshSpecularPyramid[level];
+
   // update output results
   TrackerOutputInfo& output_info = outputInfoPyramid[level];
 
@@ -1147,6 +1165,10 @@ void DeformNRSFMTracker::UpdateResultsLevel(int level)
       prev_mesh_rot[i][0] = mesh_rot[i][0];
       prev_mesh_rot[i][1] = mesh_rot[i][1];
       prev_mesh_rot[i][2] = mesh_rot[i][2];
+
+	  prev_mesh_specular[i][0] = template_mesh.specular_colors[i][0];
+	  prev_mesh_specular[i][1] = template_mesh.specular_colors[i][1];
+	  prev_mesh_specular[i][2] = template_mesh.specular_colors[i][2];
     }
 
 }
@@ -1176,7 +1198,6 @@ void DeformNRSFMTracker::UpdateResults()
       //     cout << "updateResultsLevel " << data_pair.first << endl;
       // }
     }
-
 }
 
 void DeformNRSFMTracker::PropagateMeshCoarseToFine(int coarse_level, int fine_level)
@@ -1293,6 +1314,14 @@ void DeformNRSFMTracker::PropagateMeshCoarseToFine(int coarse_level, int fine_le
     }
   else
     {
+	  bool update_specular = trackerSettings.estimate_all_together 
+		  || trackerSettings.estimate_sh_coeff_specular_together || trackerSettings.estimate_specularities 
+		  || trackerSettings.refine_all_together;
+
+	  bool update_sh_coeff = trackerSettings.estimate_all_together 
+		  || trackerSettings.estimate_sh_coeff_specular_together || trackerSettings.estimate_with_sh_coeff 
+		  || trackerSettings.refine_all_together;
+
       // just do interpolation
       for(int i = 0; i < template_fine_mesh.numVertices; ++i)
         {
@@ -1300,7 +1329,7 @@ void DeformNRSFMTracker::PropagateMeshCoarseToFine(int coarse_level, int fine_le
           mesh_trans_fine[i][1] = 0;
           mesh_trans_fine[i][2] = 0;
 
-          if (trackerSettings.estimate_all_together || trackerSettings.refine_all_together)
+          if (update_specular)
           {
             local_lighting_fine[i][0] = 0;
             local_lighting_fine[i][1] = 0;
@@ -1315,7 +1344,7 @@ void DeformNRSFMTracker::PropagateMeshCoarseToFine(int coarse_level, int fine_le
                 {
                   mesh_trans_fine[i][index] += weights[i][j] * mesh_trans[ neighbors[i][j] ][index];
 
-                  if (trackerSettings.estimate_all_together || trackerSettings.refine_all_together)
+                  if (update_specular)
                   {
                     local_lighting_fine[i][index] += weights[i][j] * local_lighting_coarse[ neighbors[i][j] ][index];
                   }
@@ -1323,9 +1352,12 @@ void DeformNRSFMTracker::PropagateMeshCoarseToFine(int coarse_level, int fine_le
             }
         }
 
-        if (trackerSettings.estimate_all_together || trackerSettings.estimate_with_sh_coeff || trackerSettings.refine_all_together)
+	  meshSpecularPyramid[fine_level] = local_lighting_fine;
+
+        if (update_sh_coeff)
         {
           template_fine_mesh.sh_coefficients = template_coarse_mesh.sh_coefficients;
+		  shCoeff = template_fine_mesh.sh_coefficients;
         }
 
     }
@@ -3158,7 +3190,7 @@ void DeformNRSFMTracker::AddTemporalSHCoeffCost(ceres::Problem& problem,
     vector<double> &sh_coeff = templateMesh.sh_coefficients;
 
     ResidualTemporalSHCoeff *residual =
-      new ResidualTemporalSHCoeff(sh_coeff);
+      new ResidualTemporalSHCoeff(prevSHCoeff);
 
     ceres::DynamicAutoDiffCostFunction<ResidualTemporalSHCoeff, 5>* dyn_cost_function
       = new ceres::DynamicAutoDiffCostFunction< ResidualTemporalSHCoeff, 5 >(residual);
@@ -3341,12 +3373,13 @@ void DeformNRSFMTracker::AddTemporalSpecularCost(ceres::Problem& problem,
 
     PangaeaMeshData& templateMesh = templateMeshPyramid.levels[temp_pair.first];
 
-    vector<vector<double>> &local_lightings = templateMesh.specular_colors;
+	vector<vector<double>> &local_lightings = templateMesh.specular_colors;
+	vector<vector<double>> &prev_local_lightings = prevMeshSpecularPyramid[temp_pair.first];
 
     for (size_t i = 0; i < templateMesh.numVertices; i++)
     {
       ResidualTemporalLocalLighting *residual = 
-        new ResidualTemporalLocalLighting(local_lightings[i]);
+        new ResidualTemporalLocalLighting(prev_local_lightings[i]);
 
       ceres::DynamicAutoDiffCostFunction<ResidualTemporalLocalLighting, 5>* dyn_cost_function
         = new ceres::DynamicAutoDiffCostFunction< ResidualTemporalLocalLighting, 5 >(residual);
@@ -3414,7 +3447,7 @@ void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem, bool refinement)
                                                                        weightParaLevel.dataTermWeight,
                                                                        ceres::TAKE_OWNERSHIP);
 
-      AddPhotometricCostNew(problem, photometricScaledLoss, PEType);
+      AddPhotometricCostNew(problem, photometricScaledLoss, PEType, refinement);
 
       if(useProblemWrapper)
         {
@@ -3440,7 +3473,7 @@ void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem, bool refinement)
 
 		  dataTermErrorType PEIntensityType = mapErrorType(trackerSettings.errorIntensityType);
 
-		  AddPhotometricCostNew(problem, photometricScaledLoss, PEIntensityType);
+		  AddPhotometricCostNew(problem, photometricScaledLoss, PEIntensityType, refinement);
 
 		  if (useProblemWrapper)
 		  {
@@ -3696,7 +3729,7 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
 	  //TICK("SetupARAPCost"  + std::to_string( currLevel ) );
 
 	  ceres::LossFunction* loss_function = NULL;
-	  if (trackerSettings.arapHuberWidth)
+	  if (trackerSettings.smoothingHuberWidth)
 	  {
 		  loss_function = new ceres::HuberLoss(weightParaLevel.smoothingHuberWidth);
 	  }
@@ -3720,7 +3753,7 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
 
   // If we estimate shape, sh coefficients and specular highlights together, 
   // we need to add the temporal regularisation terms also
-  if (trackerSettings.estimate_with_sh_coeff || trackerSettings.estimate_all_together)
+  if (trackerSettings.estimate_with_sh_coeff || trackerSettings.estimate_all_together || trackerSettings.refine_all_together)
   {
     // Temporal SH Coefficient
     if (trackerSettings.sh_coeff_temporal_weight > 0)
@@ -3749,7 +3782,7 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
       }
     }
 
-	if (trackerSettings.estimate_all_together)
+	if (trackerSettings.estimate_all_together || trackerSettings.refine_all_together)
 	{
 		// Specular smoothness
 		if (trackerSettings.local_lighting_smoothness_weight > 0.0)
@@ -4467,15 +4500,15 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB)
 		cv::DataType<Vec3d>::type, 1. / 255);
 
   // Pointers to mesh, projections, visibility, albedo and local lighting
-  TrackerOutputInfo &outputInfo = outputInfoPyramid[0];
+  TrackerOutputInfo &outputInfo = outputInfoPyramid[currLevel];
   PangaeaMeshData &mesh = outputInfo.meshData;
   const vector<vector<CoordinateType> > &meshProj = outputInfo.meshProj;
-  const vector<bool> &visibility = visibilityMaskPyramid[0];
+  const vector<bool> &visibility = visibilityMaskPyramid[currLevel];
   MeshDeformation &albedos = mesh.colors;
-  MeshDeformation &local_lightings = templateMeshPyramid.levels[0].specular_colors;
-  vector<double> &sh_coeff = templateMeshPyramid.levels[0].sh_coefficients;
-  int sh_order = templateMeshPyramid.levels[0].sh_order;
-  const MeshDeformation &template_albedos = templateAlbedoPyramid[0];
+  MeshDeformation &local_lightings = templateMeshPyramid.levels[currLevel].specular_colors;
+  vector<double> &sh_coeff = templateMeshPyramid.levels[currLevel].sh_coefficients;
+  int sh_order = templateMeshPyramid.levels[currLevel].sh_order;
+  const MeshDeformation &template_albedos = templateAlbedoPyramid[currLevel];
 
   mesh.computeNormalsNeil();
 
@@ -4605,9 +4638,9 @@ void DeformNRSFMTracker::updateIntrinsics(unsigned char* pColorImageRGB)
 		}
   }
 
-	// Propagate albedo and local lighting from finest level to coarser levels
-	cout << "Propagating albedo and local lighting variations to coarser levels..." << endl;
-	propagateAlbedoLocalLightingFineToCoarse();
+	//// Propagate albedo and local lighting from finest level to coarser levels
+	//cout << "Propagating albedo and local lighting variations to coarser levels..." << endl;
+	//propagateAlbedoLocalLightingFineToCoarse();
 }
 
 void DeformNRSFMTracker::initProjectedValues(
@@ -4778,7 +4811,7 @@ void DeformNRSFMTracker::estimateSHCoeff(
 			ceres::TAKE_OWNERSHIP);
 
 		ResidualTemporalSHCoeff *residual =
-			new ResidualTemporalSHCoeff(sh_coeff);
+			new ResidualTemporalSHCoeff(prevSHCoeff);
 
 		ceres::DynamicAutoDiffCostFunction<ResidualTemporalSHCoeff, 5>* dyn_cost_function
 			= new ceres::DynamicAutoDiffCostFunction< ResidualTemporalSHCoeff, 5 >(residual);
@@ -4915,7 +4948,7 @@ void DeformNRSFMTracker::estimateSHCoeff(
       ceres::TAKE_OWNERSHIP);
 
     ResidualTemporalSHCoeff *residual =
-      new ResidualTemporalSHCoeff(sh_coeff);
+      new ResidualTemporalSHCoeff(prevSHCoeff);
 
     ceres::DynamicAutoDiffCostFunction<ResidualTemporalSHCoeff, 5>* dyn_cost_function
       = new ceres::DynamicAutoDiffCostFunction< ResidualTemporalSHCoeff, 5 >(residual);
@@ -5389,12 +5422,14 @@ void DeformNRSFMTracker::estimateLocalLighting(const PangaeaMeshData &mesh,
 			trackerSettings.local_lighting_temporal_weight,
 			ceres::TAKE_OWNERSHIP);
 
+		vector<vector<double>> &prev_local_lightings = prevMeshSpecularPyramid[currLevel];
+
 		for (size_t i = 0; i < mesh.numVertices; i++)
 		{
 			//if (visibility[i])
 			//{
 				ResidualTemporalLocalLighting *residual = 
-					new ResidualTemporalLocalLighting(local_lightings[i]);
+					new ResidualTemporalLocalLighting(prev_local_lightings[i]);
 
 				ceres::DynamicAutoDiffCostFunction<ResidualTemporalLocalLighting, 5>* dyn_cost_function
 					= new ceres::DynamicAutoDiffCostFunction< ResidualTemporalLocalLighting, 5 >(residual);
@@ -5552,7 +5587,7 @@ void DeformNRSFMTracker::estimateSHCoeffLocalLighting(const PangaeaMeshData &mes
       ceres::TAKE_OWNERSHIP);
 
     ResidualTemporalSHCoeff *residual =
-      new ResidualTemporalSHCoeff(sh_coeff);
+      new ResidualTemporalSHCoeff(prevSHCoeff);
 
     ceres::DynamicAutoDiffCostFunction<ResidualTemporalSHCoeff, 5>* dyn_cost_function
       = new ceres::DynamicAutoDiffCostFunction< ResidualTemporalSHCoeff, 5 >(residual);
@@ -5666,12 +5701,14 @@ void DeformNRSFMTracker::estimateSHCoeffLocalLighting(const PangaeaMeshData &mes
       trackerSettings.local_lighting_temporal_weight,
       ceres::TAKE_OWNERSHIP);
 
+	vector<vector<double>> &prev_local_lightings = prevMeshSpecularPyramid[currLevel];
+
     for (size_t i = 0; i < mesh.numVertices; i++)
     {
       //if (visibility[i])
       //{
         ResidualTemporalLocalLighting *residual = 
-          new ResidualTemporalLocalLighting(local_lightings[i]);
+          new ResidualTemporalLocalLighting(prev_local_lightings[i]);
 
         ceres::DynamicAutoDiffCostFunction<ResidualTemporalLocalLighting, 5>* dyn_cost_function
           = new ceres::DynamicAutoDiffCostFunction< ResidualTemporalLocalLighting, 5 >(residual);
@@ -5872,6 +5909,41 @@ void DeformNRSFMTracker::estimateDiffuse(const cv::Mat src_image, cv::Mat &diffu
 			for (size_t k = 0; k < c; k++)
 			{
 				p2[j * c + k] = qx_diffuse_image[i][j][k];
+			}
+		}
+	}
+}
+
+void DeformNRSFMTracker::updateSHCoeff()
+{
+	prevSHCoeff = templateMeshPyramid.levels[0].sh_coefficients;
+
+	for (size_t i = 1; i < templateMeshPyramid.numLevels; i++)
+	{
+		PangaeaMeshData &mesh = templateMeshPyramid.levels[i];
+		mesh.sh_coefficients = prevSHCoeff;
+	}
+}
+
+void DeformNRSFMTracker::resetIntrinsics()
+{
+	if (trackerSettings.refine_all_together)
+	{
+		if (!trackerSettings.estimate_all_together)
+		{
+			PangaeaMeshData& template_mesh = templateMeshPyramid.levels[currLevel];
+			MeshDeformation& mesh_specular = prevMeshSpecularPyramid[currLevel];
+
+			for (int i = 0; i < template_mesh.numVertices; ++i)
+			{
+				template_mesh.specular_colors[i][0] = mesh_specular[i][0];
+				template_mesh.specular_colors[i][1] = mesh_specular[i][1];
+				template_mesh.specular_colors[i][2] = mesh_specular[i][2];
+			}
+
+			if (!trackerSettings.estimate_with_sh_coeff)
+			{
+				template_mesh.sh_coefficients = shCoeff;
 			}
 		}
 	}
