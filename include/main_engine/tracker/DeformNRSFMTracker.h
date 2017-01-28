@@ -382,6 +382,8 @@ private:
 
   void resetIntrinsics();
 
+  void fixWhiteSpecularities();
+
 };
 
 #endif

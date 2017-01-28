@@ -370,6 +370,8 @@ TrackerSettings::TrackerSettings()
   estimate_specularities = true;
 
   refine_all_together = false;
+  use_white_specularities = false;
+  update_intrinsics_finest_only = true;
 
   // ceres parameter
   linearSolver = "CG";
@@ -626,6 +628,16 @@ void TrackerSettings::read(const cv::FileNode& node)
   if (!node["refine_all_together"].empty())
   {
 	  node["refine_all_together"] >> refine_all_together;
+  }
+
+  if (!node["use_white_specularities"].empty())
+  {
+	  node["use_white_specularities"] >> use_white_specularities;
+  }
+
+  if (!node["update_intrinsics_finest_only"].empty())
+  {
+	  node["update_intrinsics_finest_only"] >> update_intrinsics_finest_only;
   }
 
   // ceres

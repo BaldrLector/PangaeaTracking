@@ -1427,7 +1427,7 @@ T computeShading(const T* _normal, const vector<double> &_sh_coeff, int _sh_orde
 template<typename T>
 void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level* pFrame,
 	double* pValue, T* shading, T* p, T* residuals, const dataTermErrorType& PE_TYPE,
-	const T* local_lighting)
+	const T* local_lighting, const bool _white_specularities)
 {
 	T transformed_r, transformed_c;
 
@@ -1461,7 +1461,14 @@ void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level*
 				templateValue = T(pValue[i]) * shading[0];
 
         // Add specular highlight
-        templateValue += local_lighting[i];
+				if (_white_specularities)
+				{
+					templateValue += local_lighting[0];
+				}
+				else
+				{
+					templateValue += local_lighting[i];
+				}
 
 				currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->colorImageSplit[i],
 					pImageLevel->colorImageGradXSplit[i],
@@ -1482,7 +1489,7 @@ void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level*
 template<typename T>
 void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level* pFrame,
 	double* pValue, T* shading, T* p, T* residuals, const dataTermErrorType& PE_TYPE,
-	const vector<double> &local_lighting)
+	const vector<double> &local_lighting, const bool _white_specularities)
 {
 	T transformed_r, transformed_c;
 
@@ -1516,7 +1523,14 @@ void getResidualIntrinsic(double weight, const CameraInfo* pCamera, const Level*
 				templateValue = T(pValue[i]) * shading[0];
 
 				// Add specular highlight
-				templateValue += T(local_lighting[i]);
+				if (_white_specularities)
+				{
+					templateValue += T(local_lighting[0]);
+				}
+				else
+				{
+					templateValue += T(local_lighting[i]);
+				}
 
 				currentValue = SampleWithDerivative< T, InternalIntensityImageType >(pImageLevel->colorImageSplit[i],
 					pImageLevel->colorImageGradXSplit[i],
@@ -1543,14 +1557,15 @@ public:
 		const vector< vector<double> > &_vertices, 
 		const vector<unsigned int> &_adjVerticesInd, const int &_n_adj_faces,
 		dataTermErrorType PE_TYPE = PE_INTRINSIC, const bool _clockwise = true,
-		const int _sh_order = 0) :
+		const int _sh_order = 0, const bool _white_specularities = false) :
 		ResidualImageProjection(weight, pValue, pVertex,
 		pCamera, pFrame, PE_TYPE),
 		vertices(_vertices),
 		adjVerticesInd(_adjVerticesInd),
 		n_adj_faces(_n_adj_faces),
 		clockwise(_clockwise),
-		sh_order(_sh_order)
+		sh_order(_sh_order),
+		white_specularities(_white_specularities)
 	{
 
 	}
@@ -1597,7 +1612,7 @@ public:
 		T shading = computeShading(normal, sh_coeff, sh_order);
 
 		getResidualIntrinsic(weight, pCamera, pFrame, pValue, &shading, p, residuals,
-			PE_TYPE, local_lighting);
+			PE_TYPE, local_lighting, white_specularities);
 
 		return true;
 
@@ -1615,6 +1630,9 @@ private:
 	const bool clockwise;
 	// SH order
 	const int sh_order;
+
+	// Indicates if only white specularities are allowed
+	const bool white_specularities;
 };
 
 // Photometric cost for the case of known albedo and illumination (sh representation)
@@ -1627,7 +1645,7 @@ public:
 		const vector<unsigned int> &_adjVerticesInd, const int &_n_adj_faces,
 		dataTermErrorType PE_TYPE, const vector<double> &_local_lighting, 
 		const bool _clockwise = true,
-		const int _sh_order = 0) :
+		const int _sh_order = 0, const bool _white_specularities = false) :
 		ResidualImageProjection(weight, pValue, pVertex,
 		pCamera, pFrame, PE_TYPE),
 		vertices(_vertices),
@@ -1635,7 +1653,8 @@ public:
 		n_adj_faces(_n_adj_faces),
 		clockwise(_clockwise),
 		sh_order(_sh_order),
-		local_lighting(_local_lighting)
+		local_lighting(_local_lighting),
+		white_specularities(_white_specularities)
 	{
 
 	}
@@ -1681,7 +1700,7 @@ public:
 		T shading = computeShading(normal, sh_coeff, sh_order);
 
 		getResidualIntrinsic(weight, pCamera, pFrame, pValue, &shading, p, residuals,
-			PE_TYPE, local_lighting);
+			PE_TYPE, local_lighting, white_specularities);
 
 		return true;
 
@@ -1702,6 +1721,8 @@ private:
 
 	// Known local lighting
 	const vector<double> &local_lighting;
+
+	const bool white_specularities;
 };
 
 // Photometric cost for the case of known albedo and illumination (sh representation)
@@ -1714,7 +1735,7 @@ public:
 		const vector<unsigned int> &_adjVerticesInd, const int &_n_adj_faces,
 		dataTermErrorType PE_TYPE, const vector<double> &_sh_coeff,
 		const vector<double> &_local_lighting, const bool _clockwise = true,
-		const int _sh_order = 0) :
+		const int _sh_order = 0, const bool _white_specularities = false) :
 		ResidualImageProjection(weight, pValue, pVertex,
 		pCamera, pFrame, PE_TYPE),
 		vertices(_vertices),
@@ -1723,7 +1744,8 @@ public:
 		clockwise(_clockwise),
 		sh_order(_sh_order),
 		sh_coeff(_sh_coeff),
-		local_lighting(_local_lighting)
+		local_lighting(_local_lighting),
+		white_specularities(_white_specularities)
 	{
 
 	}
@@ -1768,7 +1790,7 @@ public:
 		T shading = computeShading(normal, sh_coeff, sh_order);
 
 		getResidualIntrinsic(weight, pCamera, pFrame, pValue, &shading, p, residuals,
-			PE_TYPE, local_lighting);
+			PE_TYPE, local_lighting, white_specularities);
 
 		return true;
 
@@ -1792,6 +1814,8 @@ private:
 
 	// Known local lighting
 	const vector<double> &local_lighting;
+
+	const bool white_specularities;
 };
 
 // Residual of the difference between the previous SH coefficients and the current ones
@@ -1830,9 +1854,10 @@ private:
 class ResidualTemporalLocalLighting
 {
 public:
-	ResidualTemporalLocalLighting(const vector<double> &_prev_local_lighting) :
+	ResidualTemporalLocalLighting(const vector<double> &_prev_local_lighting, 
+		const int _n_channels) :
 		prev_local_lighting(_prev_local_lighting),
-		n_channels(_prev_local_lighting.size())
+		n_channels(_n_channels)
 	{
 
 	}
@@ -2080,13 +2105,15 @@ public:
 		const unsigned int _n_channels,
 		const unsigned int _sh_order,
 		const bool _use_lower_bound_shading = false,
-		const bool _use_upper_bound_shading = false) :
+		const bool _use_upper_bound_shading = false,
+		const bool _white_specularities = false) :
 		intensity(_intensity),
 		normal(_normal),
 		n_channels(_n_channels),
 		sh_order(_sh_order),
 		use_lower_bound_shading(_use_lower_bound_shading),
-		use_upper_bound_shading(_use_upper_bound_shading)
+		use_upper_bound_shading(_use_upper_bound_shading),
+		white_specularities(_white_specularities)
 	{
 
 	}
@@ -2106,7 +2133,10 @@ public:
 
 		for (size_t i = 0; i < n_channels; ++i)
 		{
-			T est_value = albedo[i] * shading + lighting_variation[i];
+			T est_value = albedo[i] * shading;
+
+			est_value += (white_specularities ? lighting_variation[0] : lighting_variation[i]);
+			
 			residuals[i] = T(intensity[i]) - est_value;
 		}
 
@@ -2141,6 +2171,8 @@ private:
 	// Constrain lower and/or upper shading bound
 	const bool use_lower_bound_shading;
 	const bool use_upper_bound_shading;
+
+	const bool white_specularities;
 };
 
 // Photometric cost for the case of known shading
@@ -2223,11 +2255,13 @@ public:
 	ResidualPhotometricErrorWithAlbedoShading(const double* _intensity,
 		const double* _albedo,
 		const double _shading,
-		const unsigned int _n_channels) :
+		const unsigned int _n_channels,
+		const bool _white_specularities) :
 		intensity(_intensity),
 		albedo(_albedo),
 		shading(_shading),
-		n_channels(_n_channels)
+		n_channels(_n_channels),
+		white_specularities(_white_specularities)
 	{
 
 	}
@@ -2239,7 +2273,17 @@ public:
 
 		for (size_t i = 0; i < n_channels; ++i)
 		{
-			T est_value = T(albedo[i]) * T(shading) + lighting_variation[i];
+			T est_value = T(albedo[i]) * T(shading);
+			
+			if (white_specularities)
+			{
+				est_value += lighting_variation[0];
+			}
+			else
+			{
+				est_value += lighting_variation[i];
+			}
+
 			residuals[i] = T(intensity[i]) - est_value;
 		}
 
@@ -2258,6 +2302,8 @@ private:
 
 	// Number of color channels
 	const unsigned int n_channels;
+
+	const bool white_specularities;
 };
 
 // Residual of magnitude of value

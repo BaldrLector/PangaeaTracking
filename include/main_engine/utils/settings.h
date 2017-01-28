@@ -183,6 +183,10 @@ public:
 	//Refine shape, sh coeff and specular highights together
 	bool refine_all_together;
 
+	bool use_white_specularities;
+
+	bool update_intrinsics_finest_only;
+
   // ceres parameter
   std::string linearSolver;
   int numOptimizationLevels;
