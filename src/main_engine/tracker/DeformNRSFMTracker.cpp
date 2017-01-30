@@ -3270,7 +3270,7 @@ void DeformNRSFMTracker::AddSpecularSmoothnessCost(ceres::Problem& problem,
 			if (trackerSettings.use_white_specularities)
 			{
 				ResidualWeightedDifference *residual = new ResidualWeightedDifference(
-					weight, 3);
+					weight, 1);
 
 				ceres::AutoDiffCostFunction<ResidualWeightedDifference, 1, 1, 1>* cost_function =
 					new ceres::AutoDiffCostFunction<ResidualWeightedDifference, 1, 1, 1>(residual);
