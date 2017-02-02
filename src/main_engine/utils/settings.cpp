@@ -371,7 +371,50 @@ TrackerSettings::TrackerSettings()
 
   refine_all_together = false;
   use_white_specularities = false;
-  update_intrinsics_finest_only = true;
+
+  refine_weightPhotometric = 500;
+  refine_weightPhotometricIntensity = 500;
+  refine_weightTV = 0.5;
+  refine_weightRotTV = 0;
+  refine_weightDeform = 0;
+  refine_weightGradient = 0;
+  refine_weightARAP = 0;
+  refine_weightINEXTENT = 0;
+  refine_weightTransPrior = 0;
+  refine_weightRotPrior = 0;
+  refine_weightSmoothing = 0;
+  refine_weightDepth = 0;
+  refine_photometricHuberWidth = 0.1;
+  refine_photometricIntensityHuberWidth = 0.1;
+  refine_tvHuberWidth = 0.2;
+  refine_tvTukeyWidth = 0;
+  refine_tvRotHuberWidth = 0.2;
+  refine_arapHuberWidth = 0.2;
+  refine_smoothingHuberWidth = 0;
+  refine_depthHuberWidth = 0;
+  refine_specular_weight_var = 0.1;
+  refine_brightness_percentile = 0.98;
+  refine_sh_coeff_data_weight = 1;
+  refine_sh_coeff_data_huber_width = 0;
+  refine_sh_coeff_temporal_weight = 1;
+  refine_sh_coeff_temporal_huber_width = 0;
+  refine_albedo_data_weight = 1;
+  refine_albedo_data_huber_width = 0;
+  refine_albedo_smoothness_weight = 0.1;
+  refine_albedo_smoothness_huber_width = 0;
+  refine_albedo_difference_weight = 0.1;
+  refine_albedo_difference_huber_width = 0;
+  refine_smoothness_specular_weight = 10;
+  refine_smoothness_color_diff_var = 0.05;
+  refine_smoothness_color_diff_threshold = 0.5;
+  refine_local_lighting_data_weight = 1;
+  refine_local_lighting_data_huber_width = 1e-1;
+  refine_local_lighting_smoothness_weight = 1;
+  refine_local_lighting_smoothness_huber_width = 1e-1;
+  refine_local_lighting_magnitude_weight = 1;
+  refine_local_lighting_magnitude_huber_width = 1e-1;
+  refine_local_lighting_temporal_weight = 1;
+  refine_local_lighting_temporal_huber_width = 1e-1;
 
   // ceres parameter
   linearSolver = "CG";
@@ -635,10 +678,134 @@ void TrackerSettings::read(const cv::FileNode& node)
 	  node["use_white_specularities"] >> use_white_specularities;
   }
 
-  if (!node["update_intrinsics_finest_only"].empty())
-  {
-	  node["update_intrinsics_finest_only"] >> update_intrinsics_finest_only;
-  }
+  if (!node["refine_photometric_weight"].empty())
+	  node["refine_photometric_weight"] >> refine_weightPhotometric;
+
+  if (!node["refine_photometric_intensity_weight"].empty())
+	  node["refine_photometric_intensity_weight"] >> refine_weightPhotometricIntensity;
+
+  if (!node["refine_tv_weight"].empty())
+	  node["refine_tv_weight"] >> refine_weightTV;
+
+  if (!node["refine_rot_tv_weight"].empty())
+	  node["refine_rot_tv_weight"] >> refine_weightRotTV;
+
+  if (!node["refine_deform_weight"].empty())
+	  node["refine_deform_weight"] >> refine_weightDeform;
+
+  if (!node["refine_grad_weight"].empty())
+	  node["refine_grad_weight"] >> refine_weightGradient;
+
+  if (!node["refine_arap_weight"].empty())
+	  node["refine_arap_weight"] >> refine_weightARAP;
+
+  if (!node["refine_inextent_weight"].empty())
+	  node["refine_inextent_weight"] >> refine_weightINEXTENT;
+
+  if (!node["refine_trans_weight"].empty())
+	  node["refine_trans_weight"] >> refine_weightTransPrior;
+
+  if (!node["refine_rot_weight"].empty())
+	  node["refine_rot_weight"] >> refine_weightRotPrior;
+
+  if (!node["refine_smoothing_weight"].empty())
+	  node["refine_smoothing_weight"] >> refine_weightSmoothing;
+
+  if (!node["refine_depth_weight"].empty())
+	  node["refine_depth_weight"] >> refine_weightDepth;
+
+  if (!node["refine_photometric_huber_width"].empty())
+	  node["refine_photometric_huber_width"] >> refine_photometricHuberWidth;
+
+  if (!node["refine_photometric_intensity_huber_width"].empty())
+	  node["refine_photometric_intensity_huber_width"] >> refine_photometricIntensityHuberWidth;
+
+  if (!node["refine_tv_huber_width"].empty())
+	  node["refine_tv_huber_width"] >> refine_tvHuberWidth;
+
+  if (!node["refine_tv_tukey_width"].empty())
+	  node["refine_tv_tukey_width"] >> refine_tvTukeyWidth;
+
+  if (!node["refine_rot_tv_huber_width"].empty())
+	  node["refine_rot_tv_huber_width"] >> refine_tvRotHuberWidth;
+
+  if (!node["refine_arap_huber_width"].empty())
+	  node["refine_arap_huber_width"] >> refine_arapHuberWidth;
+
+  if (!node["refine_smoothing_huber_width"].empty())
+	  node["refine_smoothing_huber_width"] >> refine_smoothingHuberWidth;
+
+  if (!node["refine_depth_huber_width"].empty())
+	  node["refine_depth_huber_width"] >> refine_depthHuberWidth;
+
+  if (!node["refine_specular_weight_var"].empty())
+	  node["refine_specular_weight_var"] >> refine_specular_weight_var;
+
+  if (!node["refine_brightness_percentile"].empty())
+	  node["refine_brightness_percentile"] >> refine_brightness_percentile;
+
+  if (!node["refine_sh_coeff_data_weight"].empty())
+	  node["refine_sh_coeff_data_weight"] >> refine_sh_coeff_data_weight;
+
+  if (!node["refine_sh_coeff_data_huber_width"].empty())
+	  node["refine_sh_coeff_data_huber_width"] >> refine_sh_coeff_data_huber_width;
+
+  if (!node["refine_sh_coeff_temporal_weight"].empty())
+	  node["refine_sh_coeff_temporal_weight"] >> refine_sh_coeff_temporal_weight;
+
+  if (!node["refine_sh_coeff_temporal_huber_width"].empty())
+	  node["refine_sh_coeff_temporal_huber_width"] >> refine_sh_coeff_temporal_huber_width;
+
+  if (!node["refine_albedo_data_weight"].empty())
+	  node["refine_albedo_data_weight"] >> refine_albedo_data_weight;
+
+  if (!node["refine_albedo_data_huber_width"].empty())
+	  node["refine_albedo_data_huber_width"] >> refine_albedo_data_huber_width;
+
+  if (!node["refine_albedo_smoothness_weight"].empty())
+	  node["refine_albedo_smoothness_weight"] >> refine_albedo_smoothness_weight;
+
+  if (!node["refine_albedo_smoothness_huber_width"].empty())
+	  node["refine_albedo_smoothness_huber_width"] >> refine_albedo_smoothness_huber_width;
+
+  if (!node["refine_albedo_difference_weight"].empty())
+	  node["refine_albedo_difference_weight"] >> refine_albedo_difference_weight;
+
+  if (!node["refine_albedo_difference_huber_width"].empty())
+	  node["refine_albedo_difference_huber_width"] >> refine_albedo_difference_huber_width;
+
+  if (!node["refine_smoothness_specular_weight"].empty())
+	  node["refine_smoothness_specular_weight"] >> refine_smoothness_specular_weight;
+
+  if (!node["refine_smoothness_color_diff_var"].empty())
+	  node["refine_smoothness_color_diff_var"] >> refine_smoothness_color_diff_var;
+
+  if (!node["refine_smoothness_color_diff_threshold"].empty())
+	  node["refine_smoothness_color_diff_threshold"] >> refine_smoothness_color_diff_threshold;
+
+  if (!node["refine_local_lighting_data_weight"].empty())
+	  node["refine_local_lighting_data_weight"] >> refine_local_lighting_data_weight;
+
+  if (!node["refine_local_lighting_data_huber_width"].empty())
+	  node["refine_local_lighting_data_huber_width"] >> refine_local_lighting_data_huber_width;
+
+  if (!node["refine_local_lighting_smoothness_weight"].empty())
+	  node["refine_local_lighting_smoothness_weight"] >> refine_local_lighting_smoothness_weight;
+
+  if (!node["refine_local_lighting_smoothness_huber_width"].empty())
+	  node["refine_local_lighting_smoothness_huber_width"] >> refine_local_lighting_smoothness_huber_width;
+
+  if (!node["refine_local_lighting_magnitude_weight"].empty())
+	  node["refine_local_lighting_magnitude_weight"] >> refine_local_lighting_magnitude_weight;
+
+  if (!node["refine_local_lighting_magnitude_huber_width"].empty())
+	  node["refine_local_lighting_magnitude_huber_width"] >> refine_local_lighting_magnitude_huber_width;
+
+  if (!node["refine_local_lighting_temporal_weight"].empty())
+	  node["refine_local_lighting_temporal_weight"] >> refine_local_lighting_temporal_weight;
+
+  if (!node["refine_local_lighting_temporal_huber_width"].empty())
+	  node["refine_local_lighting_temporal_huber_width"] >> refine_local_lighting_temporal_huber_width;
 
   // ceres
   if(!node["linear_solver"].empty())

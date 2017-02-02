@@ -185,7 +185,56 @@ public:
 
 	bool use_white_specularities;
 
-	bool update_intrinsics_finest_only;
+	//Refinement parameters
+	double refine_weightPhotometric;
+	double refine_weightPhotometricIntensity;
+	double refine_weightTV;
+	double refine_weightRotTV;
+
+	double refine_weightDeform;
+	double refine_weightGradient;
+	double refine_weightARAP;
+	double refine_weightINEXTENT;
+	double refine_weightTransPrior;
+	double refine_weightRotPrior;
+	double refine_weightSmoothing;
+	double refine_weightDepth;
+	double refine_photometricHuberWidth;
+	double refine_photometricIntensityHuberWidth;
+	double refine_tvHuberWidth;
+	double refine_tvTukeyWidth;
+	double refine_tvRotHuberWidth;
+	double refine_arapHuberWidth;
+	double refine_smoothingHuberWidth;
+	double refine_depthHuberWidth;
+
+	double refine_specular_weight_var;
+	double refine_brightness_percentile;
+
+	double refine_sh_coeff_data_weight;
+	double refine_sh_coeff_data_huber_width;
+	double refine_sh_coeff_temporal_weight;
+	double refine_sh_coeff_temporal_huber_width;
+
+	double refine_albedo_data_weight;
+	double refine_albedo_data_huber_width;
+	double refine_albedo_smoothness_weight;
+	double refine_albedo_smoothness_huber_width;
+	double refine_albedo_difference_weight;
+	double refine_albedo_difference_huber_width;
+
+	double refine_smoothness_specular_weight;
+	double refine_smoothness_color_diff_var;
+	double refine_smoothness_color_diff_threshold;
+
+	double refine_local_lighting_data_weight;
+	double refine_local_lighting_data_huber_width;
+	double refine_local_lighting_smoothness_weight;
+	double refine_local_lighting_smoothness_huber_width;
+	double refine_local_lighting_magnitude_weight;
+	double refine_local_lighting_magnitude_huber_width;
+	double refine_local_lighting_temporal_weight;
+	double refine_local_lighting_temporal_huber_width;
 
   // ceres parameter
   std::string linearSolver;

@@ -674,12 +674,14 @@ bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
 
       modeGT = false;
 
+	  bool is_refinement = trackerSettings.refine_all_together && currLevel == 0;
+
       TICK( "trackingTimeLevel" + std::to_string(ii)  + "::ProblemSetup");
-      EnergySetup(problem);
+      EnergySetup(problem, is_refinement);
       TOCK( "trackingTimeLevel" + std::to_string(ii)  + "::ProblemSetup");
 
       TICK( "trackingTimeLevel" + std::to_string(ii)  + "::ProblemMinimization");
-      EnergyMinimization(problem);
+      EnergyMinimization(problem, !is_refinement);
       TOCK( "trackingTimeLevel" + std::to_string(ii)  + "::ProblemMinimization");
 
       // for(int k = 0; k < 3; ++k)
@@ -738,43 +740,9 @@ bool DeformNRSFMTracker::trackFrame(int nFrame, unsigned char* pColorImageRGB,
 	  // estimate intrinsic properties
 	  if ((PEType == PE_INTRINSIC || PEType == PE_INTRINSIC_COLOR) && !trackerSettings.estimate_all_together)
 	  {
-		  if (!trackerSettings.update_intrinsics_finest_only || (trackerSettings.update_intrinsics_finest_only && currLevel == 0))
+		  if (trackerSettings.refine_all_together && currLevel == 1)
 		  {
-			  //Specularities and SH coeff may have changed during minimization because of the regularisation. 
-			  //We reset these values
-			  if (trackerSettings.refine_all_together)
-			  {
-				  resetIntrinsics();
-			  }
-
 			  updateIntrinsics(pColorImageRGB);
-
-			  if (trackerSettings.refine_all_together)
-			  {
-				  TICK("trackingTimeLevel" + std::to_string(ii) + "::ProblemSetup");
-				  EnergySetup(problem, true);
-				  TOCK("trackingTimeLevel" + std::to_string(ii) + "::ProblemSetup");
-
-				  TICK("trackingTimeLevel" + std::to_string(ii) + "::ProblemMinimization");
-				  EnergyMinimization(problem, false);
-				  TOCK("trackingTimeLevel" + std::to_string(ii) + "::ProblemMinimization");
-
-				  if (useProblemWrapper && trackerSettings.useRGBImages && trackerSettings.weightPhotometric > 0)
-				  {
-
-					  ceresOutput << "number of tracking data terms " << endl
-						  << "levels " << currLevel << endl
-						  << problemWrapper.getDataTermNum(currLevel) << endl;
-
-					  TICK("trackingTimeLevel" + std::to_string(ii) + "::RemoveDataTermResidual");
-
-					  problemWrapper.clearDataTerm(currLevel);
-					  problemWrapper.clearDataTermCost(currLevel);
-					  problemWrapper.clearDataTermLoss(currLevel);
-
-					  TOCK("trackingTimeLevel" + std::to_string(ii) + "::RemoveDataTermResidual");
-				  }
-			  }
 		  }
 	  }
 
@@ -3496,7 +3464,7 @@ void DeformNRSFMTracker::AddTemporalSpecularCost(ceres::Problem& problem,
   }
 }
 
-void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem, bool refinement)
+void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem, bool is_refinement)
 {
   // now we are already to construct the energy
   // photometric term
@@ -3513,22 +3481,25 @@ void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem, bool refinement)
   // cout << "Feature Term Weights " << featureSettings.featureTermWeight
   //      << " Levels " << currLevel << endl;
 
-  if(trackerSettings.useRGBImages && trackerSettings.weightPhotometric > 0)
+  double weightPhotometric = is_refinement ? trackerSettings.refine_weightPhotometric : trackerSettings.weightPhotometric;
+  if(trackerSettings.useRGBImages && weightPhotometric > 0)
     {
       TICK( "SetupDataTermCost" + std::to_string(ii) );
 
+	  double dataHuberWidth = is_refinement ? trackerSettings.refine_photometricHuberWidth : weightParaLevel.dataHuberWidth;
       ceres::LossFunction* pPhotometricLossFunction = NULL;
-      if(weightParaLevel.dataHuberWidth)
+      if(dataHuberWidth)
         {
-          pPhotometricLossFunction = new ceres::HuberLoss(
-                                                          weightParaLevel.dataHuberWidth);
+          pPhotometricLossFunction = new ceres::HuberLoss(dataHuberWidth);
         }
+
+	  double dataTermWeight = is_refinement ? trackerSettings.refine_weightPhotometric : weightParaLevel.dataTermWeight;
       ceres::ScaledLoss* photometricScaledLoss = new ceres::ScaledLoss(
                                                                        pPhotometricLossFunction,
-                                                                       weightParaLevel.dataTermWeight,
+                                                                       dataTermWeight,
                                                                        ceres::TAKE_OWNERSHIP);
 
-      AddPhotometricCostNew(problem, photometricScaledLoss, PEType, refinement);
+      AddPhotometricCostNew(problem, photometricScaledLoss, PEType, is_refinement);
 
       if(useProblemWrapper)
         {
@@ -3541,20 +3512,22 @@ void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem, bool refinement)
 	  if ((PEType == PE_INTRINSIC || PEType == PE_INTRINSIC_COLOR) 
 		  && trackerSettings.use_intensity_pyramid)
 	  {
+		  double dataIntensityHuberWidth = is_refinement ? trackerSettings.refine_photometricIntensityHuberWidth : weightParaLevel.dataIntensityHuberWidth;
 		  ceres::LossFunction* pPhotometricLossFunction = NULL;
-		  if (weightParaLevel.dataIntensityHuberWidth)
+		  if (dataIntensityHuberWidth)
 		  {
-			  pPhotometricLossFunction = new ceres::HuberLoss(
-				  weightParaLevel.dataIntensityHuberWidth);
+			  pPhotometricLossFunction = new ceres::HuberLoss(dataIntensityHuberWidth);
 		  }
+
+		  double dataIntensityTermWeight = is_refinement ? trackerSettings.refine_weightPhotometricIntensity : weightParaLevel.dataIntensityTermWeight;
 		  ceres::ScaledLoss* photometricScaledLoss = new ceres::ScaledLoss(
 			  pPhotometricLossFunction,
-			  weightParaLevel.dataIntensityTermWeight,
+			  dataIntensityTermWeight,
 			  ceres::TAKE_OWNERSHIP);
 
 		  dataTermErrorType PEIntensityType = mapErrorType(trackerSettings.errorIntensityType);
 
-		  AddPhotometricCostNew(problem, photometricScaledLoss, PEIntensityType, refinement);
+		  AddPhotometricCostNew(problem, photometricScaledLoss, PEIntensityType, is_refinement);
 
 		  if (useProblemWrapper)
 		  {
@@ -3597,18 +3570,22 @@ void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem, bool refinement)
 
     }
 
-  if(trackerSettings.weightDepth > 0)
+  double weightDepth = is_refinement ? trackerSettings.refine_weightDepth : trackerSettings.weightDepth;
+  if(weightDepth > 0)
     {
       TICK( "SetupDepthDataTermCost" + std::to_string(ii) );
 
+	  double depthHuberWidth = is_refinement ? trackerSettings.refine_depthHuberWidth : weightParaLevel.depthHuberWidth;
       ceres::LossFunction* pPhotometricLossFunction = NULL;
-      if(weightParaLevel.depthHuberWidth)
+      if(depthHuberWidth)
         {
-          pPhotometricLossFunction = new ceres::HuberLoss(weightParaLevel.depthHuberWidth);
+          pPhotometricLossFunction = new ceres::HuberLoss(depthHuberWidth);
         }
+
+	  double depthTermWeight = is_refinement ? trackerSettings.refine_weightDepth : weightParaLevel.depthTermWeight;
       ceres::ScaledLoss* photometricScaledLoss = new ceres::ScaledLoss(
                                                                        pPhotometricLossFunction,
-                                                                       weightParaLevel.depthTermWeight,
+                                                                       depthTermWeight,
                                                                        ceres::TAKE_OWNERSHIP);
 
       AddPhotometricCostNew(problem, photometricScaledLoss, PE_DEPTH);
@@ -3630,7 +3607,7 @@ void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem, bool refinement)
     {
       if(!useProblemWrapper || !problemWrapperGT.getLevelFlag( currLevel ) )
         {
-          RegTermsSetup( problem, weightParaLevel );
+          RegTermsSetup( problem, weightParaLevel, is_refinement );
           problemWrapperGT.setLevelFlag( currLevel );
         }
     }
@@ -3638,7 +3615,7 @@ void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem, bool refinement)
     {
       if(!useProblemWrapper || !problemWrapper.getLevelFlag( currLevel ) )
         {
-          RegTermsSetup( problem, weightParaLevel );
+          RegTermsSetup( problem, weightParaLevel, is_refinement);
           problemWrapper.setLevelFlag( currLevel );
         }
     }
@@ -3651,7 +3628,7 @@ void DeformNRSFMTracker::EnergySetup(ceres::Problem& problem, bool refinement)
 
 }
 
-void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weightParaLevel)
+void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weightParaLevel, bool is_refinement)
 {
 
   // cout << "TV Term Weights " << weightParaLevel.tvTermWeight
@@ -3660,22 +3637,30 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
   //      << " Levels " << currLevel << endl;
 
   // totatl variation term
-  if(weightParaLevel.tvTermWeight)
+	double tvTermWeight = is_refinement ? trackerSettings.refine_weightTV : weightParaLevel.tvTermWeight;
+  if(tvTermWeight)
     {
       //TICK("SetupTVCost"  + std::to_string( currLevel ) );
 
       ceres::LossFunction* pTVLossFunction = NULL;
 
-      if(trackerSettings.tvTukeyWidth)
+	  double tvTukeyWidth = is_refinement ? trackerSettings.refine_tvTukeyWidth : trackerSettings.tvTukeyWidth;
+      if(tvTukeyWidth)
         {
-          pTVLossFunction = new ceres::TukeyLoss(trackerSettings.tvTukeyWidth);
-        }else if(trackerSettings.tvHuberWidth)
-        {
-          pTVLossFunction = new ceres::HuberLoss(trackerSettings.tvHuberWidth);
+          pTVLossFunction = new ceres::TukeyLoss(tvTukeyWidth);
         }
+	  else 
+	  {
+		  double tvHuberWidth = is_refinement ? trackerSettings.refine_tvHuberWidth : trackerSettings.tvHuberWidth;
+		  if (tvHuberWidth)
+		  {
+			  pTVLossFunction = new ceres::HuberLoss(tvHuberWidth);
+		  }
+	  }
+
       ceres::ScaledLoss* tvScaledLoss = new ceres::ScaledLoss(
                                                               pTVLossFunction,
-                                                              weightParaLevel.tvTermWeight,
+                                                              tvTermWeight,
                                                               ceres::TAKE_OWNERSHIP);
 
       AddTotalVariationCost(problem, tvScaledLoss);
@@ -3694,19 +3679,22 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
 
   // rotation total variation term
   // arap has to be turned on, otherwise there is no rotation variable
-  if(weightParaLevel.arapTermWeight &&  weightParaLevel.tvRotTermWeight)
+  double arapTermWeight = is_refinement ? trackerSettings.refine_weightARAP : weightParaLevel.arapTermWeight;
+  double tvRotTermWeight = is_refinement ? trackerSettings.refine_weightRotTV : weightParaLevel.tvRotTermWeight;
+  if(arapTermWeight &&  tvRotTermWeight)
     {
       //TICK("SetupRotTVCost"  + std::to_string( currLevel ) );
 
       ceres::LossFunction* pRotTVLossFunction = NULL;
 
-      if(trackerSettings.tvRotHuberWidth)
+	  double tvRotHuberWidth = is_refinement ? trackerSettings.refine_tvRotHuberWidth : trackerSettings.tvRotHuberWidth;
+      if(tvRotHuberWidth)
         {
-          pRotTVLossFunction = new ceres::HuberLoss(trackerSettings.tvRotHuberWidth);
+          pRotTVLossFunction = new ceres::HuberLoss(tvRotHuberWidth);
         }
       ceres::ScaledLoss* tvRotScaledLoss = new ceres::ScaledLoss(
                                                                  pRotTVLossFunction,
-                                                                 weightParaLevel.tvRotTermWeight,
+                                                                 tvRotTermWeight,
                                                                  ceres::TAKE_OWNERSHIP);
 
       AddRotTotalVariationCost(problem, tvRotScaledLoss);
@@ -3724,19 +3712,20 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
     }
 
   // arap term
-  if(weightParaLevel.arapTermWeight)
+  if(arapTermWeight)
     {
       //TICK("SetupARAPCost"  + std::to_string( currLevel ) );
 
+	  double arapHuberWidth = is_refinement ? trackerSettings.refine_arapHuberWidth : trackerSettings.arapHuberWidth;
 	  ceres::LossFunction* pArapLossFunction = NULL;
-	  if (trackerSettings.arapHuberWidth)
+	  if (arapHuberWidth)
 	  {
-		  pArapLossFunction = new ceres::HuberLoss(trackerSettings.arapHuberWidth);
+		  pArapLossFunction = new ceres::HuberLoss(arapHuberWidth);
 	  }
 
       ceres::ScaledLoss* arapScaledLoss = new ceres::ScaledLoss(
 																pArapLossFunction,
-                                                                weightParaLevel.arapTermWeight,
+                                                                arapTermWeight,
                                                                 ceres::TAKE_OWNERSHIP);
       AddARAPCost(problem, arapScaledLoss);
 
@@ -3753,13 +3742,14 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
 
   // inextensibility term
   //    cout << "inextent weight: " << weightParaLevel.inextentTermWeight << endl;
-  if(weightParaLevel.inextentTermWeight)
+  double inextentTermWeight = is_refinement ? trackerSettings.refine_weightINEXTENT : weightParaLevel.inextentTermWeight;
+  if(inextentTermWeight)
     {
       //TICK("SetupInextentCost"  + std::to_string( currLevel ) );
 
       ceres::ScaledLoss* inextentScaledLoss = new ceres::ScaledLoss(
                                                                     NULL,
-                                                                    weightParaLevel.inextentTermWeight,
+                                                                    inextentTermWeight,
                                                                     ceres::TAKE_OWNERSHIP);
       AddInextentCost(problem, inextentScaledLoss);
 
@@ -3776,13 +3766,14 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
 
   // deformation term
   //cout << "deform weight: " << weightParaLevel.deformWeight << endl;
-  if(weightParaLevel.deformWeight)
+  double deformWeight = is_refinement ? trackerSettings.refine_weightDeform : weightParaLevel.deformWeight;
+  if(deformWeight)
     {
       //TICK("SetupDeformationCost"  + std::to_string( currLevel ) );
 
       ceres::ScaledLoss* deformScaledLoss = new ceres::ScaledLoss(
                                                                   NULL,
-                                                                  weightParaLevel.deformWeight,
+                                                                  deformWeight,
                                                                   ceres::TAKE_OWNERSHIP);
       AddDeformationCost(problem, deformScaledLoss);
 
@@ -3800,24 +3791,29 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
   // temporal term
   // cout << "translation and rotation parameter: " << weightParaLevel.transWeight
   //      << " " << weightParaLevel.rotWeight << endl;
-  if(weightParaLevel.transWeight || weightParaLevel.rotWeight)
-    AddTemporalMotionCost(problem, sqrt(weightParaLevel.rotWeight),
-                          sqrt(weightParaLevel.transWeight));
+  double transWeight = is_refinement ? trackerSettings.refine_weightTransPrior : weightParaLevel.transWeight;
+  double rotWeight = is_refinement ? trackerSettings.refine_weightRotPrior : weightParaLevel.rotWeight;
+
+  if(transWeight || rotWeight)
+    AddTemporalMotionCost(problem, sqrt(rotWeight),
+                          sqrt(transWeight));
 
   // smoothing term
-  if (weightParaLevel.smoothingTermWeight)
+  double smoothingTermWeight = is_refinement ? trackerSettings.refine_weightSmoothing : weightParaLevel.smoothingTermWeight;
+  if (smoothingTermWeight)
   {
 	  //TICK("SetupARAPCost"  + std::to_string( currLevel ) );
 
 	  ceres::LossFunction* loss_function = NULL;
-	  if (trackerSettings.smoothingHuberWidth)
+	  double smoothingHuberWidth = is_refinement ? trackerSettings.refine_smoothingHuberWidth : trackerSettings.smoothingHuberWidth;
+	  if (smoothingHuberWidth)
 	  {
-		  loss_function = new ceres::HuberLoss(weightParaLevel.smoothingHuberWidth);
+		  loss_function = new ceres::HuberLoss(smoothingHuberWidth);
 	  }
 
 	  ceres::ScaledLoss* scaled_loss = new ceres::ScaledLoss(
 		  loss_function,
-		  weightParaLevel.smoothingTermWeight,
+		  smoothingTermWeight,
 		  ceres::TAKE_OWNERSHIP);
 	  AddSmoothingCost(problem, scaled_loss);
 
@@ -3832,27 +3828,28 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
 	  //TOCK("SetupARAPCost"  + std::to_string( currLevel ) );
   }
 
-  bool add_sh_coeff_spec_terms = trackerSettings.estimate_all_together || ( trackerSettings.refine_all_together 
-	  && (!trackerSettings.update_intrinsics_finest_only || (trackerSettings.update_intrinsics_finest_only && currLevel == 0)) );
+  bool add_sh_coeff_spec_terms = trackerSettings.estimate_all_together || is_refinement;
 
   // If we estimate shape, sh coefficients and specular highlights together, 
   // we need to add the temporal regularisation terms also
   if (trackerSettings.estimate_with_sh_coeff || add_sh_coeff_spec_terms)
   {
     // Temporal SH Coefficient
-    if (trackerSettings.sh_coeff_temporal_weight > 0)
+	  double sh_coeff_temporal_weight = is_refinement ? trackerSettings.refine_sh_coeff_temporal_weight : trackerSettings.sh_coeff_temporal_weight;
+	  if (sh_coeff_temporal_weight > 0)
     {
       ceres::HuberLoss* huber_temporal_loss = NULL;
 
-      if (trackerSettings.sh_coeff_temporal_huber_width > 0.0)
+	  double sh_coeff_temporal_huber_width = is_refinement ? trackerSettings.refine_sh_coeff_temporal_huber_width : trackerSettings.sh_coeff_temporal_huber_width;
+	  if (sh_coeff_temporal_huber_width > 0.0)
       {
         huber_temporal_loss =
-          new ceres::HuberLoss(trackerSettings.sh_coeff_temporal_huber_width);
+          new ceres::HuberLoss(sh_coeff_temporal_huber_width);
       }
 
       ceres::ScaledLoss* scaled_temporal_loss =
         new ceres::ScaledLoss(huber_temporal_loss,
-        trackerSettings.sh_coeff_temporal_weight, 
+        sh_coeff_temporal_weight, 
         ceres::TAKE_OWNERSHIP);
 
       AddTemporalSHCoeffCost(problem, scaled_temporal_loss);
@@ -3869,19 +3866,21 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
 	if (add_sh_coeff_spec_terms)
 	{
 		// Specular smoothness
-		if (trackerSettings.local_lighting_smoothness_weight > 0.0)
+		double local_lighting_smoothness_weight = is_refinement ? trackerSettings.refine_local_lighting_smoothness_weight : trackerSettings.local_lighting_smoothness_weight;
+		if (local_lighting_smoothness_weight > 0.0)
 		{
 			ceres::LossFunction* huber_loss = NULL;
 
-			if (trackerSettings.local_lighting_smoothness_huber_width > 0)
+			double local_lighting_smoothness_huber_width = is_refinement ? trackerSettings.refine_local_lighting_smoothness_huber_width : trackerSettings.local_lighting_smoothness_huber_width;
+			if (local_lighting_smoothness_huber_width > 0)
 			{
 				huber_loss =
-					new ceres::HuberLoss(trackerSettings.local_lighting_smoothness_huber_width);
+					new ceres::HuberLoss(local_lighting_smoothness_huber_width);
 			}
 
 			ceres::ScaledLoss* loss_function = new ceres::ScaledLoss(
 				huber_loss,
-				trackerSettings.local_lighting_smoothness_weight,
+				local_lighting_smoothness_weight,
 				ceres::TAKE_OWNERSHIP);
 
 			AddSpecularSmoothnessCost(problem, loss_function);
@@ -3896,19 +3895,21 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
 		}
 
 		// Specular magnitude
-		if (trackerSettings.local_lighting_magnitude_weight > 0.0)
+		double local_lighting_magnitude_weight = is_refinement ? trackerSettings.refine_local_lighting_magnitude_weight : trackerSettings.local_lighting_magnitude_weight;
+		if (local_lighting_magnitude_weight > 0.0)
 		{
 			ceres::LossFunction* huber_loss = NULL;
 
-			if (trackerSettings.local_lighting_magnitude_huber_width > 0)
+			double local_lighting_magnitude_huber_width = is_refinement ? trackerSettings.refine_local_lighting_magnitude_huber_width : trackerSettings.local_lighting_magnitude_huber_width;
+			if (local_lighting_magnitude_huber_width > 0)
 			{
 				huber_loss =
-					new ceres::HuberLoss(trackerSettings.local_lighting_magnitude_huber_width);
+					new ceres::HuberLoss(local_lighting_magnitude_huber_width);
 			}
 
 			ceres::ScaledLoss* loss_function = new ceres::ScaledLoss(
 				huber_loss,
-				trackerSettings.local_lighting_magnitude_weight,
+				local_lighting_magnitude_weight,
 				ceres::TAKE_OWNERSHIP);
 
 			AddSpecularMagnitudeCost(problem, loss_function);
@@ -3923,11 +3924,13 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
 		}
 
 		// Temporal specular highlight
-		if (trackerSettings.local_lighting_temporal_weight > 0.0)
+		double local_lighting_temporal_weight = is_refinement ? trackerSettings.refine_local_lighting_temporal_weight : trackerSettings.local_lighting_temporal_weight;
+		if (local_lighting_temporal_weight > 0.0)
 		{
 			ceres::LossFunction* huber_loss = NULL;
 
-			if (trackerSettings.local_lighting_temporal_huber_width > 0)
+			double local_lighting_temporal_huber_width = is_refinement ? trackerSettings.refine_local_lighting_temporal_huber_width : trackerSettings.local_lighting_temporal_huber_width;
+			if (local_lighting_temporal_huber_width > 0)
 			{
 				huber_loss =
 					new ceres::HuberLoss(trackerSettings.local_lighting_temporal_huber_width);
@@ -3935,7 +3938,7 @@ void DeformNRSFMTracker::RegTermsSetup(ceres::Problem& problem, WeightPara& weig
 
 			ceres::ScaledLoss* loss_function = new ceres::ScaledLoss(
 				huber_loss,
-				trackerSettings.local_lighting_temporal_weight,
+				local_lighting_temporal_weight,
 				ceres::TAKE_OWNERSHIP);
 
 			AddTemporalSpecularCost(problem, loss_function);
@@ -6091,24 +6094,6 @@ void DeformNRSFMTracker::updateSHCoeff()
 	{
 		PangaeaMeshData &mesh = templateMeshPyramid.levels[i];
 		mesh.sh_coefficients = prevSHCoeff;
-	}
-}
-
-void DeformNRSFMTracker::resetIntrinsics()
-{
-	PangaeaMeshData& template_mesh = templateMeshPyramid.levels[currLevel];
-	MeshDeformation& mesh_specular = prevMeshSpecularPyramid[currLevel];
-
-	for (int i = 0; i < template_mesh.numVertices; ++i)
-	{
-		template_mesh.specular_colors[i][0] = mesh_specular[i][0];
-		template_mesh.specular_colors[i][1] = mesh_specular[i][1];
-		template_mesh.specular_colors[i][2] = mesh_specular[i][2];
-	}
-
-	if (!trackerSettings.estimate_with_sh_coeff)
-	{
-		template_mesh.sh_coefficients = shCoeff;
 	}
 }
 

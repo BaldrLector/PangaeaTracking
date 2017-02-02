@@ -102,7 +102,7 @@ public:
   //
   void EnergySetup(ceres::Problem& problem, bool refinement = false);
   void EnergyMinimization(ceres::Problem& problem, bool estimate_motion = true);
-  void RegTermsSetup(ceres::Problem& problem, WeightPara& weightParaLevel);
+  void RegTermsSetup(ceres::Problem& problem, WeightPara& weightParaLevel, bool refinement = false);
 
   void EnergyMinimizationGT(ceres::Problem& problem);
 
@@ -379,8 +379,6 @@ private:
   void estimateDiffuse(const cv::Mat color_image, cv::Mat &diffuse_image);
 
   void updateSHCoeff();
-
-  void resetIntrinsics();
 
   void fixWhiteSpecularities();
 
