@@ -394,12 +394,8 @@ TrackerSettings::TrackerSettings()
   refine_depthHuberWidth = 0;
   refine_specular_weight_var = 0.1;
   refine_brightness_percentile = 0.98;
-  refine_sh_coeff_data_weight = 1;
-  refine_sh_coeff_data_huber_width = 0;
   refine_sh_coeff_temporal_weight = 1;
   refine_sh_coeff_temporal_huber_width = 0;
-  refine_albedo_data_weight = 1;
-  refine_albedo_data_huber_width = 0;
   refine_albedo_smoothness_weight = 0.1;
   refine_albedo_smoothness_huber_width = 0;
   refine_albedo_difference_weight = 0.1;
@@ -407,8 +403,6 @@ TrackerSettings::TrackerSettings()
   refine_smoothness_specular_weight = 10;
   refine_smoothness_color_diff_var = 0.05;
   refine_smoothness_color_diff_threshold = 0.5;
-  refine_local_lighting_data_weight = 1;
-  refine_local_lighting_data_huber_width = 1e-1;
   refine_local_lighting_smoothness_weight = 1;
   refine_local_lighting_smoothness_huber_width = 1e-1;
   refine_local_lighting_magnitude_weight = 1;
@@ -744,23 +738,11 @@ void TrackerSettings::read(const cv::FileNode& node)
   if (!node["refine_brightness_percentile"].empty())
 	  node["refine_brightness_percentile"] >> refine_brightness_percentile;
 
-  if (!node["refine_sh_coeff_data_weight"].empty())
-	  node["refine_sh_coeff_data_weight"] >> refine_sh_coeff_data_weight;
-
-  if (!node["refine_sh_coeff_data_huber_width"].empty())
-	  node["refine_sh_coeff_data_huber_width"] >> refine_sh_coeff_data_huber_width;
-
   if (!node["refine_sh_coeff_temporal_weight"].empty())
 	  node["refine_sh_coeff_temporal_weight"] >> refine_sh_coeff_temporal_weight;
 
   if (!node["refine_sh_coeff_temporal_huber_width"].empty())
 	  node["refine_sh_coeff_temporal_huber_width"] >> refine_sh_coeff_temporal_huber_width;
-
-  if (!node["refine_albedo_data_weight"].empty())
-	  node["refine_albedo_data_weight"] >> refine_albedo_data_weight;
-
-  if (!node["refine_albedo_data_huber_width"].empty())
-	  node["refine_albedo_data_huber_width"] >> refine_albedo_data_huber_width;
 
   if (!node["refine_albedo_smoothness_weight"].empty())
 	  node["refine_albedo_smoothness_weight"] >> refine_albedo_smoothness_weight;
@@ -782,12 +764,6 @@ void TrackerSettings::read(const cv::FileNode& node)
 
   if (!node["refine_smoothness_color_diff_threshold"].empty())
 	  node["refine_smoothness_color_diff_threshold"] >> refine_smoothness_color_diff_threshold;
-
-  if (!node["refine_local_lighting_data_weight"].empty())
-	  node["refine_local_lighting_data_weight"] >> refine_local_lighting_data_weight;
-
-  if (!node["refine_local_lighting_data_huber_width"].empty())
-	  node["refine_local_lighting_data_huber_width"] >> refine_local_lighting_data_huber_width;
 
   if (!node["refine_local_lighting_smoothness_weight"].empty())
 	  node["refine_local_lighting_smoothness_weight"] >> refine_local_lighting_smoothness_weight;

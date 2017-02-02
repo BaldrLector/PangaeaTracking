@@ -211,13 +211,9 @@ public:
 	double refine_specular_weight_var;
 	double refine_brightness_percentile;
 
-	double refine_sh_coeff_data_weight;
-	double refine_sh_coeff_data_huber_width;
 	double refine_sh_coeff_temporal_weight;
 	double refine_sh_coeff_temporal_huber_width;
 
-	double refine_albedo_data_weight;
-	double refine_albedo_data_huber_width;
 	double refine_albedo_smoothness_weight;
 	double refine_albedo_smoothness_huber_width;
 	double refine_albedo_difference_weight;
@@ -227,8 +223,6 @@ public:
 	double refine_smoothness_color_diff_var;
 	double refine_smoothness_color_diff_threshold;
 
-	double refine_local_lighting_data_weight;
-	double refine_local_lighting_data_huber_width;
 	double refine_local_lighting_smoothness_weight;
 	double refine_local_lighting_smoothness_huber_width;
 	double refine_local_lighting_magnitude_weight;
